@@ -50,12 +50,12 @@ RUN cd client && npm ci && npm cache clean --force && \
     cd ../server && npm ci && npm cache clean --force
 
 # Copy startup script
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --no-check-certificate --quiet --tries=1 --spider http://localhost:${SERVER_PORT} || exit 1
 
 # Start both client and server
-CMD ["/start.sh"]
+CMD ["/entrypoint.sh"]
