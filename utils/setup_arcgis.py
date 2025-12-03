@@ -14,8 +14,16 @@ from typing import Optional
 # Import existing utility functions from the same directory
 from download_arcgis import download_arcgis_builder
 
+# Global configuration
+DEFAULT_VERSION = "1.19"
+DEFAULT_TARGET_DIR = "ArcGIS"
+PRESERVED_FOLDERS = [
+    "client/your-extensions",
+    "server/public"
+]
 
-def preserve_custom_folders(base_path: Path) -> tuple[Optional[Path], Optional[Path]]:
+
+def preserve_custom_folders(base_path: Path) -> list[Optional[Path]]:
     """
     Temporarily move custom folders if they exist.
     
@@ -23,68 +31,60 @@ def preserve_custom_folders(base_path: Path) -> tuple[Optional[Path], Optional[P
         base_path: Base ArcGIS directory path
         
     Returns:
-        Tuple of (extensions_temp_path, public_temp_path)
+        List of temporary folder paths (None for folders that don't exist)
     """
-    extensions_path = base_path / 'client' / 'your-extensions'
-    public_path = base_path / 'server' / 'public'
+    temp_folders: list[Optional[Path]] = []
     
-    extensions_temp: Optional[Path] = None
-    public_temp: Optional[Path] = None
+    for folder_path_str in PRESERVED_FOLDERS:
+        folder_path = base_path / folder_path_str
+        temp_folder: Optional[Path] = None
+        
+        if folder_path.exists():
+            # Create a unique temp folder name based on the preserved folder path
+            temp_name = f".temp_{folder_path_str.replace('/', '_').replace('-', '_')}"
+            temp_folder = base_path / temp_name
+            
+            # Clean up any existing temp folder first
+            if temp_folder.exists():
+                shutil.rmtree(temp_folder)
+            
+            print(f"Preserving {folder_path}...")
+            shutil.move(str(folder_path), str(temp_folder))
+        
+        temp_folders.append(temp_folder)
     
-    # Preserve your-extensions folder
-    if extensions_path.exists():
-        extensions_temp = base_path / '.temp_your_extensions'
-        print(f"Preserving {extensions_path}...")
-        shutil.move(str(extensions_path), str(extensions_temp))
-    
-    # Preserve public folder
-    if public_path.exists():
-        public_temp = base_path / '.temp_public'
-        print(f"Preserving {public_path}...")
-        shutil.move(str(public_path), str(public_temp))
-    
-    return extensions_temp, public_temp
+    return temp_folders
 
 
 def restore_custom_folders(
     base_path: Path,
-    extensions_temp: Optional[Path],
-    public_temp: Optional[Path]
+    temp_folders: list[Optional[Path]]
 ) -> None:
     """
     Restore custom folders after extraction.
     
     Args:
         base_path: Base ArcGIS directory path
-        extensions_temp: Temporary extensions folder path
-        public_temp: Temporary public folder path
+        temp_folders: List of temporary folder paths
     """
-    # Restore your-extensions folder
-    if extensions_temp and extensions_temp.exists():
-        extensions_path = base_path / 'client' / 'your-extensions'
-        print(f"Restoring {extensions_path}...")
-        # Remove only the your-extensions folder if it exists, not the whole client directory
-        if extensions_path.exists():
-            shutil.rmtree(extensions_path)
-        else:
-            # Ensure parent directory exists
-            extensions_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(extensions_temp), str(extensions_path))
-    
-    # Restore public folder
-    if public_temp and public_temp.exists():
-        public_path = base_path / 'server' / 'public'
-        print(f"Restoring {public_path}...")
-        # Remove only the public folder if it exists, not the whole server directory
-        if public_path.exists():
-            shutil.rmtree(public_path)
-        else:
-            # Ensure parent directory exists
-            public_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(public_temp), str(public_path))
+    for i, folder_path_str in enumerate(PRESERVED_FOLDERS):
+        temp_folder = temp_folders[i]
+        
+        if temp_folder and temp_folder.exists():
+            folder_path = base_path / folder_path_str
+            print(f"Restoring {folder_path}...")
+            
+            # Remove only the specific folder if it exists
+            if folder_path.exists():
+                shutil.rmtree(folder_path)
+            else:
+                # Ensure parent directory exists
+                folder_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            shutil.move(str(temp_folder), str(folder_path))
 
 
-def clean_arcgis_directory(target_dir: str = "ArcGIS") -> bool:
+def clean_arcgis_directory(target_dir: str = DEFAULT_TARGET_DIR) -> bool:
     """
     Clean the ArcGIS directory while preserving custom folders.
     
@@ -106,7 +106,7 @@ def clean_arcgis_directory(target_dir: str = "ArcGIS") -> bool:
     
     # Step 1: Preserve custom folders
     print("\nStep 1: Preserving custom folders...")
-    extensions_temp, public_temp = preserve_custom_folders(base_path)
+    temp_folders = preserve_custom_folders(base_path)
     
     # Step 2: Clean entire directory
     print(f"\nStep 2: Removing all files from: {base_path}")
@@ -125,18 +125,14 @@ def clean_arcgis_directory(target_dir: str = "ArcGIS") -> bool:
     
     # Step 3: Restore custom folders
     print("\nStep 3: Restoring custom folders...")
-    restore_custom_folders(base_path, extensions_temp, public_temp)
+    restore_custom_folders(base_path, temp_folders)
     
     # Step 4: Ensure custom directories exist
     print("\nStep 4: Ensuring custom directories exist...")
-    extensions_path = base_path / 'client' / 'your-extensions'
-    public_path = base_path / 'server' / 'public'
-    
-    extensions_path.mkdir(parents=True, exist_ok=True)
-    public_path.mkdir(parents=True, exist_ok=True)
-    
-    print(f"  ✓ {extensions_path}")
-    print(f"  ✓ {public_path}")
+    for folder_path_str in PRESERVED_FOLDERS:
+        folder_path = base_path / folder_path_str
+        folder_path.mkdir(parents=True, exist_ok=True)
+        print(f"  ✓ {folder_path}")
     
     print("\n" + "=" * 60)
     print(f"✓ ArcGIS directory cleaned successfully!")
@@ -144,7 +140,7 @@ def clean_arcgis_directory(target_dir: str = "ArcGIS") -> bool:
     return True
 
 
-def setup_arcgis_builder(version: str, target_dir: str = "ArcGIS") -> bool:
+def setup_arcgis_builder(version: str = DEFAULT_VERSION, target_dir: str = DEFAULT_TARGET_DIR) -> bool:
     """
     Download and extract ArcGIS Experience Builder to target directory.
     
@@ -166,7 +162,7 @@ def setup_arcgis_builder(version: str, target_dir: str = "ArcGIS") -> bool:
     
     # Step 1: Preserve custom folders
     print("\nStep 1: Preserving custom folders...")
-    extensions_temp, public_temp = preserve_custom_folders(base_path)
+    temp_folders = preserve_custom_folders(base_path)
     
     # Step 2: Clean existing ArcGIS directory (except temp folders)
     if base_path.exists():
@@ -184,27 +180,32 @@ def setup_arcgis_builder(version: str, target_dir: str = "ArcGIS") -> bool:
     
     # Step 3: Download the zip file
     print(f"\nStep 3: Downloading version {version}...")
+    # Delete existing zip file if it exists
+    if zip_path.exists():
+        print(f"  Removing existing zip file: {zip_path}")
+        zip_path.unlink()
+    
     if not download_arcgis_builder(version):
         print("Error: Download failed")
         # Restore folders even on failure
-        restore_custom_folders(base_path, extensions_temp, public_temp)
-        return False
-    
-    # Verify zip file exists
-    if not zip_path.exists():
-        print(f"Error: Downloaded zip file not found at {zip_path}")
-        restore_custom_folders(base_path, extensions_temp, public_temp)
+        restore_custom_folders(base_path, temp_folders)
         return False
     
     # Step 4: Extract the zip file
     print(f"\nStep 4: Extracting {zip_filename}...")
     print(f"  Zip location: {zip_path}")
+    
+    # Clean up any existing temp extraction directory
+    temp_extract = zip_path.parent / '.temp_extract'
+    if temp_extract.exists():
+        print(f"  Removing existing temp extraction directory: {temp_extract}")
+        shutil.rmtree(temp_extract)
+    
     try:
         import zipfile
         
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             # Extract to temporary location in the same directory as the zip
-            temp_extract = zip_path.parent / '.temp_extract'
             print(f"  Extracting to: {temp_extract}")
             zip_ref.extractall(temp_extract)
             
@@ -219,22 +220,12 @@ def setup_arcgis_builder(version: str, target_dir: str = "ArcGIS") -> bool:
             for item in source_dir.iterdir():
                 dest = base_path / item.name
                 print(f"    Moving {item.name}...")
-                try:
-                    if dest.exists():
-                        print(f"      Warning: {dest} already exists, removing it first")
-                        if dest.is_dir():
-                            shutil.rmtree(dest)
-                        else:
-                            dest.unlink()
-                    shutil.move(str(item), str(dest))
-                    # Verify the move was successful
-                    if dest.exists():
-                        print(f"      -> Successfully moved to {dest}")
+                if dest.exists():
+                    if dest.is_dir():
+                        shutil.rmtree(dest)
                     else:
-                        print(f"      -> ERROR: Move claimed success but {dest} does not exist!")
-                except Exception as move_error:
-                    print(f"      -> ERROR moving {item.name}: {move_error}")
-                    raise
+                        dest.unlink()
+                shutil.move(str(item), str(dest))
             
             # Clean up temp extraction directory
             shutil.rmtree(temp_extract)
@@ -244,7 +235,7 @@ def setup_arcgis_builder(version: str, target_dir: str = "ArcGIS") -> bool:
     except Exception as e:
         print(f"Error extracting zip file: {e}")
         # Restore folders on failure
-        restore_custom_folders(base_path, extensions_temp, public_temp)
+        restore_custom_folders(base_path, temp_folders)
         return False
     
     # Step 5: Clean up zip file
@@ -256,68 +247,61 @@ def setup_arcgis_builder(version: str, target_dir: str = "ArcGIS") -> bool:
     
     # Step 6: Restore custom folders
     print("\nStep 6: Restoring custom folders...")
-    restore_custom_folders(base_path, extensions_temp, public_temp)
+    restore_custom_folders(base_path, temp_folders)
     
     # Step 7: Ensure custom directories exist (create if they don't)
     print("\nStep 7: Ensuring custom directories exist...")
-    extensions_path = base_path / 'client' / 'your-extensions'
-    public_path = base_path / 'server' / 'public'
-    
-    extensions_path.mkdir(parents=True, exist_ok=True)
-    public_path.mkdir(parents=True, exist_ok=True)
-    
-    print(f"  [OK] {extensions_path}")
-    print(f"  [OK] {public_path}")
-    
-    # Debug: Show what's actually in the ArcGIS directory
-    print("\nFinal directory contents:")
-    for root_item in base_path.iterdir():
-        print(f"  {root_item.name}/")
-        if root_item.is_dir():
-            try:
-                sub_items = list(root_item.iterdir())
-                if len(sub_items) > 5:
-                    print(f"    ({len(sub_items)} items)")
-                else:
-                    for sub_item in sub_items:
-                        print(f"    - {sub_item.name}")
-            except:
-                pass
+    for folder_path_str in PRESERVED_FOLDERS:
+        folder_path = base_path / folder_path_str
+        folder_path.mkdir(parents=True, exist_ok=True)
+        print(f"  [OK] {folder_path}")
     
     print("\n" + "=" * 60)
     print(f"[SUCCESS] ArcGIS Experience Builder {version} setup complete!")
     print(f"\nDirectory structure:")
     print(f"  {base_path}/")
-    print(f"    ├── client/")
-    print(f"    │   └── your-extensions/  (preserved)")
-    print(f"    └── server/")
-    print(f"        └── public/           (preserved)")
+    for folder_path_str in PRESERVED_FOLDERS:
+        indent = "  " * (folder_path_str.count('/') + 1)
+        folder_name = folder_path_str.split('/')[-1]
+        parent_path = '/'.join(folder_path_str.split('/')[:-1])
+        if parent_path and folder_path_str == PRESERVED_FOLDERS[0]:
+            print(f"    ├── {parent_path}/")
+        print(f"    {indent}└── {folder_name}/  (preserved)")
     
     return True
 
+def help() -> None:
+    print("Usage: python setup-arcgis.py <version|clean> [target_dir]")
+    print("\nCommands:")
+    print("  <version>  Download and setup specific version (e.g., 1.19)")
+    print("  clean      Clean ArcGIS directory while preserving custom folders")
+    print("\nExamples:")
+    print("  python setup-arcgis.py 1.19")
+    print("  python setup-arcgis.py 1.19 ArcGIS")
+    print("  python setup-arcgis.py clean")
+    print("  python setup-arcgis.py clean ArcGIS")
 
 def main() -> None:
     """Main entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python setup-arcgis.py <version|clean> [target_dir]")
-        print("\nCommands:")
-        print("  <version>  Download and setup specific version (e.g., 1.19)")
-        print("  clean      Clean ArcGIS directory while preserving custom folders")
-        print("\nExamples:")
-        print("  python setup-arcgis.py 1.19")
-        print("  python setup-arcgis.py 1.19 ../ArcGIS")
-        print("  python setup-arcgis.py clean")
-        print("  python setup-arcgis.py clean ../ArcGIS")
-        sys.exit(1)
+        print(f"No arguments provided. Using default version: {DEFAULT_VERSION}")
+        print("=" * 60)
+        success: bool = setup_arcgis_builder(DEFAULT_VERSION, DEFAULT_TARGET_DIR)
+        sys.exit(0 if success else 1)
     
     command: str = sys.argv[1]
-    target_dir: str = sys.argv[2] if len(sys.argv) > 2 else "ArcGIS"
+
+    if command.lower() == "help" or command.lower() == "--help" or command.lower() == "-h":
+        help()
+        sys.exit(1)
+
+    target_dir: str = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_TARGET_DIR
     
     if command.lower() == "clean":
         success: bool = clean_arcgis_directory(target_dir)
     else:
-        # Treat as version number
-        version: str = command
+        # Treat as version number (defaults to DEFAULT_VERSION if empty)
+        version: str = command if command else DEFAULT_VERSION
         success: bool = setup_arcgis_builder(version, target_dir)
     
     sys.exit(0 if success else 1)

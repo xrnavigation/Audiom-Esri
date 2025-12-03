@@ -1,7 +1,7 @@
 # Ignore everything in ArcGIS directory
 ArcGIS/*
 arcgis-experience-builder-*.zip
-.temp_extract
+.temp*
 
 # But keep these specific folders
 !ArcGIS/client/
