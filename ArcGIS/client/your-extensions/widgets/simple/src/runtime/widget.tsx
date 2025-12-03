@@ -2,8 +2,8 @@ import { DataSourceManager, React, type AllWidgetProps } from 'jimu-core'
 import type { IMConfig } from '../config'
 
 import { JimuMapViewComponent, type JimuMapView } from 'jimu-arcgis'
-import { AudiomEmbedConfig } from '../audiom-client/AudiomEmbedConfig'
-import { AudiomSource, MapType } from '../audiom-client/AudiomSource'
+import { AudiomEmbedConfig } from '../../../../shared/audiom-client/AudiomEmbedConfig'
+import { AudiomSource, MapType } from '../../../../shared/audiom-client/AudiomSource'
 import FeatureLayer from 'esri/layers/FeatureLayer'
 const { useState, useRef } = React
 
