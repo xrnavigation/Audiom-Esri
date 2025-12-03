@@ -274,31 +274,32 @@
         },
         "2": {
           "type": "WIDGET",
-          "widgetId": "widget_110",
+          "widgetId": "widget_111",
           "bbox": {
-            "left": "50.0%",
-            "right": "0.0%",
+            "left": "50.00%",
+            "right": "0.00%",
             "top": "80.00px",
-            "bottom": "0.0%",
-            "width": "50.0%",
-            "height": "889px"
+            "bottom": "0.00%",
+            "width": "56.0%",
+            "height": "51.7%"
           },
           "setting": {
             "autoProps": {
-              "right": false,
-              "left": true,
+              "right": true,
+              "left": false,
               "top": false,
               "bottom": true,
-              "height": "STRETCH",
-              "width": "STRETCH"
-            }
+              "width": "STRETCH",
+              "height": "STRETCH"
+            },
+            "hCenter": false
           }
         }
       },
       "order": [
         "0",
-        "2",
-        "1"
+        "1",
+        "2"
       ]
     },
     "layout_109": {
@@ -1193,14 +1194,14 @@
         }
       }
     },
-    "widget_110": {
-      "uri": "widgets/simple/",
+    "widget_111": {
+      "uri": "widgets/audiom-basic/",
       "version": "1.19.0",
-      "label": "Audiom Demo",
+      "label": "Audiom Basic",
       "config": {
         "exampleConfigProperty": "test"
       },
-      "id": "widget_110",
+      "id": "widget_111",
       "useMapWidgetIds": [
         "widget_92"
       ]
@@ -1349,11 +1350,11 @@
       }
     }
   },
-  "publishTimestamp": 1764545890078,
+  "publishTimestamp": 1764801605098,
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1764539867738,
+  "timestamp": 1764801554742,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {},

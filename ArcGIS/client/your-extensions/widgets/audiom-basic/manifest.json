@@ -1,6 +1,6 @@
 {
-  "name": "simple",
-  "label": "Simple",
+  "name": "audiom-basic",
+  "label": "Audiom Basic",
   "type": "widget",
   "version": "1.19.0",
   "exbVersion": "1.19.0",
