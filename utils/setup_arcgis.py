@@ -42,6 +42,18 @@ def remove_path_if_exists(path: Path) -> None:
             path.unlink()
 
 
+def copy_directory_contents(src: Path, dst: Path) -> None:
+    """Copy contents of src directory to dst directory."""
+    for sub_item in src.rglob('*'):
+        relative_path = sub_item.relative_to(src)
+        dest_sub = dst / relative_path
+        if sub_item.is_file():
+            dest_sub.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(sub_item), str(dest_sub))
+        elif sub_item.is_dir():
+            dest_sub.mkdir(parents=True, exist_ok=True)
+
+
 def clean_directory_contents(base_path: Path, exclude_pattern: str = ".temp_") -> None:
     """
     Remove all contents from a directory except items matching exclude pattern.
@@ -196,8 +208,21 @@ def extract_and_move_files(zip_path: Path, base_path: Path) -> bool:
                 dest = base_path / item.name
                 print(f"    Moving {item.name}...")
                 try:
-                    remove_path_if_exists(dest)
-                    shutil.move(str(item), str(dest))
+                    if item.is_file():
+                        # Move file
+                        remove_path_if_exists(dest)
+                        shutil.move(str(item), str(dest))
+                    elif item.is_dir():
+                        # For directories, copy contents if destination exists
+                        if dest.exists() and dest.is_dir():
+                            # Copy contents recursively
+                            copy_directory_contents(item, dest)
+                            # Remove the source directory
+                            shutil.rmtree(item)
+                        else:
+                            # Move the whole directory
+                            remove_path_if_exists(dest)
+                            shutil.move(str(item), str(dest))
                 except Exception as e:
                     print(f"    Warning: Could not move {item.name}: {e}")
                     # Continue with other items
