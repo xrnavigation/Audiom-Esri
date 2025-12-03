@@ -197,8 +197,12 @@ def extract_and_move_files(zip_path: Path, base_path: Path) -> bool:
             for item in source_dir.iterdir():
                 dest = base_path / item.name
                 print(f"    Moving {item.name}...")
-                remove_path_if_exists(dest)
-                shutil.move(str(item), str(dest))
+                try:
+                    remove_path_if_exists(dest)
+                    shutil.move(str(item), str(dest))
+                except Exception as e:
+                    print(f"    Warning: Could not move {item.name}: {e}")
+                    # Continue with other items
             
             # Clean up temp extraction directory
             shutil.rmtree(temp_extract)
