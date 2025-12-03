@@ -111,11 +111,6 @@ EXB_VERSION=1.19
 NODE_VERSION=22
 ```
 
-### Container Ports
-
-- `3001` - Client development server
-- `3000` - Server API (internal, exposed via client proxy)
-
 ## Utilities
 
 ### Check Available Versions
@@ -125,7 +120,7 @@ python utils/exb-versions.py
 
 ### Get Required Node Version
 ```bash
-python utils/get-node-version.py 1.19
+python utils/exb_versions.py 1.19 --node-version
 ```
 
 ### Download Only (without extraction)
