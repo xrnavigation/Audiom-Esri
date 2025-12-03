@@ -14,8 +14,8 @@ services:
     environment:
     - NODE_ENV=development
     volumes:
-    - ./ArcGIS/client/your-extensions:/app/client/your-extensions
-    - ./ArcGIS/server/public:/app/server/public
+    - ./ArcGIS/client/your-extensions:/ArcGIS/client/your-extensions
+    - ./ArcGIS/server/public:/ArcGIS/server/public
     restart: unless-stopped
     networks:
     - arcgis-network

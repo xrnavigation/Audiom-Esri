@@ -4,13 +4,13 @@ set -e
 echo "Starting ArcGIS Experience Builder..."
 
 # Start client in background
-cd /app/client
+cd /ArcGIS/client
 echo "Starting client..."
 npm start &
 CLIENT_PID=$!
 
 # Start server in background
-cd /app/server
+cd /ArcGIS/server
 echo "Starting server on port ${SERVER_PORT}..."
 npm start -- --port ${SERVER_PORT} &
 SERVER_PID=$!

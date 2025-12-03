@@ -40,7 +40,7 @@ ENV EXB_VERSION=${EXB_VERSION}
 ENV NODE_VERSION=${NODE_VERSION}
 ENV SERVER_PORT=${SERVER_PORT}
 
-WORKDIR /app
+WORKDIR /ArcGIS
 
 # Copy both client and server from the extracted files
 COPY --from=downloader /download/ArcGISExperienceBuilder ./
