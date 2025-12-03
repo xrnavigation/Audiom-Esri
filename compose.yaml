@@ -1,0 +1,22 @@
+name: arcgis-experience-builder
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        EXB_VERSION: ${EXB_VERSION:-1.19}
+        NODE_VERSION: ${NODE_VERSION:-22}
+    container_name: arcgis-exb
+    ports:
+    - 3001:3001
+    environment:
+    - NODE_ENV=development
+    restart: unless-stopped
+    networks:
+    - arcgis-network
+
+networks:
+  arcgis-network:
+    driver: bridge
