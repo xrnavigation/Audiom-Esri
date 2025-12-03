@@ -4,6 +4,7 @@ import FeatureLayer from 'esri/layers/FeatureLayer'
 import CSVLayer from 'esri/layers/CSVLayer'
 import GeoJSONLayer from 'esri/layers/GeoJSONLayer'
 import MapImageLayer from 'esri/layers/MapImageLayer'
+import { LayerTypes } from '../../../../shared/constants/LayerTypes'
 
 const { useState } = React
 
@@ -31,7 +32,7 @@ const Widget = (props: AllWidgetProps<any>) => {
       console.log(`Processing layer: ${layer.title} (type: ${layer.type})`)
       
       // Handle different layer types that can have DataFile URLs
-      if (layer.type === 'feature') {
+      if (layer.type === LayerTypes.FEATURE) {
         const featureLayer = layer as FeatureLayer
         
         // Standard FeatureLayer URL
@@ -40,7 +41,7 @@ const Widget = (props: AllWidgetProps<any>) => {
           console.log(`Found FeatureLayer URL: ${featureLayer.url}`)
         }
       }
-      else if (layer.type === 'csv') {
+      else if (layer.type === LayerTypes.CSV) {
         const csvLayer = layer as CSVLayer
         
         // CSV layers have a url property that points to the CSV file
@@ -49,7 +50,7 @@ const Widget = (props: AllWidgetProps<any>) => {
           console.log(`Found CSV layer URL: ${csvLayer.url}`)
         }
       }
-      else if (layer.type === 'geojson') {
+      else if (layer.type === LayerTypes.GEOJSON) {
         const geoJsonLayer = layer as GeoJSONLayer
         
         // GeoJSON layers have a url property that points to the GeoJSON file
@@ -60,7 +61,7 @@ const Widget = (props: AllWidgetProps<any>) => {
       }
       
       // Check for MapImageLayer with sublayers (e.g., MapServer layers)
-      if (layer.type === 'map-image') {
+      if (layer.type === LayerTypes.MAP_IMAGE) {
         const mapImageLayer = layer as MapImageLayer
         
         if (mapImageLayer.sublayers) {
