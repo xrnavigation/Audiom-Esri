@@ -6,9 +6,11 @@ arcgis-experience-builder-*.zip
 # But keep these specific folders
 !ArcGIS/client/
 ArcGIS/client/*
+!ArcGIS/client/start-client.bat
 !ArcGIS/client/your-extensions/
 
 !ArcGIS/server/
 ArcGIS/server/*
+!ArcGIS/server/start-server.bat
 !ArcGIS/server/public/
 __pycache__
