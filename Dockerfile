@@ -17,11 +17,11 @@ WORKDIR /download
 RUN pip install --no-cache-dir requests beautifulsoup4
 
 # Copy utility scripts
-COPY utils/exb-versions.py ./
-COPY utils/download-arcgis.py ./
+COPY utils/exb_versions.py ./
+COPY utils/download_arcgis.py ./
 
 # Download the ArcGIS Experience Builder zip file
-RUN python download-arcgis.py ${EXB_VERSION}
+RUN python download_arcgis.py ${EXB_VERSION}
 
 # Extract only the server directory from the zip
 RUN apt-get update && apt-get install -y unzip && \

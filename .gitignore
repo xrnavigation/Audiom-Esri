@@ -1,0 +1,14 @@
+# Ignore everything in ArcGIS directory
+ArcGIS/*
+arcgis-experience-builder-*.zip
+.temp_extract
+
+# But keep these specific folders
+!ArcGIS/client/
+ArcGIS/client/*
+!ArcGIS/client/your-extensions/
+
+!ArcGIS/server/
+ArcGIS/server/*
+!ArcGIS/server/public/
+__pycache__
