@@ -187,10 +187,8 @@ def extract_and_move_files(zip_path: Path, base_path: Path) -> bool:
             print(f"  Extracting to: {temp_extract}")
             zip_ref.extractall(temp_extract)
             
-            # Check if files are in a subdirectory or at root
-            source_dir = temp_extract / 'ArcGISExperienceBuilder'
-            if not source_dir.exists():
-                source_dir = temp_extract
+            # Files are always at the root of the extracted zip
+            source_dir = temp_extract
             
             # Move contents to target directory
             print(f"  Moving contents from {source_dir} to {base_path}")
