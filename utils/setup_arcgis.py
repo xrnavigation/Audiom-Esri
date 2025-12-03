@@ -22,11 +22,24 @@ PRESERVED_FOLDERS = [
     "client/your-extensions",
     "server/public"
 ]
+PRESERVED_FILES = [
+    "client/start-client.bat",
+    "server/start-server.bat"
+]
 
 
 def get_base_path(target_dir: str) -> Path:
     """Get the resolved base path for the target directory."""
     return (Path(__file__).parent.parent / target_dir).resolve()
+
+
+def remove_path_if_exists(path: Path) -> None:
+    """Remove a file or directory if it exists."""
+    if path.exists():
+        if path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
 
 
 def clean_directory_contents(base_path: Path, exclude_pattern: str = ".temp_") -> None:
@@ -54,77 +67,98 @@ def clean_directory_contents(base_path: Path, exclude_pattern: str = ".temp_") -
 
 def ensure_custom_directories(base_path: Path) -> None:
     """
-    Ensure all preserved directories exist.
+    Ensure all preserved directories and file parent directories exist.
     
     Args:
         base_path: Base ArcGIS directory path
     """
     print("Ensuring custom directories exist...")
-    for folder_path_str in PRESERVED_FOLDERS:
-        folder_path = base_path / folder_path_str
-        folder_path.mkdir(parents=True, exist_ok=True)
-        print(f"  [OK] {folder_path}")
+    
+    # Collect all directories to create
+    dirs_to_create = set(PRESERVED_FOLDERS)
+    
+    # Add parent directories for preserved files
+    for file_path_str in PRESERVED_FILES:
+        full_file_path = base_path / file_path_str
+        parent_path = full_file_path.parent
+        dirs_to_create.add(str(parent_path.relative_to(base_path)))
+    
+    # Create all directories
+    for dir_path_str in dirs_to_create:
+        dir_path = base_path / dir_path_str
+        dir_path.mkdir(parents=True, exist_ok=True)
+        print(f"  [OK] {dir_path}")
 
 
-def preserve_custom_folders(base_path: Path) -> list[Optional[Path]]:
+def preserve_custom_folders(base_path: Path) -> tuple[list[Optional[Path]], list[Optional[Path]]]:
     """
-    Temporarily move custom folders if they exist.
+    Temporarily move custom folders and files if they exist.
     
     Args:
         base_path: Base ArcGIS directory path
         
     Returns:
-        List of temporary folder paths (None for folders that don't exist)
+        Tuple of (temp_folders, temp_files) - lists of temporary paths (None for items that don't exist)
     """
-    temp_folders: list[Optional[Path]] = []
+    # Combine folders and files for unified processing
+    all_paths = PRESERVED_FOLDERS + PRESERVED_FILES
+    temp_items: list[Optional[Path]] = []
     
-    for folder_path_str in PRESERVED_FOLDERS:
-        folder_path = base_path / folder_path_str
-        temp_folder: Optional[Path] = None
+    for path_str in all_paths:
+        full_path = base_path / path_str
+        temp_path: Optional[Path] = None
         
-        if folder_path.exists():
-            # Create a unique temp folder name based on the preserved folder path
-            temp_name = f".temp_{folder_path_str.replace('/', '_').replace('-', '_')}"
-            temp_folder = base_path / temp_name
+        if full_path.exists():
+            # Create a unique temp name based on the preserved path
+            temp_name = f".temp_{path_str.replace('/', '_').replace('-', '_')}"
+            temp_path = base_path / temp_name
             
-            # Clean up any existing temp folder first
-            if temp_folder.exists():
-                shutil.rmtree(temp_folder)
+            # Clean up any existing temp item first
+            remove_path_if_exists(temp_path)
             
-            print(f"Preserving {folder_path}...")
-            shutil.move(str(folder_path), str(temp_folder))
+            print(f"Preserving {full_path}...")
+            shutil.move(str(full_path), str(temp_path))
         
-        temp_folders.append(temp_folder)
+        temp_items.append(temp_path)
     
-    return temp_folders
+    # Split back into separate lists
+    num_folders = len(PRESERVED_FOLDERS)
+    temp_folders = temp_items[:num_folders]
+    temp_files = temp_items[num_folders:]
+    
+    return temp_folders, temp_files
 
 
-def restore_custom_folders(
+def restore_custom_folders_and_files(
     base_path: Path,
-    temp_folders: list[Optional[Path]]
+    temp_folders: list[Optional[Path]],
+    temp_files: list[Optional[Path]]
 ) -> None:
     """
-    Restore custom folders after extraction.
+    Restore custom folders and files after extraction.
     
     Args:
         base_path: Base ArcGIS directory path
         temp_folders: List of temporary folder paths
+        temp_files: List of temporary file paths
     """
-    for i, folder_path_str in enumerate(PRESERVED_FOLDERS):
-        temp_folder = temp_folders[i]
-        
-        if temp_folder and temp_folder.exists():
-            folder_path = base_path / folder_path_str
-            print(f"Restoring {folder_path}...")
+    # Combine folders and files for unified processing
+    all_paths = PRESERVED_FOLDERS + PRESERVED_FILES
+    all_temps = temp_folders + temp_files
+    
+    for path_str, temp_path in zip(all_paths, all_temps):
+        if temp_path and temp_path.exists():
+            full_path = base_path / path_str
+            print(f"Restoring {full_path}...")
             
-            # Remove only the specific folder if it exists
-            if folder_path.exists():
-                shutil.rmtree(folder_path)
-            else:
-                # Ensure parent directory exists
-                folder_path.parent.mkdir(parents=True, exist_ok=True)
+            # Remove the existing item if it exists
+            remove_path_if_exists(full_path)
             
-            shutil.move(str(temp_folder), str(folder_path))
+            # Ensure parent directory exists if needed
+            if not full_path.exists():
+                full_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            shutil.move(str(temp_path), str(full_path))
 
 
 def extract_and_move_files(zip_path: Path, base_path: Path) -> bool:
@@ -163,11 +197,7 @@ def extract_and_move_files(zip_path: Path, base_path: Path) -> bool:
             for item in source_dir.iterdir():
                 dest = base_path / item.name
                 print(f"    Moving {item.name}...")
-                if dest.exists():
-                    if dest.is_dir():
-                        shutil.rmtree(dest)
-                    else:
-                        dest.unlink()
+                remove_path_if_exists(dest)
                 shutil.move(str(item), str(dest))
             
             # Clean up temp extraction directory
@@ -206,15 +236,13 @@ def print_success_message(base_path: Path, version: str) -> None:
     """Print success message with directory structure."""
     print("\n" + "=" * 60)
     print(f"[SUCCESS] ArcGIS Experience Builder {version} setup complete!")
-    print(f"\nDirectory structure:")
-    print(f"  {base_path}/")
+    print(f"\nPreserved items:")
+    print("  Folders:")
     for folder_path_str in PRESERVED_FOLDERS:
-        indent = "  " * (folder_path_str.count('/') + 1)
-        folder_name = folder_path_str.split('/')[-1]
-        parent_path = '/'.join(folder_path_str.split('/')[:-1])
-        if parent_path and folder_path_str == PRESERVED_FOLDERS[0]:
-            print(f"    ├── {parent_path}/")
-        print(f"    {indent}└── {folder_name}/  (preserved)")
+        print(f"    - {folder_path_str}")
+    print("  Files:")
+    for file_path_str in PRESERVED_FILES:
+        print(f"    - {file_path_str}")
 
 
 def clean_arcgis_directory(target_dir: str = DEFAULT_TARGET_DIR) -> bool:
@@ -237,14 +265,14 @@ def clean_arcgis_directory(target_dir: str = DEFAULT_TARGET_DIR) -> bool:
         return True
     
     # Preserve, clean, restore, and ensure directories exist
-    print("\nStep 1: Preserving custom folders...")
-    temp_folders = preserve_custom_folders(base_path)
+    print("\nStep 1: Preserving custom folders and files...")
+    temp_folders, temp_files = preserve_custom_folders(base_path)
     
     print(f"\nStep 2: Removing all files from: {base_path}")
     clean_directory_contents(base_path)
     
-    print("\nStep 3: Restoring custom folders...")
-    restore_custom_folders(base_path, temp_folders)
+    print("\nStep 3: Restoring custom folders and files...")
+    restore_custom_folders_and_files(base_path, temp_folders, temp_files)
     
     print("\nStep 4: Ensuring custom directories exist...")
     ensure_custom_directories(base_path)
@@ -273,9 +301,9 @@ def setup_arcgis_builder(version: str = DEFAULT_VERSION, target_dir: str = DEFAU
     print(f"ArcGIS Experience Builder Setup - Version {version}")
     print("=" * 60)
     
-    # Step 1: Preserve custom folders
-    print("\nStep 1: Preserving custom folders...")
-    temp_folders = preserve_custom_folders(base_path)
+    # Step 1: Preserve custom folders and files
+    print("\nStep 1: Preserving custom folders and files...")
+    temp_folders, temp_files = preserve_custom_folders(base_path)
     
     # Step 2: Clean existing directory or create if needed
     if base_path.exists():
@@ -289,13 +317,13 @@ def setup_arcgis_builder(version: str = DEFAULT_VERSION, target_dir: str = DEFAU
     print(f"\nStep 3: Downloading version {version}...")
     if not download_zip(version, zip_path):
         print("Error: Download failed")
-        restore_custom_folders(base_path, temp_folders)
+        restore_custom_folders_and_files(base_path, temp_folders, temp_files)
         return False
     
     # Step 4: Extract the zip file
     print(f"\nStep 4: Extracting {zip_filename}...")
     if not extract_and_move_files(zip_path, base_path):
-        restore_custom_folders(base_path, temp_folders)
+        restore_custom_folders_and_files(base_path, temp_folders, temp_files)
         return False
     
     # Step 5: Clean up zip file
@@ -305,9 +333,9 @@ def setup_arcgis_builder(version: str = DEFAULT_VERSION, target_dir: str = DEFAU
     except Exception as e:
         print(f"Warning: Could not delete zip file: {e}")
     
-    # Step 6: Restore custom folders
-    print("\nStep 6: Restoring custom folders...")
-    restore_custom_folders(base_path, temp_folders)
+    # Step 6: Restore custom folders and files
+    print("\nStep 6: Restoring custom folders and files...")
+    restore_custom_folders_and_files(base_path, temp_folders, temp_files)
     
     # Step 7: Ensure custom directories exist
     print("\nStep 7: Ensuring custom directories exist...")
