@@ -180,7 +180,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     if (this.sources && this.sources.length > 0) {
       const sourceNames = this.sources.map(s => s.source).join(',');
       // Use 'sources' if multiple, 'source' if single
-      const sourceKey = this.sources.length > 1 ? 'sources' : 'source';
+      const sourceKey = "sources"
       params[sourceKey] = sourceNames;
 
       // Add source-specific parameters

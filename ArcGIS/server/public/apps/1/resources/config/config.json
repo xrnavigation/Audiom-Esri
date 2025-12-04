@@ -46,7 +46,7 @@
           "type": "WIDGET",
           "bbox": {
             "left": "0.0%",
-            "right": "400px",
+            "right": "50.00%",
             "top": "80px",
             "bottom": "-0.0%",
             "width": "72.0%",
@@ -70,7 +70,7 @@
           "sectionId": "section_1",
           "type": "SECTION",
           "bbox": {
-            "left": "64.2%",
+            "left": "50.00%",
             "right": "0px",
             "top": "80.00px",
             "bottom": "0%",
@@ -83,7 +83,8 @@
               "left": true,
               "top": false,
               "bottom": true,
-              "height": "STRETCH"
+              "height": "STRETCH",
+              "width": "STRETCH"
             },
             "hCenter": false,
             "vCenter": false
@@ -221,59 +222,36 @@
     },
     "layout_3": {
       "type": "FIXED",
-      "label": "Map FixedLayout"
+      "label": "Map FixedLayout",
+      "content": {},
+      "order": []
     },
     "layout_4": {
       "type": "FIXED",
       "order": [
-        "1",
-        "3"
+        "0"
       ],
       "content": {
-        "1": {
+        "0": {
           "type": "WIDGET",
+          "widgetId": "widget_42",
           "bbox": {
-            "left": "0.0%",
-            "right": "0.0%",
-            "top": "30.00%",
-            "bottom": "0.0%",
-            "width": "100.0%",
-            "height": "65.2%"
-          },
-          "widgetId": "widget_9",
-          "setting": {
-            "autoProps": {
-              "right": false,
-              "left": false,
-              "top": false,
-              "bottom": false,
-              "width": "STRETCH",
-              "height": "STRETCH"
-            },
-            "hCenter": false,
-            "vCenter": false
-          }
-        },
-        "3": {
-          "type": "WIDGET",
-          "widgetId": "widget_41",
-          "bbox": {
-            "left": "0.0%",
-            "right": "0.0%",
+            "left": "0.00%",
+            "right": "0.00%",
             "top": "0.0%",
-            "bottom": "70.1%",
+            "bottom": "0.00%",
             "width": "100.0%",
-            "height": "29.9%"
+            "height": "98.8%"
           },
           "setting": {
             "autoProps": {
               "right": false,
               "left": true,
               "top": false,
-              "bottom": true
-            },
-            "vCenter": false,
-            "hCenter": false
+              "bottom": true,
+              "width": "STRETCH",
+              "height": "STRETCH"
+            }
           }
         }
       }
@@ -337,246 +315,53 @@
     "layout_6": {
       "type": "FIXED",
       "order": [
-        "0"
+        "0",
+        "1"
       ],
       "content": {
         "0": {
           "type": "WIDGET",
+          "widgetId": "widget_41",
           "bbox": {
-            "left": "0%",
-            "right": "0%",
-            "top": "0%",
-            "bottom": "0%",
-            "width": "100%",
-            "height": "100%"
+            "left": "0.0%",
+            "right": "0.0%",
+            "top": "-0.0%",
+            "bottom": "70.1%",
+            "width": "100.0%",
+            "height": "29.9%"
           },
-          "widgetId": "widget_12",
           "setting": {
             "autoProps": {
+              "left": true,
               "right": false,
-              "left": false,
               "top": false,
-              "bottom": false,
-              "width": "STRETCH",
-              "height": "STRETCH"
+              "bottom": true
             },
             "vCenter": false,
             "hCenter": false
           }
+        },
+        "1": {
+          "type": "WIDGET",
+          "widgetId": "widget_9",
+          "bbox": {
+            "left": "0.0%",
+            "right": "0.0%",
+            "top": "29.9%",
+            "bottom": "0.1%",
+            "width": "100.0%",
+            "height": "70.0%"
+          },
+          "setting": {
+            "autoProps": {
+              "right": false,
+              "left": true,
+              "top": true,
+              "bottom": false
+            }
+          }
         }
       }
-    },
-    "layout_7": {
-      "type": "FIXED",
-      "content": {
-        "1": {
-          "type": "WIDGET",
-          "bbox": {
-            "left": 0,
-            "right": 0,
-            "top": "0%",
-            "bottom": 0,
-            "width": "100.0000%",
-            "height": "87.1094%"
-          },
-          "widgetId": "widget_14",
-          "setting": {
-            "vCenter": false,
-            "hCenter": false,
-            "autoProps": {
-              "top": false,
-              "bottom": true
-            }
-          },
-          "isPending": false
-        },
-        "2": {
-          "type": "WIDGET",
-          "setting": {
-            "style": {},
-            "autoProps": {
-              "left": false,
-              "right": true,
-              "top": false,
-              "bottom": true,
-              "height": "AUTO"
-            },
-            "hCenter": true
-          },
-          "bbox": {
-            "left": "50%",
-            "right": "1.5%",
-            "top": "90.00%",
-            "bottom": "7.9%",
-            "width": "98.00%",
-            "height": "4.1%"
-          },
-          "widgetId": "widget_13"
-        }
-      },
-      "order": [
-        "1",
-        "2"
-      ]
-    },
-    "layout_8": {
-      "type": "FIXED",
-      "content": {
-        "0": {
-          "type": "WIDGET",
-          "bbox": {
-            "left": 0,
-            "right": 0,
-            "top": "0%",
-            "bottom": 0,
-            "width": "100.0000%",
-            "height": "87.1094%"
-          },
-          "widgetId": "widget_15",
-          "setting": {
-            "vCenter": false,
-            "hCenter": false,
-            "autoProps": {
-              "top": false,
-              "bottom": true
-            }
-          },
-          "isPending": false
-        },
-        "1": {
-          "type": "WIDGET",
-          "setting": {
-            "style": {},
-            "autoProps": {
-              "left": false,
-              "right": true,
-              "top": false,
-              "bottom": true,
-              "height": "AUTO"
-            },
-            "hCenter": true
-          },
-          "bbox": {
-            "left": "50%",
-            "right": "1.5%",
-            "top": "90.00%",
-            "bottom": "7.9%",
-            "width": "90.00%",
-            "height": "4.1%"
-          },
-          "widgetId": "widget_16"
-        }
-      },
-      "order": [
-        "0",
-        "1"
-      ]
-    },
-    "layout_9": {
-      "type": "FIXED",
-      "content": {
-        "0": {
-          "type": "WIDGET",
-          "bbox": {
-            "left": 0,
-            "right": 0,
-            "top": "0%",
-            "bottom": 0,
-            "width": "100.0000%",
-            "height": "87.1094%"
-          },
-          "widgetId": "widget_17",
-          "setting": {
-            "vCenter": false,
-            "hCenter": false,
-            "autoProps": {
-              "top": false,
-              "bottom": true
-            }
-          },
-          "isPending": false
-        },
-        "1": {
-          "type": "WIDGET",
-          "setting": {
-            "style": {},
-            "autoProps": {
-              "left": false,
-              "right": true,
-              "top": false,
-              "bottom": true,
-              "height": "AUTO"
-            },
-            "hCenter": true
-          },
-          "bbox": {
-            "left": "50%",
-            "right": "1.5%",
-            "top": "90.00%",
-            "bottom": "7.9%",
-            "width": "90.00%",
-            "height": "4.1%"
-          },
-          "widgetId": "widget_18"
-        }
-      },
-      "order": [
-        "0",
-        "1"
-      ]
-    },
-    "layout_10": {
-      "type": "FIXED",
-      "content": {
-        "0": {
-          "type": "WIDGET",
-          "bbox": {
-            "left": 0,
-            "right": 0,
-            "top": "0%",
-            "bottom": 0,
-            "width": "100.0000%",
-            "height": "87.1094%"
-          },
-          "widgetId": "widget_19",
-          "setting": {
-            "vCenter": false,
-            "hCenter": false,
-            "autoProps": {
-              "top": false,
-              "bottom": true
-            }
-          },
-          "isPending": false
-        },
-        "1": {
-          "type": "WIDGET",
-          "setting": {
-            "style": {},
-            "autoProps": {
-              "left": false,
-              "right": true,
-              "top": false,
-              "bottom": true,
-              "height": "AUTO"
-            },
-            "hCenter": true
-          },
-          "bbox": {
-            "left": "50%",
-            "right": "1.5%",
-            "top": "90.00%",
-            "bottom": "7.9%",
-            "width": "90.00%",
-            "height": "4.1%"
-          },
-          "widgetId": "widget_20"
-        }
-      },
-      "order": [
-        "0",
-        "1"
-      ]
     },
     "layout_15": {
       "type": "FIXED",
@@ -877,247 +662,8 @@
     },
     "layout_21": {
       "type": "FIXED",
-      "content": {
-        "0": {
-          "type": "WIDGET",
-          "bbox": {
-            "left": "0%",
-            "right": "0%",
-            "top": "0%",
-            "bottom": "0%",
-            "width": "100%",
-            "height": "100%"
-          },
-          "widgetId": "widget_12",
-          "setting": {
-            "autoProps": {
-              "right": false,
-              "left": false,
-              "top": false,
-              "bottom": false,
-              "width": "STRETCH",
-              "height": "STRETCH"
-            },
-            "vCenter": false,
-            "hCenter": false
-          }
-        }
-      },
-      "order": [
-        "0"
-      ]
-    },
-    "layout_22": {
-      "type": "FIXED",
-      "content": {
-        "1": {
-          "type": "WIDGET",
-          "bbox": {
-            "left": 0,
-            "right": 0,
-            "top": "0%",
-            "bottom": 0,
-            "width": "100.0000%",
-            "height": "87.1094%"
-          },
-          "widgetId": "widget_14",
-          "setting": {
-            "vCenter": false,
-            "hCenter": false,
-            "autoProps": {
-              "top": false,
-              "bottom": true
-            }
-          },
-          "isPending": false
-        },
-        "2": {
-          "type": "WIDGET",
-          "setting": {
-            "style": {},
-            "autoProps": {
-              "left": false,
-              "right": true,
-              "top": false,
-              "bottom": true,
-              "height": "AUTO"
-            },
-            "hCenter": true
-          },
-          "bbox": {
-            "left": "50%",
-            "right": "1.5%",
-            "top": "90.00%",
-            "bottom": "7.9%",
-            "width": "98.00%",
-            "height": "4.1%"
-          },
-          "widgetId": "widget_13"
-        }
-      },
-      "order": [
-        "1",
-        "2"
-      ]
-    },
-    "layout_23": {
-      "type": "FIXED",
-      "content": {
-        "0": {
-          "type": "WIDGET",
-          "bbox": {
-            "left": 0,
-            "right": 0,
-            "top": "0%",
-            "bottom": 0,
-            "width": "100.0000%",
-            "height": "87.1094%"
-          },
-          "widgetId": "widget_15",
-          "setting": {
-            "vCenter": false,
-            "hCenter": false,
-            "autoProps": {
-              "top": false,
-              "bottom": true
-            }
-          },
-          "isPending": false
-        },
-        "1": {
-          "type": "WIDGET",
-          "setting": {
-            "style": {},
-            "autoProps": {
-              "left": false,
-              "right": true,
-              "top": false,
-              "bottom": true,
-              "height": "AUTO"
-            },
-            "hCenter": true
-          },
-          "bbox": {
-            "left": "50%",
-            "right": "1.5%",
-            "top": "88.00%",
-            "bottom": "7.9%",
-            "width": "90.00%",
-            "height": "4.1%"
-          },
-          "widgetId": "widget_16"
-        }
-      },
-      "order": [
-        "0",
-        "1"
-      ]
-    },
-    "layout_24": {
-      "type": "FIXED",
-      "content": {
-        "0": {
-          "type": "WIDGET",
-          "bbox": {
-            "left": 0,
-            "right": 0,
-            "top": "0%",
-            "bottom": 0,
-            "width": "100.0000%",
-            "height": "87.1094%"
-          },
-          "widgetId": "widget_17",
-          "setting": {
-            "vCenter": false,
-            "hCenter": false,
-            "autoProps": {
-              "top": false,
-              "bottom": true
-            }
-          },
-          "isPending": false
-        },
-        "1": {
-          "type": "WIDGET",
-          "setting": {
-            "style": {},
-            "autoProps": {
-              "left": false,
-              "right": true,
-              "top": false,
-              "bottom": true,
-              "height": "AUTO"
-            },
-            "hCenter": true
-          },
-          "bbox": {
-            "left": "50%",
-            "right": "1.5%",
-            "top": "90.00%",
-            "bottom": "7.9%",
-            "width": "98.00%",
-            "height": "4.1%"
-          },
-          "widgetId": "widget_18"
-        }
-      },
-      "order": [
-        "0",
-        "1"
-      ]
-    },
-    "layout_25": {
-      "type": "FIXED",
-      "content": {
-        "0": {
-          "type": "WIDGET",
-          "bbox": {
-            "left": 0,
-            "right": 0,
-            "top": "0%",
-            "bottom": 0,
-            "width": "100.0000%",
-            "height": "87.1094%"
-          },
-          "widgetId": "widget_19",
-          "setting": {
-            "vCenter": false,
-            "hCenter": false,
-            "autoProps": {
-              "top": false,
-              "bottom": true
-            }
-          },
-          "isPending": false
-        },
-        "1": {
-          "type": "WIDGET",
-          "setting": {
-            "style": {},
-            "autoProps": {
-              "left": false,
-              "right": true,
-              "top": false,
-              "bottom": true,
-              "height": "AUTO"
-            },
-            "hCenter": true
-          },
-          "bbox": {
-            "left": "50%",
-            "right": "1.5%",
-            "top": "90.00%",
-            "bottom": "7.9%",
-            "width": "98.00%",
-            "height": "4.1%"
-          },
-          "widgetId": "widget_20"
-        }
-      },
-      "order": [
-        "0",
-        "1"
-      ]
+      "content": {},
+      "order": []
     },
     "layout_26": {
       "type": "FIXED",
@@ -1438,247 +984,8 @@
     },
     "layout_32": {
       "type": "FIXED",
-      "content": {
-        "0": {
-          "type": "WIDGET",
-          "bbox": {
-            "left": "0%",
-            "right": "0%",
-            "top": "0%",
-            "bottom": "0%",
-            "width": "100%",
-            "height": "100%"
-          },
-          "widgetId": "widget_12",
-          "setting": {
-            "autoProps": {
-              "right": false,
-              "left": false,
-              "top": false,
-              "bottom": false,
-              "width": "STRETCH",
-              "height": "STRETCH"
-            },
-            "vCenter": false,
-            "hCenter": false
-          }
-        }
-      },
-      "order": [
-        "0"
-      ]
-    },
-    "layout_33": {
-      "type": "FIXED",
-      "content": {
-        "1": {
-          "type": "WIDGET",
-          "bbox": {
-            "left": 0,
-            "right": 0,
-            "top": "0%",
-            "bottom": 0,
-            "width": "100.0000%",
-            "height": "87.1094%"
-          },
-          "widgetId": "widget_14",
-          "setting": {
-            "vCenter": false,
-            "hCenter": false,
-            "autoProps": {
-              "top": false,
-              "bottom": true
-            }
-          },
-          "isPending": false
-        },
-        "2": {
-          "type": "WIDGET",
-          "setting": {
-            "style": {},
-            "autoProps": {
-              "left": false,
-              "right": true,
-              "top": false,
-              "bottom": true,
-              "height": "AUTO"
-            },
-            "hCenter": true
-          },
-          "bbox": {
-            "left": "50%",
-            "right": "1.5%",
-            "top": "90.00%",
-            "bottom": "7.9%",
-            "width": "98.00%",
-            "height": "4.1%"
-          },
-          "widgetId": "widget_13"
-        }
-      },
-      "order": [
-        "1",
-        "2"
-      ]
-    },
-    "layout_34": {
-      "type": "FIXED",
-      "content": {
-        "0": {
-          "type": "WIDGET",
-          "bbox": {
-            "left": 0,
-            "right": 0,
-            "top": "0%",
-            "bottom": 0,
-            "width": "100.0000%",
-            "height": "87.1094%"
-          },
-          "widgetId": "widget_15",
-          "setting": {
-            "vCenter": false,
-            "hCenter": false,
-            "autoProps": {
-              "top": false,
-              "bottom": true
-            }
-          },
-          "isPending": false
-        },
-        "1": {
-          "type": "WIDGET",
-          "setting": {
-            "style": {},
-            "autoProps": {
-              "left": false,
-              "right": true,
-              "top": false,
-              "bottom": true,
-              "height": "AUTO"
-            },
-            "hCenter": true
-          },
-          "bbox": {
-            "left": "50%",
-            "right": "1.5%",
-            "top": "88.00%",
-            "bottom": "7.9%",
-            "width": "90.00%",
-            "height": "4.1%"
-          },
-          "widgetId": "widget_16"
-        }
-      },
-      "order": [
-        "0",
-        "1"
-      ]
-    },
-    "layout_35": {
-      "type": "FIXED",
-      "content": {
-        "0": {
-          "type": "WIDGET",
-          "bbox": {
-            "left": 0,
-            "right": 0,
-            "top": "0%",
-            "bottom": 0,
-            "width": "100.0000%",
-            "height": "87.1094%"
-          },
-          "widgetId": "widget_17",
-          "setting": {
-            "vCenter": false,
-            "hCenter": false,
-            "autoProps": {
-              "top": false,
-              "bottom": true
-            }
-          },
-          "isPending": false
-        },
-        "1": {
-          "type": "WIDGET",
-          "setting": {
-            "style": {},
-            "autoProps": {
-              "left": false,
-              "right": true,
-              "top": false,
-              "bottom": true,
-              "height": "AUTO"
-            },
-            "hCenter": true
-          },
-          "bbox": {
-            "left": "50%",
-            "right": "1.5%",
-            "top": "90.00%",
-            "bottom": "7.9%",
-            "width": "98.00%",
-            "height": "4.1%"
-          },
-          "widgetId": "widget_18"
-        }
-      },
-      "order": [
-        "0",
-        "1"
-      ]
-    },
-    "layout_36": {
-      "type": "FIXED",
-      "content": {
-        "0": {
-          "type": "WIDGET",
-          "bbox": {
-            "left": 0,
-            "right": 0,
-            "top": "0%",
-            "bottom": 0,
-            "width": "100.0000%",
-            "height": "87.1094%"
-          },
-          "widgetId": "widget_19",
-          "setting": {
-            "vCenter": false,
-            "hCenter": false,
-            "autoProps": {
-              "top": false,
-              "bottom": true
-            }
-          },
-          "isPending": false
-        },
-        "1": {
-          "type": "WIDGET",
-          "setting": {
-            "style": {},
-            "autoProps": {
-              "left": false,
-              "right": true,
-              "top": false,
-              "bottom": true,
-              "height": "AUTO"
-            },
-            "hCenter": true
-          },
-          "bbox": {
-            "left": "50%",
-            "right": "1.5%",
-            "top": "90.00%",
-            "bottom": "7.9%",
-            "width": "98.00%",
-            "height": "4.1%"
-          },
-          "widgetId": "widget_20"
-        }
-      },
-      "order": [
-        "0",
-        "1"
-      ]
+      "content": {},
+      "order": []
     }
   },
   "exbVersion": "1.19.0",
@@ -1832,7 +1139,7 @@
         },
         "isUseCustomMapState": false,
         "initialMapState": null,
-        "initialMapDataSourceID": "dataSource_2",
+        "initialMapDataSourceID": "dataSource_6",
         "scaleRange": null,
         "customLODs": null
       },
@@ -1925,8 +1232,12 @@
       "label": "Map",
       "useDataSources": [
         {
-          "dataSourceId": "dataSource_2",
-          "mainDataSourceId": "dataSource_2"
+          "dataSourceId": "dataSource_5",
+          "mainDataSourceId": "dataSource_5"
+        },
+        {
+          "dataSourceId": "dataSource_6",
+          "mainDataSourceId": "dataSource_6"
         }
       ]
     },
@@ -2052,362 +1363,6 @@
       },
       "label": "Table"
     },
-    "widget_12": {
-      "uri": "widgets/arcgis/bookmark/",
-      "version": "1.19.0",
-      "config": {
-        "templateType": "CUSTOM1",
-        "isTemplateConfirm": true,
-        "isInitialed": true,
-        "bookmarks": [
-          {
-            "id": 1,
-            "name": "Bookmark-1",
-            "title": "Bookmark-1",
-            "type": "2d",
-            "imgParam": {},
-            "snapParam": {
-              "fileName": "widget_12-snap1-1661837711857.jpg",
-              "originalName": "widget_12-snap1-1661837711857",
-              "url": "${appResourceUrl}/images/widget_12/widget_12-snap1-1661837711857.jpg",
-              "type": "IMAGE",
-              "size": 1028078,
-              "created": 1661837711874,
-              "resourcesPrefix": "images/widget_12",
-              "fileFormat": "image/png"
-            },
-            "imagePosition": "FILL",
-            "imgSourceType": "SNAPSHOT",
-            "extent": {
-              "spatialReference": {
-                "wkid": 102100
-              },
-              "xmin": -10763311.59249765,
-              "ymin": 2850979.563481806,
-              "xmax": -6003424.967124419,
-              "ymax": 6612904.34756404
-            },
-            "viewpoint": {
-              "rotation": 0,
-              "scale": 18489297.737236,
-              "targetGeometry": {
-                "spatialReference": {
-                  "wkid": 102100
-                },
-                "x": -8383368.279811035,
-                "y": 4731941.955522923
-              }
-            },
-            "graphics": [],
-            "showFlag": true,
-            "mapViewId": "widget_12editor-null",
-            "mapDataSourceId": null,
-            "layersConfig": {
-              "jimu-draw-layer-widget_12editor-null-1661837705696": {
-                "layers": {},
-                "visibility": true
-              },
-              "jimu-draw-measurements-layer-widget_12editor-null-1661837705696": {
-                "layers": {},
-                "visibility": true
-              }
-            },
-            "layoutId": "layout_8",
-            "layoutName": "Bookmark-1"
-          },
-          {
-            "id": 2,
-            "name": "Bookmark-2",
-            "title": "Bookmark-2",
-            "type": "2d",
-            "imgParam": {},
-            "snapParam": {
-              "fileName": "widget_12-snap2-1661837718756.jpg",
-              "originalName": "widget_12-snap2-1661837718756",
-              "url": "${appResourceUrl}/images/widget_12/widget_12-snap2-1661837718756.jpg",
-              "type": "IMAGE",
-              "size": 1131894,
-              "created": 1661837718773,
-              "resourcesPrefix": "images/widget_12",
-              "fileFormat": "image/png"
-            },
-            "imagePosition": "FILL",
-            "imgSourceType": "SNAPSHOT",
-            "extent": {
-              "spatialReference": {
-                "wkid": 102100
-              },
-              "xmin": -13172707.644809669,
-              "ymin": 2231334.433388219,
-              "xmax": -8412821.01943644,
-              "ymax": 5993259.217470454
-            },
-            "viewpoint": {
-              "rotation": 0,
-              "scale": 18489297.737236,
-              "targetGeometry": {
-                "spatialReference": {
-                  "wkid": 102100
-                },
-                "x": -10792764.332123054,
-                "y": 4112296.8254293366
-              }
-            },
-            "graphics": [],
-            "showFlag": true,
-            "mapViewId": "widget_12editor-null",
-            "mapDataSourceId": null,
-            "layersConfig": {
-              "jimu-draw-layer-widget_12editor-null-1661837705696": {
-                "layers": {},
-                "visibility": true
-              },
-              "jimu-draw-measurements-layer-widget_12editor-null-1661837705696": {
-                "layers": {},
-                "visibility": true
-              }
-            },
-            "layoutId": "layout_9",
-            "layoutName": "Bookmark-2"
-          },
-          {
-            "id": 3,
-            "name": "Bookmark-3",
-            "title": "Bookmark-3",
-            "type": "2d",
-            "imgParam": {},
-            "snapParam": {
-              "fileName": "widget_12-snap3-1661837725686.jpg",
-              "originalName": "widget_12-snap3-1661837725686",
-              "url": "${appResourceUrl}/images/widget_12/widget_12-snap3-1661837725686.jpg",
-              "type": "IMAGE",
-              "size": 1023522,
-              "created": 1661837725702,
-              "resourcesPrefix": "images/widget_12",
-              "fileFormat": "image/png"
-            },
-            "imagePosition": "FILL",
-            "imgSourceType": "SNAPSHOT",
-            "extent": {
-              "spatialReference": {
-                "wkid": 102100
-              },
-              "xmin": -16307911.84209127,
-              "ymin": 3448473.571320072,
-              "xmax": -11548025.21671804,
-              "ymax": 7210398.355402306
-            },
-            "viewpoint": {
-              "rotation": 0,
-              "scale": 18489297.737236,
-              "targetGeometry": {
-                "spatialReference": {
-                  "wkid": 102100
-                },
-                "x": -13927968.529404655,
-                "y": 5329435.963361189
-              }
-            },
-            "graphics": [],
-            "showFlag": true,
-            "mapViewId": "widget_12editor-null",
-            "mapDataSourceId": null,
-            "layersConfig": {
-              "jimu-draw-layer-widget_12editor-null-1661837705696": {
-                "layers": {},
-                "visibility": true
-              },
-              "jimu-draw-measurements-layer-widget_12editor-null-1661837705696": {
-                "layers": {},
-                "visibility": true
-              }
-            },
-            "layoutId": "layout_10",
-            "layoutName": "Bookmark-3"
-          }
-        ],
-        "initBookmark": false,
-        "runtimeAddAllow": false,
-        "autoPlayAllow": false,
-        "autoInterval": 3,
-        "autoLoopAllow": true,
-        "style": {
-          "id": "default"
-        },
-        "direction": "HORIZON",
-        "pageStyle": "PAGING",
-        "space": 10,
-        "scrollBarOpen": true,
-        "navigatorOpen": false,
-        "transition": "None",
-        "transitionDirection": "H",
-        "displayType": "SELECTED",
-        "itemHeight": 240,
-        "itemWidth": 240,
-        "transitionInfo": {
-          "transition": {
-            "type": "None",
-            "direction": "H"
-          },
-          "effect": {
-            "type": "None",
-            "option": {
-              "direction": "TOP",
-              "configType": "DEFAULT"
-            }
-          },
-          "oneByOneEffect": null,
-          "previewId": null
-        }
-      },
-      "id": "widget_12",
-      "layouts": {
-        "DEFAULT": {
-          "LARGE": "layout_7",
-          "MEDIUM": "layout_22",
-          "SMALL": "layout_33"
-        },
-        "Bookmark-1": {
-          "LARGE": "layout_8",
-          "MEDIUM": "layout_23",
-          "SMALL": "layout_34"
-        },
-        "Bookmark-2": {
-          "LARGE": "layout_9",
-          "MEDIUM": "layout_24",
-          "SMALL": "layout_35"
-        },
-        "Bookmark-3": {
-          "LARGE": "layout_10",
-          "MEDIUM": "layout_25",
-          "SMALL": "layout_36"
-        }
-      },
-      "useMapWidgetIds": [
-        "widget_7"
-      ],
-      "label": "Bookmark"
-    },
-    "widget_13": {
-      "uri": "widgets/common/text/",
-      "version": "1.19.0",
-      "config": {
-        "text": "",
-        "placeholder": "<p><span style=\"font-size: 16px;\">Double click to edit text</span></p>",
-        "style": {
-          "verticalAlign": "start",
-          "wrap": true
-        }
-      },
-      "id": "widget_13",
-      "label": "Text 3"
-    },
-    "widget_14": {
-      "uri": "widgets/common/image/",
-      "version": "1.19.0",
-      "config": {
-        "functionConfig": {
-          "altText": "",
-          "toolTip": "",
-          "linkParam": {},
-          "scale": "Fit",
-          "imageParam": {}
-        },
-        "styleConfig": {}
-      },
-      "id": "widget_14",
-      "label": "Image 2"
-    },
-    "widget_15": {
-      "uri": "widgets/common/image/",
-      "version": "1.19.0",
-      "config": {
-        "functionConfig": {
-          "altText": "",
-          "toolTip": "",
-          "linkParam": {},
-          "scale": "Fit",
-          "imageParam": {}
-        },
-        "styleConfig": {}
-      },
-      "id": "widget_15",
-      "label": "Image 3"
-    },
-    "widget_16": {
-      "uri": "widgets/common/text/",
-      "version": "1.19.0",
-      "config": {
-        "text": "",
-        "placeholder": "<p><span style=\"font-size: 16px;\">Double click to edit text</span></p>",
-        "style": {
-          "verticalAlign": "start",
-          "wrap": true
-        }
-      },
-      "id": "widget_16",
-      "label": "Text 4"
-    },
-    "widget_17": {
-      "uri": "widgets/common/image/",
-      "version": "1.19.0",
-      "config": {
-        "functionConfig": {
-          "altText": "",
-          "toolTip": "",
-          "linkParam": {},
-          "scale": "Fit",
-          "imageParam": {}
-        },
-        "styleConfig": {}
-      },
-      "id": "widget_17",
-      "label": "Image 4"
-    },
-    "widget_18": {
-      "uri": "widgets/common/text/",
-      "version": "1.19.0",
-      "config": {
-        "text": "",
-        "placeholder": "<p><span style=\"font-size: 16px;\">Double click to edit text</span></p>",
-        "style": {
-          "verticalAlign": "start",
-          "wrap": true
-        }
-      },
-      "id": "widget_18",
-      "label": "Text 5"
-    },
-    "widget_19": {
-      "uri": "widgets/common/image/",
-      "version": "1.19.0",
-      "config": {
-        "functionConfig": {
-          "altText": "",
-          "toolTip": "",
-          "linkParam": {},
-          "scale": "Fit",
-          "imageParam": {}
-        },
-        "styleConfig": {}
-      },
-      "id": "widget_19",
-      "label": "Image 5"
-    },
-    "widget_20": {
-      "uri": "widgets/common/text/",
-      "version": "1.19.0",
-      "config": {
-        "text": "",
-        "placeholder": "<p><span style=\"font-size: 16px;\">Double click to edit text</span></p>",
-        "style": {
-          "verticalAlign": "start",
-          "wrap": true
-        }
-      },
-      "id": "widget_20",
-      "label": "Text 6"
-    },
     "widget_33": {
       "uri": "widgets/layout/fixed/",
       "version": "1.19.0",
@@ -2501,6 +1456,18 @@
       "useMapWidgetIds": [
         "widget_7"
       ]
+    },
+    "widget_42": {
+      "uri": "widgets/audiom-from-map/",
+      "version": "1.19.0",
+      "label": "Audiom From Map",
+      "config": {
+        "exampleConfigProperty": "test"
+      },
+      "id": "widget_42",
+      "useMapWidgetIds": [
+        "widget_7"
+      ]
     }
   },
   "widgetsManifest": {},
@@ -2574,7 +1541,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1764794955449,
+  "timestamp": 1764806880981,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {
@@ -2590,12 +1557,1442 @@
         "label": "Units"
       }
     },
-    "dataSource_2": {
-      "id": "dataSource_2",
+    "dataSource_5": {
+      "id": "dataSource_5",
       "type": "WEB_MAP",
-      "sourceLabel": "Electoral Divisions 2025",
-      "itemId": "05053c33a33649249528aeeba787af90",
-      "portalUrl": "https://xrnavigation.maps.arcgis.com"
+      "sourceLabel": "AESrecord_2",
+      "itemId": "3e674cbec9e748fabd13189a47638bd4",
+      "portalUrl": "https://xrnavigation.maps.arcgis.com",
+      "childDataSourceJsons": {
+        "19abbfcb19e-layer-166": {
+          "id": "dataSource_5-19abbfcb19e-layer-166",
+          "type": "GROUP_LAYER",
+          "sourceLabel": "Plats",
+          "label": "Plats",
+          "childDataSourceJsons": {
+            "19abcf7742c-layer-136": {
+              "id": "dataSource_5-19abbfcb19e-layer-166-19abcf7742c-layer-136",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "King",
+              "childDataSourceJsons": {
+                "19abcf6a799-layer-135": {
+                  "id": "dataSource_5-19abbfcb19e-layer-166-19abcf7742c-layer-136-19abcf6a799-layer-135",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Renton",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "b2c28a2b96804af99fe4f14b80f08abf",
+                  "layerId": "0",
+                  "url": "https://services1.arcgis.com/slSNGMtvwLJi21om/arcgis/rest/services/Plats_KC_2019/FeatureServer/0",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            },
+            "19abcf05550-layer-130": {
+              "id": "dataSource_5-19abbfcb19e-layer-166-19abcf05550-layer-130",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Kitsap",
+              "childDataSourceJsons": {
+                "19abceec70c-layer-128": {
+                  "id": "dataSource_5-19abbfcb19e-layer-166-19abcf05550-layer-130-19abceec70c-layer-128",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Plat Documents",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "723f6175f01547f89d52a954c5e42c7d",
+                  "layerId": "0",
+                  "url": "https://services5.arcgis.com/0Q6HuHqqcg7Zo8zH/arcgis/rest/services/PlatImages/FeatureServer/0",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            },
+            "19abce6ba95-layer-126": {
+              "id": "dataSource_5-19abbfcb19e-layer-166-19abce6ba95-layer-126",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Island",
+              "childDataSourceJsons": {
+                "19abce694e8-layer-125": {
+                  "id": "dataSource_5-19abbfcb19e-layer-166-19abce6ba95-layer-126-19abce694e8-layer-125",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "IslandCounty_Plats",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "e0d00ab173cd48e7b71e5110c8b78284",
+                  "layerId": "0",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/IslandCounty_Plats/FeatureServer/0",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            },
+            "19abbfc887b-layer-165": {
+              "id": "dataSource_5-19abbfcb19e-layer-166-19abbfc887b-layer-165",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Pierce",
+              "childDataSourceJsons": {
+                "19abbfb6ba4-layer-163": {
+                  "id": "dataSource_5-19abbfcb19e-layer-166-19abbfc887b-layer-165-19abbfb6ba4-layer-163",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Pierce County Plats and Short Plats",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "afc6f3e5bd8842f5b2755487c6827a10",
+                  "layerId": "0",
+                  "url": "https://services2.arcgis.com/1UvBaQ5y1ubjUPmd/arcgis/rest/services/Plats_and_Short_Plats/FeatureServer/0",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            }
+          },
+          "isHidden": true
+        },
+        "19abbef246c-layer-149": {
+          "id": "dataSource_5-19abbef246c-layer-149",
+          "type": "GROUP_LAYER",
+          "sourceLabel": "Monuments",
+          "childDataSourceJsons": {
+            "19abbf17086-layer-154": {
+              "id": "dataSource_5-19abbef246c-layer-149-19abbf17086-layer-154",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Mason",
+              "childDataSourceJsons": {
+                "19abbebf6c2-layer-140": {
+                  "id": "dataSource_5-19abbef246c-layer-149-19abbf17086-layer-154-19abbebf6c2-layer-140",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "BPA_Cadastral_Control_Washington_Mason_County",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "b926e8f935274f8ab3936a9ea02689fe",
+                  "layerId": "0",
+                  "url": "https://services3.arcgis.com/Iz3chmSt4P7oOoZy/arcgis/rest/services/BPA_Cadastral_Control_Washington_Mason_County/FeatureServer/0",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            },
+            "19abbf1376c-layer-153": {
+              "id": "dataSource_5-19abbef246c-layer-149-19abbf1376c-layer-153",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "King",
+              "childDataSourceJsons": {
+                "19abc428e8b-layer-68": {
+                  "id": "dataSource_5-19abbef246c-layer-149-19abbf1376c-layer-153-19abc428e8b-layer-68",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Survey Monument Public - Survey Monument",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "281ea1d9bca8409c986b0864ff88c058",
+                  "layerId": "0",
+                  "url": "https://utility.arcgis.com/usrsvcs/servers/66c99ef72f4f4ad98c73c40b56191f10/rest/services/secure/Survey_Monument_Public/FeatureServer/0",
+                  "isHidden": true
+                },
+                "19abc3c42f8-layer-185": {
+                  "id": "dataSource_5-19abbef246c-layer-149-19abbf1376c-layer-153-19abc3c42f8-layer-185",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Auburn Survey Monuments",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "cfa42d7c907b4545ba663f99f80ef350",
+                  "layerId": "2",
+                  "url": "https://gis.auburnwa.gov/hosting/rest/services/Survey/Survey/MapServer/2",
+                  "isHidden": true
+                },
+                "19abbe92ce0-layer-130": {
+                  "id": "dataSource_5-19abbef246c-layer-149-19abbf1376c-layer-153-19abbe92ce0-layer-130",
+                  "type": "GROUP_LAYER",
+                  "sourceLabel": "Kent_SURVEY_ControlPoints",
+                  "childDataSourceJsons": {
+                    "19abbe92e6e-layer-132": {
+                      "id": "dataSource_5-19abbef246c-layer-149-19abbf1376c-layer-153-19abbe92ce0-layer-130-19abbe92e6e-layer-132",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Horizontal Only",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "8f0b5798991a445d86ee198877cfb57a",
+                      "layerId": "0",
+                      "url": "https://services3.arcgis.com/AME2ELqJ7UG0JjrU/arcgis/rest/services/PUB_SURVEY_ControlPoints/FeatureServer/0",
+                      "isHidden": true
+                    },
+                    "19abbe92e6e-layer-131": {
+                      "id": "dataSource_5-19abbef246c-layer-149-19abbf1376c-layer-153-19abbe92ce0-layer-130-19abbe92e6e-layer-131",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Vertical and Horizontal",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "8f0b5798991a445d86ee198877cfb57a",
+                      "layerId": "1",
+                      "url": "https://services3.arcgis.com/AME2ELqJ7UG0JjrU/arcgis/rest/services/PUB_SURVEY_ControlPoints/FeatureServer/1",
+                      "isHidden": true
+                    }
+                  },
+                  "isHidden": true
+                },
+                "19abbebdcb2-layer-139": {
+                  "id": "dataSource_5-19abbef246c-layer-149-19abbf1376c-layer-153-19abbebdcb2-layer-139",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "BPA_Cadastral_Control_Washington_King_County",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "a662944decb34659864f9e213f98b64b",
+                  "layerId": "0",
+                  "url": "https://services3.arcgis.com/Iz3chmSt4P7oOoZy/arcgis/rest/services/BPA_Cadastral_Control_Washington_King_County/FeatureServer/0",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            },
+            "19abbf0e042-layer-152": {
+              "id": "dataSource_5-19abbef246c-layer-149-19abbf0e042-layer-152",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Pierce",
+              "childDataSourceJsons": {
+                "19abbe87d16-layer-128": {
+                  "id": "dataSource_5-19abbef246c-layer-149-19abbf0e042-layer-152-19abbe87d16-layer-128",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Ruston Survey Monuments",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "22cbc49cc3d94ee2a9bed7e6f68fc0fc",
+                  "layerId": "0",
+                  "url": "https://services6.arcgis.com/tx6FZh3lAB9ctNb8/arcgis/rest/services/Survey_Monuments/FeatureServer/0",
+                  "isHidden": true
+                },
+                "19abbebca7b-layer-138": {
+                  "id": "dataSource_5-19abbef246c-layer-149-19abbf0e042-layer-152-19abbebca7b-layer-138",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "BPA_Cadastral_Control_Washington_Pierce_County",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "2c75e0d486c84728b1c4fc69b91c00d1",
+                  "layerId": "0",
+                  "url": "https://services3.arcgis.com/Iz3chmSt4P7oOoZy/arcgis/rest/services/BPA_Cadastral_Control_Washington_Pierce_County/FeatureServer/0",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            },
+            "19abbf08cc4-layer-151": {
+              "id": "dataSource_5-19abbef246c-layer-149-19abbf08cc4-layer-151",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Thurston",
+              "childDataSourceJsons": {
+                "19abbebb319-layer-136": {
+                  "id": "dataSource_5-19abbef246c-layer-149-19abbf08cc4-layer-151-19abbebb319-layer-136",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "BPA_Cadastral_Control_Washington_Thurston_County",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "8ebfff9fd5cd4484a4ff558cbe1941c2",
+                  "layerId": "0",
+                  "url": "https://services3.arcgis.com/Iz3chmSt4P7oOoZy/arcgis/rest/services/BPA_Cadastral_Control_Washington_Thurston_County/FeatureServer/0",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            },
+            "19abbefb156-layer-150": {
+              "id": "dataSource_5-19abbef246c-layer-149-19abbefb156-layer-150",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Kitsap",
+              "childDataSourceJsons": {
+                "19abc172eaa-layer-183": {
+                  "id": "dataSource_5-19abbef246c-layer-149-19abbefb156-layer-150-19abc172eaa-layer-183",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "PLSS Monument Locations",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "c21cc46ecc644b40a57aa96d496b0914",
+                  "layerId": "0",
+                  "url": "https://services6.arcgis.com/qt3UCV9x5kB4CwRA/arcgis/rest/services/PLSS_Monument_Locations/FeatureServer/0",
+                  "isHidden": true
+                },
+                "19abbebb796-layer-137": {
+                  "id": "dataSource_5-19abbef246c-layer-149-19abbefb156-layer-150-19abbebb796-layer-137",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "BPA_Cadastral_Control_Washington_Kitsap_County",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "cd0920e5a47940a28524e7756811007f",
+                  "layerId": "0",
+                  "url": "https://services3.arcgis.com/Iz3chmSt4P7oOoZy/arcgis/rest/services/BPA_Cadastral_Control_Washington_Kitsap_County/FeatureServer/0",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            },
+            "19abbee4c41-layer-148": {
+              "id": "dataSource_5-19abbef246c-layer-149-19abbee4c41-layer-148",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "State",
+              "childDataSourceJsons": {
+                "19abbf3ba12-layer-158": {
+                  "id": "dataSource_5-19abbef246c-layer-149-19abbee4c41-layer-148-19abbf3ba12-layer-158",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Orthophoto Ground Control Locations and Image Error Calculations photo control point - photo control point",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "672a18914a4743df8f8e88ae17834402",
+                  "layerId": "742",
+                  "url": "https://gisdata.kingcounty.gov/arcgis/rest/services/OpenDataPortal/survey___base/MapServer/742",
+                  "isHidden": true
+                },
+                "19abbea5553-layer-135": {
+                  "id": "dataSource_5-19abbef246c-layer-149-19abbee4c41-layer-148-19abbea5553-layer-135",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "WA Public Land Survey Points - WA Survey Points",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "27e03ae584dc403fbc5308e12423d54f",
+                  "layerId": "0",
+                  "url": "https://gis.dnr.wa.gov/site3/rest/services/Public_Boundaries/WADNR_PUBLIC_Cadastre_OpenData/MapServer/0",
+                  "isHidden": true
+                },
+                "19abbe9ae65-layer-133": {
+                  "id": "dataSource_5-19abbef246c-layer-149-19abbee4c41-layer-148-19abbe9ae65-layer-133",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "WSDOT - Survey Monuments",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "53675a65975b46299aaf211577b5dd26",
+                  "layerId": "0",
+                  "url": "https://wsdot.wa.gov/arcgis/rest/services/Production/WSDOT_Survey_Monuments/MapServer/0",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            }
+          },
+          "label": "Monuments",
+          "isHidden": true
+        },
+        "19abbcdda4b-layer-47": {
+          "id": "dataSource_5-19abbcdda4b-layer-47",
+          "type": "GROUP_LAYER",
+          "sourceLabel": "Utilities",
+          "childDataSourceJsons": {
+            "19abc85db17-layer-112": {
+              "id": "dataSource_5-19abbcdda4b-layer-47-19abc85db17-layer-112",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Pierce Utilities",
+              "childDataSourceJsons": {
+                "19abcb39854-layer-114": {
+                  "id": "dataSource_5-19abbcdda4b-layer-47-19abc85db17-layer-112-19abcb39854-layer-114",
+                  "type": "GROUP_LAYER",
+                  "sourceLabel": "Puyallup Sanitary Sewer",
+                  "childDataSourceJsons": {
+                    "19abcb39a34-layer-121": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abc85db17-layer-112-19abcb39854-layer-114-19abcb39a34-layer-121",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Sewer Clean Out",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "93fed078b3d24760a8c6e70bd244d484",
+                      "layerId": "1",
+                      "url": "https://services8.arcgis.com/5K6vnOH0GkPyJs6A/arcgis/rest/services/Sanitary_Sewer_Assets/FeatureServer/1",
+                      "isHidden": true
+                    },
+                    "19abcb39a34-layer-120": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abc85db17-layer-112-19abcb39854-layer-114-19abcb39a34-layer-120",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Sewer Manhole",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "93fed078b3d24760a8c6e70bd244d484",
+                      "layerId": "2",
+                      "url": "https://services8.arcgis.com/5K6vnOH0GkPyJs6A/arcgis/rest/services/Sanitary_Sewer_Assets/FeatureServer/2",
+                      "isHidden": true
+                    },
+                    "19abcb39a34-layer-119": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abc85db17-layer-112-19abcb39854-layer-114-19abcb39a34-layer-119",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Sewer Aux Equipment",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "93fed078b3d24760a8c6e70bd244d484",
+                      "layerId": "3",
+                      "url": "https://services8.arcgis.com/5K6vnOH0GkPyJs6A/arcgis/rest/services/Sanitary_Sewer_Assets/FeatureServer/3",
+                      "isHidden": true
+                    },
+                    "19abcb39a33-layer-118": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abc85db17-layer-112-19abcb39854-layer-114-19abcb39a33-layer-118",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Sewer Main",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "93fed078b3d24760a8c6e70bd244d484",
+                      "layerId": "4",
+                      "url": "https://services8.arcgis.com/5K6vnOH0GkPyJs6A/arcgis/rest/services/Sanitary_Sewer_Assets/FeatureServer/4",
+                      "isHidden": true
+                    },
+                    "19abcb39a33-layer-117": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abc85db17-layer-112-19abcb39854-layer-114-19abcb39a33-layer-117",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Sewer Lateral",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "93fed078b3d24760a8c6e70bd244d484",
+                      "layerId": "5",
+                      "url": "https://services8.arcgis.com/5K6vnOH0GkPyJs6A/arcgis/rest/services/Sanitary_Sewer_Assets/FeatureServer/5",
+                      "isHidden": true
+                    },
+                    "19abcb39a33-layer-116": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abc85db17-layer-112-19abcb39854-layer-114-19abcb39a33-layer-116",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Sewer Force Main",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "93fed078b3d24760a8c6e70bd244d484",
+                      "layerId": "6",
+                      "url": "https://services8.arcgis.com/5K6vnOH0GkPyJs6A/arcgis/rest/services/Sanitary_Sewer_Assets/FeatureServer/6",
+                      "isHidden": true
+                    },
+                    "19abcb39a33-layer-115": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abc85db17-layer-112-19abcb39854-layer-114-19abcb39a33-layer-115",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Sewer Service Area",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "93fed078b3d24760a8c6e70bd244d484",
+                      "layerId": "7",
+                      "url": "https://services8.arcgis.com/5K6vnOH0GkPyJs6A/arcgis/rest/services/Sanitary_Sewer_Assets/FeatureServer/7",
+                      "isHidden": true
+                    }
+                  },
+                  "isHidden": true
+                },
+                "19abc81c985-layer-108": {
+                  "id": "dataSource_5-19abbcdda4b-layer-47-19abc85db17-layer-112-19abc81c985-layer-108",
+                  "type": "GROUP_LAYER",
+                  "sourceLabel": "PW Sewer Main Lines Public View",
+                  "childDataSourceJsons": {
+                    "19abc81ccfd-layer-110": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abc85db17-layer-112-19abc81c985-layer-108-19abc81ccfd-layer-110",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Sewer Force Main",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "e4cd8515a5c341a58cfaa4f61bb361d7",
+                      "layerId": "4",
+                      "url": "https://services3.arcgis.com/FjNT4j1knnY5Wsw5/arcgis/rest/services/Sewer_Main_Lines_Public_View/FeatureServer/4",
+                      "isHidden": true
+                    },
+                    "19abc81ccfc-layer-109": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abc85db17-layer-112-19abc81c985-layer-108-19abc81ccfc-layer-109",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Sewer Gravity Main",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "e4cd8515a5c341a58cfaa4f61bb361d7",
+                      "layerId": "5",
+                      "url": "https://services3.arcgis.com/FjNT4j1knnY5Wsw5/arcgis/rest/services/Sewer_Main_Lines_Public_View/FeatureServer/5",
+                      "isHidden": true
+                    }
+                  },
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            },
+            "19abbcd8a61-layer-46": {
+              "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Kitsap Utilities",
+              "childDataSourceJsons": {
+                "19abbddcfff-layer-88": {
+                  "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbddcfff-layer-88",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Poulsbo Storm Pipe",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "8b427e546e0f423e903f94e7e90fc4fe",
+                  "layerId": "0",
+                  "url": "https://services.arcgis.com/04HiymDgLlsbhaV4/arcgis/rest/services/Poulsbo_Storm_Pipe/FeatureServer/0",
+                  "isHidden": true
+                },
+                "19abbdfeab0-layer-93": {
+                  "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbdfeab0-layer-93",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Port Orchard Stormwater",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "9515e8d2ca7648998671a8fa20361ac5",
+                  "layerId": "0",
+                  "url": "https://services.arcgis.com/04HiymDgLlsbhaV4/arcgis/rest/services/Port_Orchard_Stormwater/FeatureServer/0",
+                  "isHidden": true
+                },
+                "19abbe1c72d-layer-96": {
+                  "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbe1c72d-layer-96",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Surface Stormwater - Catch Basin",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "66e1029e49b2400ab49089fa451abd2c",
+                  "layerId": "0",
+                  "url": "https://services6.arcgis.com/qt3UCV9x5kB4CwRA/arcgis/rest/services/Surface_Stormwater_Catch_Basin/FeatureServer/0",
+                  "isHidden": true
+                },
+                "19abbe2016a-layer-97": {
+                  "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbe2016a-layer-97",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Surface Stormwater - Valve",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "c2ccf09e6ec845c4afe0f035a66cfda9",
+                  "layerId": "0",
+                  "url": "https://services6.arcgis.com/qt3UCV9x5kB4CwRA/arcgis/rest/services/Surface_Stormwater_Valve/FeatureServer/0",
+                  "isHidden": true
+                },
+                "19abbda7e5c-layer-73": {
+                  "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73",
+                  "type": "GROUP_LAYER",
+                  "sourceLabel": "Kitsap County Sewer Data_WFL1",
+                  "childDataSourceJsons": {
+                    "19abbda80c0-layer-87": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73-19abbda80c0-layer-87",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Sewer Permit",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "460136acced54e34b43c3fe59958a4b6",
+                      "layerId": "0",
+                      "url": "https://services9.arcgis.com/zPT1npf9bT5dGwRx/arcgis/rest/services/Kitsap_County_Sewer_Data_WFL1/FeatureServer/0",
+                      "isHidden": true
+                    },
+                    "19abbda80c0-layer-86": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73-19abbda80c0-layer-86",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Sewer Facility",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "460136acced54e34b43c3fe59958a4b6",
+                      "layerId": "1",
+                      "url": "https://services9.arcgis.com/zPT1npf9bT5dGwRx/arcgis/rest/services/Kitsap_County_Sewer_Data_WFL1/FeatureServer/1",
+                      "isHidden": true
+                    },
+                    "19abbda80be-layer-85": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73-19abbda80be-layer-85",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Roads",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "460136acced54e34b43c3fe59958a4b6",
+                      "layerId": "2",
+                      "url": "https://services9.arcgis.com/zPT1npf9bT5dGwRx/arcgis/rest/services/Kitsap_County_Sewer_Data_WFL1/FeatureServer/2",
+                      "isHidden": true
+                    },
+                    "19abbda80be-layer-84": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73-19abbda80be-layer-84",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Streams",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "460136acced54e34b43c3fe59958a4b6",
+                      "layerId": "3",
+                      "url": "https://services9.arcgis.com/zPT1npf9bT5dGwRx/arcgis/rest/services/Kitsap_County_Sewer_Data_WFL1/FeatureServer/3",
+                      "isHidden": true
+                    },
+                    "19abbda80bd-layer-83": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73-19abbda80bd-layer-83",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Manhole",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "460136acced54e34b43c3fe59958a4b6",
+                      "layerId": "4",
+                      "url": "https://services9.arcgis.com/zPT1npf9bT5dGwRx/arcgis/rest/services/Kitsap_County_Sewer_Data_WFL1/FeatureServer/4",
+                      "isHidden": true
+                    },
+                    "19abbda80bd-layer-82": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73-19abbda80bd-layer-82",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Pump Station",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "460136acced54e34b43c3fe59958a4b6",
+                      "layerId": "5",
+                      "url": "https://services9.arcgis.com/zPT1npf9bT5dGwRx/arcgis/rest/services/Kitsap_County_Sewer_Data_WFL1/FeatureServer/5",
+                      "isHidden": true
+                    },
+                    "19abbda80bd-layer-81": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73-19abbda80bd-layer-81",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Sewer Cleanout",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "460136acced54e34b43c3fe59958a4b6",
+                      "layerId": "6",
+                      "url": "https://services9.arcgis.com/zPT1npf9bT5dGwRx/arcgis/rest/services/Kitsap_County_Sewer_Data_WFL1/FeatureServer/6",
+                      "isHidden": true
+                    },
+                    "19abbda80bd-layer-80": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73-19abbda80bd-layer-80",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Sewer Equipment",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "460136acced54e34b43c3fe59958a4b6",
+                      "layerId": "7",
+                      "url": "https://services9.arcgis.com/zPT1npf9bT5dGwRx/arcgis/rest/services/Kitsap_County_Sewer_Data_WFL1/FeatureServer/7",
+                      "isHidden": true
+                    },
+                    "19abbda80bd-layer-79": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73-19abbda80bd-layer-79",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Kitsap County Forcemains",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "460136acced54e34b43c3fe59958a4b6",
+                      "layerId": "8",
+                      "url": "https://services9.arcgis.com/zPT1npf9bT5dGwRx/arcgis/rest/services/Kitsap_County_Sewer_Data_WFL1/FeatureServer/8",
+                      "isHidden": true
+                    },
+                    "19abbda80bd-layer-78": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73-19abbda80bd-layer-78",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Kitsap County Gravity Main",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "460136acced54e34b43c3fe59958a4b6",
+                      "layerId": "9",
+                      "url": "https://services9.arcgis.com/zPT1npf9bT5dGwRx/arcgis/rest/services/Kitsap_County_Sewer_Data_WFL1/FeatureServer/9",
+                      "isHidden": true
+                    },
+                    "19abbda80bd-layer-77": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73-19abbda80bd-layer-77",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Lateral",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "460136acced54e34b43c3fe59958a4b6",
+                      "layerId": "10",
+                      "url": "https://services9.arcgis.com/zPT1npf9bT5dGwRx/arcgis/rest/services/Kitsap_County_Sewer_Data_WFL1/FeatureServer/10",
+                      "isHidden": true
+                    },
+                    "19abbda80bd-layer-76": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73-19abbda80bd-layer-76",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Parcels",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "460136acced54e34b43c3fe59958a4b6",
+                      "layerId": "11",
+                      "url": "https://services9.arcgis.com/zPT1npf9bT5dGwRx/arcgis/rest/services/Kitsap_County_Sewer_Data_WFL1/FeatureServer/11",
+                      "isHidden": true
+                    },
+                    "19abbda80bc-layer-75": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73-19abbda80bc-layer-75",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Kitsap County sewer service area",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "460136acced54e34b43c3fe59958a4b6",
+                      "layerId": "12",
+                      "url": "https://services9.arcgis.com/zPT1npf9bT5dGwRx/arcgis/rest/services/Kitsap_County_Sewer_Data_WFL1/FeatureServer/12",
+                      "isHidden": true
+                    },
+                    "19abbda80bc-layer-74": {
+                      "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbda7e5c-layer-73-19abbda80bc-layer-74",
+                      "type": "FEATURE_LAYER",
+                      "sourceLabel": "Sewer Service Area",
+                      "portalUrl": "https://www.arcgis.com",
+                      "itemId": "460136acced54e34b43c3fe59958a4b6",
+                      "layerId": "13",
+                      "url": "https://services9.arcgis.com/zPT1npf9bT5dGwRx/arcgis/rest/services/Kitsap_County_Sewer_Data_WFL1/FeatureServer/13",
+                      "isHidden": true
+                    }
+                  },
+                  "isHidden": true
+                },
+                "19abbd22348-layer-72": {
+                  "id": "dataSource_5-19abbcdda4b-layer-47-19abbcd8a61-layer-46-19abbd22348-layer-72",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Bremerton Stormwater",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "5399591e75094115a02e4c0fbe55963e",
+                  "layerId": "0",
+                  "url": "https://services.arcgis.com/04HiymDgLlsbhaV4/arcgis/rest/services/Bremerton_Stormwater/FeatureServer/0",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            }
+          },
+          "label": "Utilities",
+          "isHidden": true
+        },
+        "19ae4de813a-layer-128": {
+          "id": "dataSource_5-19ae4de813a-layer-128",
+          "type": "GROUP_LAYER",
+          "sourceLabel": "WSDOT Stormwater Components",
+          "childDataSourceJsons": {
+            "19ae4e05805-layer-129": {
+              "id": "dataSource_5-19ae4de813a-layer-128-19ae4e05805-layer-129",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "WSDOT - Stormwater Ditch - Office - Stormwater Ditch - Office",
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "3491b3775dcd4dbf80450072d4aa5cb1",
+              "layerId": "9",
+              "url": "https://data.wsdot.wa.gov/arcgis/rest/services/Shared/StormwaterFeaturesInventoryOffice/FeatureServer/9",
+              "isHidden": true
+            },
+            "19ae4e09f7d-layer-130": {
+              "id": "dataSource_5-19ae4de813a-layer-128-19ae4e09f7d-layer-130",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "WSDOT - Stormwater Non-Culvert Pipe - Field - Stormwater Non-Culvert Pipe - Field ",
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "f11265ad12c44b64bfd6da5da0d8a8cb",
+              "layerId": "6",
+              "url": "https://data.wsdot.wa.gov/arcgis/rest/services/Shared/StormwaterFeaturesInventoryField/FeatureServer/6",
+              "isHidden": true
+            },
+            "19ae4e155ef-layer-131": {
+              "id": "dataSource_5-19ae4de813a-layer-128-19ae4e155ef-layer-131",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "WSDOT - Stormwater Curb - Field - Stormwater Curb - Field ",
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "1e9ce632194e4d5090cd956d8feae440",
+              "layerId": "9",
+              "url": "https://data.wsdot.wa.gov/arcgis/rest/services/Shared/StormwaterFeaturesInventoryField/FeatureServer/9",
+              "isHidden": true
+            },
+            "19ae4d5bcff-layer-127": {
+              "id": "dataSource_5-19ae4de813a-layer-128-19ae4d5bcff-layer-127",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "WSDOT - Stormwater Drainage Inlet - Field - Stormwater Drainage Inlet - Field",
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "74b31b16da30457bb72b790b28db49dc",
+              "layerId": "2",
+              "url": "https://data.wsdot.wa.gov/arcgis/rest/services/Shared/StormwaterFeaturesInventoryField/FeatureServer/2",
+              "isHidden": true
+            },
+            "19ae4d5508a-layer-125": {
+              "id": "dataSource_5-19ae4de813a-layer-128-19ae4d5508a-layer-125",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "WSDOT - Stormwater Culvert - Field - Stormwater Culvert - Field ",
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "0c893a203fe14c35a2505064194a3f67",
+              "layerId": "10",
+              "url": "https://data.wsdot.wa.gov/arcgis/rest/services/Shared/StormwaterFeaturesInventoryField/FeatureServer/10",
+              "isHidden": true
+            }
+          },
+          "label": "WSDOT Stormwater Components",
+          "isHidden": true
+        },
+        "19adc29cb3a-layer-91": {
+          "id": "dataSource_5-19adc29cb3a-layer-91",
+          "type": "GROUP_LAYER",
+          "sourceLabel": "Poulsbo CAD Utility Data",
+          "childDataSourceJsons": {
+            "19adc2c5413-layer-123": {
+              "id": "dataSource_5-19adc29cb3a-layer-91-19adc2c5413-layer-123",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Water",
+              "childDataSourceJsons": {
+                "19adc29cd18-layer-111": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2c5413-layer-123-19adc29cd18-layer-111",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Reservoir",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "89",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/89",
+                  "isHidden": true
+                },
+                "19adc29cd18-layer-112": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2c5413-layer-123-19adc29cd18-layer-112",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Water Line",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "90",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/90",
+                  "isHidden": true
+                },
+                "19adc29cd18-layer-113": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2c5413-layer-123-19adc29cd18-layer-113",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Air Vac",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "81",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/81",
+                  "isHidden": true
+                },
+                "19adc29cd18-layer-114": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2c5413-layer-123-19adc29cd18-layer-114",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Back Check Valve",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "82",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/82",
+                  "isHidden": true
+                },
+                "19adc29cd18-layer-115": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2c5413-layer-123-19adc29cd18-layer-115",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Blow Off",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "83",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/83",
+                  "isHidden": true
+                },
+                "19adc29cd18-layer-116": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2c5413-layer-123-19adc29cd18-layer-116",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Booster Station",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "84",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/84",
+                  "isHidden": true
+                },
+                "19adc29cd19-layer-117": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2c5413-layer-123-19adc29cd19-layer-117",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Fire Hydrant",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "85",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/85",
+                  "isHidden": true
+                },
+                "19adc29cd19-layer-118": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2c5413-layer-123-19adc29cd19-layer-118",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Fire Main Indicator",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "86",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/86",
+                  "isHidden": true
+                },
+                "19adc29cd19-layer-119": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2c5413-layer-123-19adc29cd19-layer-119",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Monitor Well",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "87",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/87",
+                  "isHidden": true
+                },
+                "19adc29cd19-layer-121": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2c5413-layer-123-19adc29cd19-layer-121",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Water Meter",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "91",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/91",
+                  "isHidden": true
+                },
+                "19adc29cd19-layer-120": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2c5413-layer-123-19adc29cd19-layer-120",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "PRV",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "88",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/88",
+                  "isHidden": true
+                },
+                "19adc29cd19-layer-122": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2c5413-layer-123-19adc29cd19-layer-122",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Water Valve",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "92",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/92",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            },
+            "19adc2dde3f-layer-124": {
+              "id": "dataSource_5-19adc29cb3a-layer-91-19adc2dde3f-layer-124",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Sewer",
+              "childDataSourceJsons": {
+                "19adc29cd17-layer-110": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2dde3f-layer-124-19adc29cd17-layer-110",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "SSMH",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "79",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/79",
+                  "isHidden": true
+                },
+                "19adc29cd17-layer-106": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2dde3f-layer-124-19adc29cd17-layer-106",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Sewer Pipe",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "76",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/76",
+                  "isHidden": true
+                },
+                "19adc29cd17-layer-107": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2dde3f-layer-124-19adc29cd17-layer-107",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Lift Station",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "75",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/75",
+                  "isHidden": true
+                },
+                "19adc29cd17-layer-108": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2dde3f-layer-124-19adc29cd17-layer-108",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "SewerCO",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "77",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/77",
+                  "isHidden": true
+                },
+                "19adc29cd17-layer-109": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2dde3f-layer-124-19adc29cd17-layer-109",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "SS Valve",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "78",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/78",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            },
+            "19adc2e6467-layer-125": {
+              "id": "dataSource_5-19adc29cb3a-layer-91-19adc2e6467-layer-125",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Storm",
+              "childDataSourceJsons": {
+                "19adc29cd17-layer-105": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2e6467-layer-125-19adc29cd17-layer-105",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Stormwater Structures",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "73",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/73",
+                  "isHidden": true
+                },
+                "19adc29cd15-layer-101": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2e6467-layer-125-19adc29cd15-layer-101",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "PondSwale",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "71",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/71",
+                  "isHidden": true
+                },
+                "19adc29cd15-layer-102": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2e6467-layer-125-19adc29cd15-layer-102",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "StormPipe",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "72",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/72",
+                  "isHidden": true
+                },
+                "19adc29cd17-layer-103": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2e6467-layer-125-19adc29cd17-layer-103",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "FilterraMWS",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "69",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/69",
+                  "isHidden": true
+                },
+                "19adc29cd17-layer-104": {
+                  "id": "dataSource_5-19adc29cb3a-layer-91-19adc2e6467-layer-125-19adc29cd17-layer-104",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Outfalls",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "70",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/70",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            }
+          },
+          "label": "Poulsbo CAD Utility Data",
+          "isHidden": true
+        },
+        "19abbb608ee-layer-20": {
+          "id": "dataSource_5-19abbb608ee-layer-20",
+          "type": "MAP_SERVICE",
+          "sourceLabel": "Kitsap Section Index",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "62647213704a4d55aa6c5baa91ce035b",
+          "url": "https://utility.arcgis.com/usrsvcs/servers/62647213704a4d55aa6c5baa91ce035b/rest/services/Public/SectionIndex/MapServer",
+          "childDataSourceJsons": {
+            "0": {
+              "id": "dataSource_5-19abbb608ee-layer-20-0",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "GISPUB.GIS.SVYINDEX_SURVEYS_POINT",
+              "url": "https://utility.arcgis.com/usrsvcs/servers/62647213704a4d55aa6c5baa91ce035b/rest/services/Public/SectionIndex/MapServer/0",
+              "layerId": "0",
+              "geometryType": "esriGeometryPoint",
+              "isHidden": true,
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "62647213704a4d55aa6c5baa91ce035b"
+            },
+            "1": {
+              "id": "dataSource_5-19abbb608ee-layer-20-1",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "GISPUB.GIS.SVYINDEX_LLSUBS_POINT",
+              "url": "https://utility.arcgis.com/usrsvcs/servers/62647213704a4d55aa6c5baa91ce035b/rest/services/Public/SectionIndex/MapServer/1",
+              "layerId": "1",
+              "geometryType": "esriGeometryPoint",
+              "isHidden": true,
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "62647213704a4d55aa6c5baa91ce035b"
+            },
+            "2": {
+              "id": "dataSource_5-19abbb608ee-layer-20-2",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "GISPUB.GIS.SVYINDEX_LLSUBS_LINE",
+              "url": "https://utility.arcgis.com/usrsvcs/servers/62647213704a4d55aa6c5baa91ce035b/rest/services/Public/SectionIndex/MapServer/2",
+              "layerId": "2",
+              "geometryType": "esriGeometryPolyline",
+              "isHidden": true,
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "62647213704a4d55aa6c5baa91ce035b"
+            },
+            "3": {
+              "id": "dataSource_5-19abbb608ee-layer-20-3",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "GISPUB.GIS.PARCEL_PLAT_BDRY_POLY",
+              "url": "https://utility.arcgis.com/usrsvcs/servers/62647213704a4d55aa6c5baa91ce035b/rest/services/Public/SectionIndex/MapServer/3",
+              "layerId": "3",
+              "geometryType": "esriGeometryPolygon",
+              "isHidden": true,
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "62647213704a4d55aa6c5baa91ce035b"
+            },
+            "4": {
+              "id": "dataSource_5-19abbb608ee-layer-20-4",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "GISPUB.GIS.TOWNSHIP_POLY",
+              "url": "https://utility.arcgis.com/usrsvcs/servers/62647213704a4d55aa6c5baa91ce035b/rest/services/Public/SectionIndex/MapServer/4",
+              "layerId": "4",
+              "geometryType": "esriGeometryPolygon",
+              "isHidden": true,
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "62647213704a4d55aa6c5baa91ce035b"
+            },
+            "5": {
+              "id": "dataSource_5-19abbb608ee-layer-20-5",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "Section subdivisions",
+              "url": "https://utility.arcgis.com/usrsvcs/servers/62647213704a4d55aa6c5baa91ce035b/rest/services/Public/SectionIndex/MapServer/5",
+              "layerId": "5",
+              "geometryType": "esriGeometryPolygon",
+              "isHidden": true,
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "62647213704a4d55aa6c5baa91ce035b"
+            },
+            "6": {
+              "id": "dataSource_5-19abbb608ee-layer-20-6",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "Monument Markers",
+              "url": "https://utility.arcgis.com/usrsvcs/servers/62647213704a4d55aa6c5baa91ce035b/rest/services/Public/SectionIndex/MapServer/6",
+              "layerId": "6",
+              "geometryType": "esriGeometryPoint",
+              "isHidden": true,
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "62647213704a4d55aa6c5baa91ce035b"
+            },
+            "7": {
+              "id": "dataSource_5-19abbb608ee-layer-20-7",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "PLSS Subdivision Lines",
+              "url": "https://utility.arcgis.com/usrsvcs/servers/62647213704a4d55aa6c5baa91ce035b/rest/services/Public/SectionIndex/MapServer/7",
+              "layerId": "7",
+              "geometryType": "esriGeometryPolyline",
+              "isHidden": true,
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "62647213704a4d55aa6c5baa91ce035b"
+            },
+            "8": {
+              "id": "dataSource_5-19abbb608ee-layer-20-8",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "PLSS Subdivision Lines",
+              "url": "https://utility.arcgis.com/usrsvcs/servers/62647213704a4d55aa6c5baa91ce035b/rest/services/Public/SectionIndex/MapServer/8",
+              "layerId": "8",
+              "geometryType": "esriGeometryPolyline",
+              "isHidden": true,
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "62647213704a4d55aa6c5baa91ce035b"
+            },
+            "9": {
+              "id": "dataSource_5-19abbb608ee-layer-20-9",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "Section Downloads Poly",
+              "url": "https://utility.arcgis.com/usrsvcs/servers/62647213704a4d55aa6c5baa91ce035b/rest/services/Public/SectionIndex/MapServer/9",
+              "layerId": "9",
+              "geometryType": "esriGeometryPolygon",
+              "isHidden": true,
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "62647213704a4d55aa6c5baa91ce035b"
+            }
+          },
+          "label": "Kitsap Section Index",
+          "isHidden": true
+        },
+        "19abbcb0853-layer-42": {
+          "id": "dataSource_5-19abbcb0853-layer-42",
+          "type": "GROUP_LAYER",
+          "sourceLabel": "AES Records",
+          "childDataSourceJsons": {
+            "3f6dbca5485145f68dbbd9875ae13fb8": {
+              "id": "dataSource_5-19abbcb0853-layer-42-3f6dbca5485145f68dbbd9875ae13fb8",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Hand_Entered_Records",
+              "childDataSourceJsons": {
+                "6d3fb36f63e54c36842eeaf60177af49": {
+                  "id": "dataSource_5-19abbcb0853-layer-42-3f6dbca5485145f68dbbd9875ae13fb8-6d3fb36f63e54c36842eeaf60177af49",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Exhibit",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "61",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/61",
+                  "isHidden": true
+                },
+                "becedae50f564c17a1d3f7c54a364aec": {
+                  "id": "dataSource_5-19abbcb0853-layer-42-3f6dbca5485145f68dbbd9875ae13fb8-becedae50f564c17a1d3f7c54a364aec",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Topo",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "59",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/59",
+                  "isHidden": true
+                },
+                "19a5ca94976e4fc2b1401d3fe01a139d": {
+                  "id": "dataSource_5-19abbcb0853-layer-42-3f6dbca5485145f68dbbd9875ae13fb8-19a5ca94976e4fc2b1401d3fe01a139d",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "PSE",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "58",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/58",
+                  "isHidden": true
+                },
+                "53c1f12e1d4f4905b4f6d77d824d8e44": {
+                  "id": "dataSource_5-19abbcb0853-layer-42-3f6dbca5485145f68dbbd9875ae13fb8-53c1f12e1d4f4905b4f6d77d824d8e44",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Easement",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "57",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/57",
+                  "isHidden": true
+                },
+                "ff30693f0ce44657bda4e193cfa71fad": {
+                  "id": "dataSource_5-19abbcb0853-layer-42-3f6dbca5485145f68dbbd9875ae13fb8-ff30693f0ce44657bda4e193cfa71fad",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Const_Topo",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "56",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/56",
+                  "isHidden": true
+                },
+                "a86da7620c484fb687029aea3480afe4": {
+                  "id": "dataSource_5-19abbcb0853-layer-42-3f6dbca5485145f68dbbd9875ae13fb8-a86da7620c484fb687029aea3480afe4",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Construction",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "55",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/55",
+                  "isHidden": true
+                },
+                "355b8686510a4f7e9631ce96e637dde5": {
+                  "id": "dataSource_5-19abbcb0853-layer-42-3f6dbca5485145f68dbbd9875ae13fb8-355b8686510a4f7e9631ce96e637dde5",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "ROS",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "fbf77667b2e644a595320395762f35ea",
+                  "layerId": "50",
+                  "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/50",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            },
+            "bee41b65751b4b44bc4f288e71e583d3": {
+              "id": "dataSource_5-19abbcb0853-layer-42-bee41b65751b4b44bc4f288e71e583d3",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "ClientList_GeocodeAddresses_StreetnameMatch",
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "fbf77667b2e644a595320395762f35ea",
+              "layerId": "0",
+              "url": "https://services7.arcgis.com/iHetoYa5rYKfYcOZ/arcgis/rest/services/AESrecord1_WFL1/FeatureServer/0",
+              "isHidden": true
+            }
+          },
+          "label": "AES Records",
+          "isHidden": true
+        },
+        "b40425fc06534a5ba8f748185b84a0ec": {
+          "id": "dataSource_5-b40425fc06534a5ba8f748185b84a0ec",
+          "type": "GROUP_LAYER",
+          "sourceLabel": "Kitsap Section Township Range",
+          "childDataSourceJsons": {
+            "561a9f4b443e4cc2b41bbc0b4f2da5d8": {
+              "id": "dataSource_5-b40425fc06534a5ba8f748185b84a0ec-561a9f4b443e4cc2b41bbc0b4f2da5d8",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "PLSS_Section_Township_Range_Polygons",
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "3ad19988243941bda514d59948c8c1c0",
+              "layerId": "0",
+              "url": "https://services6.arcgis.com/qt3UCV9x5kB4CwRA/arcgis/rest/services/PLSS_Section_Township_Range_Polygons/FeatureServer/0",
+              "isHidden": true
+            }
+          },
+          "label": "Kitsap Section Township Range",
+          "isHidden": true
+        },
+        "023b8f0dff9045f3a4e1738fb7109dd7": {
+          "id": "dataSource_5-023b8f0dff9045f3a4e1738fb7109dd7",
+          "type": "GROUP_LAYER",
+          "sourceLabel": "Parcels",
+          "childDataSourceJsons": {
+            "9d9fd119788347c29c82244e5d04b7ac": {
+              "id": "dataSource_5-023b8f0dff9045f3a4e1738fb7109dd7-9d9fd119788347c29c82244e5d04b7ac",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Mason County Parcels",
+              "childDataSourceJsons": {
+                "6fa4a2e3c6704f8aaed876d8b9caa10f": {
+                  "id": "dataSource_5-023b8f0dff9045f3a4e1738fb7109dd7-9d9fd119788347c29c82244e5d04b7ac-6fa4a2e3c6704f8aaed876d8b9caa10f",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Mason_County_Parcels",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "830730c299f24c2bab25ee2d77df649f",
+                  "layerId": "0",
+                  "url": "https://services3.arcgis.com/0IbpLwS460cn4psv/arcgis/rest/services/Mason_County_Parcels/FeatureServer/0",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            },
+            "d94e2ed1eea74c478078cf8ee0d20b5d": {
+              "id": "dataSource_5-023b8f0dff9045f3a4e1738fb7109dd7-d94e2ed1eea74c478078cf8ee0d20b5d",
+              "type": "GROUP_LAYER",
+              "sourceLabel": "Kitsap Tax Parcel lot lines",
+              "childDataSourceJsons": {
+                "80b9c80a542348ef85069c2dcd3c3de1": {
+                  "id": "dataSource_5-023b8f0dff9045f3a4e1738fb7109dd7-d94e2ed1eea74c478078cf8ee0d20b5d-80b9c80a542348ef85069c2dcd3c3de1",
+                  "type": "FEATURE_LAYER",
+                  "sourceLabel": "Tax_Parcel_lot_lines",
+                  "portalUrl": "https://www.arcgis.com",
+                  "itemId": "050e61211ab846d69c94450fd7d8b9c6",
+                  "layerId": "0",
+                  "url": "https://services6.arcgis.com/qt3UCV9x5kB4CwRA/arcgis/rest/services/Tax_Parcel_lot_lines/FeatureServer/0",
+                  "isHidden": true
+                }
+              },
+              "isHidden": true
+            }
+          },
+          "label": "Parcels",
+          "isHidden": true
+        },
+        "6b39083ef5264c2581b22adce73f66bd": {
+          "id": "dataSource_5-6b39083ef5264c2581b22adce73f66bd",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "WA_Townships",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "fde7d46b0adf46b68f177d850ce85042",
+          "layerId": "8",
+          "url": "https://gis.dnr.wa.gov/site3/rest/services/Public_Boundaries/WADNR_PUBLIC_Cadastre_OpenData/MapServer/8",
+          "label": "WA_Townships"
+        },
+        "ab435f4145fd4aab86f016f72bb24c79": {
+          "id": "dataSource_5-ab435f4145fd4aab86f016f72bb24c79",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "State Outline",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "921c17926712457aa7c7be00acaf40fc",
+          "layerId": "9",
+          "url": "https://gis.dnr.wa.gov/site3/rest/services/Public_Boundaries/WADNR_PUBLIC_Cadastre_OpenData/FeatureServer/9",
+          "label": "State Outline",
+          "isHidden": true
+        },
+        "19ae63d7d8b-layer-131": {
+          "id": "dataSource_5-19ae63d7d8b-layer-131",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "IFA Dashboard Data - Sheet1$",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "bd2117ea53e640329ea52dbef7996d91",
+          "layerId": "3",
+          "url": "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/IFA_Dashboard_Data/FeatureServer/3",
+          "label": "IFA Dashboard Data - Sheet1$",
+          "isHidden": true
+        },
+        "19ae63d3c84-layer-128": {
+          "id": "dataSource_5-19ae63d3c84-layer-128",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "IFA Dashboard Data - Sheet1$",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "bd2117ea53e640329ea52dbef7996d91",
+          "layerId": "3",
+          "url": "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/IFA_Dashboard_Data/FeatureServer/3",
+          "label": "IFA Dashboard Data - Sheet1$",
+          "isHidden": true
+        },
+        "19abc7d6e58-layer-104": {
+          "id": "dataSource_5-19abc7d6e58-layer-104",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Washington (Puget Sound and Strait of Juan de Fuca) ESI 2006 - Biofile",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "99d24dc021064372800f4b10a93a0d74",
+          "layerId": "16",
+          "url": "https://services2.arcgis.com/C8EMgrsFcRFL6LrL/arcgis/rest/services/Washington_Puget_Sound_and_Strait_of_Juan_de_Fuca_ESI_2006/FeatureServer/16",
+          "label": "Washington (Puget Sound and Strait of Juan de Fuca) ESI 2006 - Biofile",
+          "isHidden": true
+        },
+        "19abc7d6e58-layer-103": {
+          "id": "dataSource_5-19abc7d6e58-layer-103",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Washington (Puget Sound and Strait of Juan de Fuca) ESI 2006 - Breed dt",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "99d24dc021064372800f4b10a93a0d74",
+          "layerId": "17",
+          "url": "https://services2.arcgis.com/C8EMgrsFcRFL6LrL/arcgis/rest/services/Washington_Puget_Sound_and_Strait_of_Juan_de_Fuca_ESI_2006/FeatureServer/17",
+          "label": "Washington (Puget Sound and Strait of Juan de Fuca) ESI 2006 - Breed dt",
+          "isHidden": true
+        },
+        "19abc7d6e58-layer-102": {
+          "id": "dataSource_5-19abc7d6e58-layer-102",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Washington (Puget Sound and Strait of Juan de Fuca) ESI 2006 - Soc dat",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "99d24dc021064372800f4b10a93a0d74",
+          "layerId": "18",
+          "url": "https://services2.arcgis.com/C8EMgrsFcRFL6LrL/arcgis/rest/services/Washington_Puget_Sound_and_Strait_of_Juan_de_Fuca_ESI_2006/FeatureServer/18",
+          "label": "Washington (Puget Sound and Strait of Juan de Fuca) ESI 2006 - Soc dat",
+          "isHidden": true
+        },
+        "19abc7d6e58-layer-101": {
+          "id": "dataSource_5-19abc7d6e58-layer-101",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Washington (Puget Sound and Strait of Juan de Fuca) ESI 2006 - Sources",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "99d24dc021064372800f4b10a93a0d74",
+          "layerId": "19",
+          "url": "https://services2.arcgis.com/C8EMgrsFcRFL6LrL/arcgis/rest/services/Washington_Puget_Sound_and_Strait_of_Juan_de_Fuca_ESI_2006/FeatureServer/19",
+          "label": "Washington (Puget Sound and Strait of Juan de Fuca) ESI 2006 - Sources",
+          "isHidden": true
+        }
+      }
+    },
+    "dataSource_6": {
+      "id": "dataSource_6",
+      "type": "WEB_MAP",
+      "sourceLabel": "GMR_CreditLeverageX_HolidayTargeting_Map",
+      "itemId": "c0c660657c8b49e88677a52523d849c1",
+      "portalUrl": "https://xrnavigation.maps.arcgis.com",
+      "childDataSourceJsons": {
+        "19ae686fa14-layer-8": {
+          "id": "dataSource_6-19ae686fa14-layer-8",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Top Areas Know My Credit Score - 4 agree completely",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "8ff1ce2b74df4d9fba8264422569aa9a",
+          "layerId": "9",
+          "url": "https://services5.arcgis.com/tmfq3OaaehOXO0FN/arcgis/rest/services/Tyson661_creditleveragex_com_layers/FeatureServer/9",
+          "label": "Top Areas Know My Credit Score - 4 agree completely",
+          "isHidden": true
+        },
+        "19ae686fa15-layer-10": {
+          "id": "dataSource_6-19ae686fa15-layer-10",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Targeted Areas",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "8ff1ce2b74df4d9fba8264422569aa9a",
+          "layerId": "7",
+          "url": "https://services5.arcgis.com/tmfq3OaaehOXO0FN/arcgis/rest/services/Tyson661_creditleveragex_com_layers/FeatureServer/7",
+          "label": "Targeted Areas",
+          "isHidden": true
+        },
+        "19ae686fa14-layer-9": {
+          "id": "dataSource_6-19ae686fa14-layer-9",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Know My Credit Score - 4 agree completely",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "8ff1ce2b74df4d9fba8264422569aa9a",
+          "layerId": "8",
+          "url": "https://services5.arcgis.com/tmfq3OaaehOXO0FN/arcgis/rest/services/Tyson661_creditleveragex_com_layers/FeatureServer/8",
+          "label": "Know My Credit Score - 4 agree completely",
+          "isHidden": true
+        },
+        "19ae686fa14-layer-7": {
+          "id": "dataSource_6-19ae686fa14-layer-7",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Hispanic Population",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "8ff1ce2b74df4d9fba8264422569aa9a",
+          "layerId": "10",
+          "url": "https://services5.arcgis.com/tmfq3OaaehOXO0FN/arcgis/rest/services/Tyson661_creditleveragex_com_layers/FeatureServer/10",
+          "label": "Hispanic Population",
+          "isHidden": false
+        },
+        "19ae686fa13-layer-6": {
+          "id": "dataSource_6-19ae686fa13-layer-6",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Top Areas Hispanic Population",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "8ff1ce2b74df4d9fba8264422569aa9a",
+          "layerId": "11",
+          "url": "https://services5.arcgis.com/tmfq3OaaehOXO0FN/arcgis/rest/services/Tyson661_creditleveragex_com_layers/FeatureServer/11",
+          "label": "Top Areas Hispanic Population",
+          "isHidden": true
+        },
+        "19ae686fa13-layer-5": {
+          "id": "dataSource_6-19ae686fa13-layer-5",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Own 3 Credit Cards",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "8ff1ce2b74df4d9fba8264422569aa9a",
+          "layerId": "12",
+          "url": "https://services5.arcgis.com/tmfq3OaaehOXO0FN/arcgis/rest/services/Tyson661_creditleveragex_com_layers/FeatureServer/12",
+          "label": "Own 3 Credit Cards",
+          "isHidden": true
+        },
+        "19ae686fa12-layer-4": {
+          "id": "dataSource_6-19ae686fa12-layer-4",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Top Areas Own 3 Credit Cards'",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "8ff1ce2b74df4d9fba8264422569aa9a",
+          "layerId": "13",
+          "url": "https://services5.arcgis.com/tmfq3OaaehOXO0FN/arcgis/rest/services/Tyson661_creditleveragex_com_layers/FeatureServer/13",
+          "label": "Top Areas Own 3 Credit Cards'",
+          "isHidden": true
+        },
+        "19ae686fa11-layer-3": {
+          "id": "dataSource_6-19ae686fa11-layer-3",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Value of Credit Card Debt' and Hispanic",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "8ff1ce2b74df4d9fba8264422569aa9a",
+          "layerId": "14",
+          "url": "https://services5.arcgis.com/tmfq3OaaehOXO0FN/arcgis/rest/services/Tyson661_creditleveragex_com_layers/FeatureServer/14",
+          "label": "Value of Credit Card Debt' and Hispanic",
+          "isHidden": true
+        },
+        "19ae686fa17-layer-17": {
+          "id": "dataSource_6-19ae686fa17-layer-17",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "creditleveragex.com layers - My layers metadata",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "8ff1ce2b74df4d9fba8264422569aa9a",
+          "layerId": "4",
+          "url": "https://services5.arcgis.com/tmfq3OaaehOXO0FN/arcgis/rest/services/Tyson661_creditleveragex_com_layers/FeatureServer/4",
+          "label": "creditleveragex.com layers - My layers metadata",
+          "isHidden": true
+        },
+        "19ae686fa17-layer-16": {
+          "id": "dataSource_6-19ae686fa17-layer-16",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "creditleveragex.com layers - My attachments",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "8ff1ce2b74df4d9fba8264422569aa9a",
+          "layerId": "5",
+          "url": "https://services5.arcgis.com/tmfq3OaaehOXO0FN/arcgis/rest/services/Tyson661_creditleveragex_com_layers/FeatureServer/5",
+          "label": "creditleveragex.com layers - My attachments",
+          "isHidden": true
+        },
+        "19ae686fa17-layer-15": {
+          "id": "dataSource_6-19ae686fa17-layer-15",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "creditleveragex.com layers - My notes",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "8ff1ce2b74df4d9fba8264422569aa9a",
+          "layerId": "6",
+          "url": "https://services5.arcgis.com/tmfq3OaaehOXO0FN/arcgis/rest/services/Tyson661_creditleveragex_com_layers/FeatureServer/6",
+          "label": "creditleveragex.com layers - My notes",
+          "isHidden": true
+        }
+      },
+      "isHidden": false
     }
   }
 }
