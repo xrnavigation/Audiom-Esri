@@ -313,10 +313,10 @@
           "type": "WIDGET",
           "bbox": {
             "left": "8px",
-            "right": "86.4%",
+            "right": "84.4%",
             "top": "50%",
             "bottom": "18.8%",
-            "width": "186px",
+            "width": "214px",
             "height": "50px"
           },
           "widgetId": "widget_87",
@@ -333,20 +333,20 @@
         "1": {
           "type": "WIDGET",
           "bbox": {
-            "left": "202px",
-            "right": "50.9%",
-            "top": "23.0%",
-            "bottom": "27.0%",
+            "left": "230px",
+            "right": "48.9%",
+            "top": "19.5%",
+            "bottom": "10.5%",
             "width": "500px",
-            "height": "50.0%"
+            "height": "70.0%"
           },
           "widgetId": "widget_90",
           "setting": {
             "autoProps": {
               "left": false,
               "right": true,
-              "top": false,
-              "bottom": true,
+              "top": true,
+              "bottom": false,
               "height": "AUTO"
             },
             "vCenter": false,
@@ -929,10 +929,10 @@
       "version": "1.19.0",
       "label": "Product Text",
       "config": {
-        "text": "<p><strong style=\"font-size: 22px;\">﻿Audiom</strong></p>",
+        "text": "<h1 style=\"text-align: left;\"><span style=\"font-family: &quot;Avenir Next&quot;; font-size: 28px;\">﻿Audiom</span></h1>",
         "style": {
           "verticalAlign": "start",
-          "wrap": true
+          "wrap": false
         }
       },
       "id": "widget_88"
@@ -974,7 +974,7 @@
       "version": "1.19.0",
       "label": "Title Text",
       "config": {
-        "text": "<h5>Esri Building</h5>",
+         "text": "<h2><span style=\"font-family: &quot;Avenir Next&quot;; font-size: 20px;\">Esri Building</span></h2>",
         "style": {
           "verticalAlign": "start",
           "wrap": true,
