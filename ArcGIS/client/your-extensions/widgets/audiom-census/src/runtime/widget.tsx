@@ -5,6 +5,7 @@ import { JimuMapViewComponent, type JimuMapView } from 'jimu-arcgis'
 import { AudiomEmbedConfig } from '../../../../shared/audiom-client/AudiomEmbedConfig'
 import { AudiomSource, MapType } from '../../../../shared/audiom-client/AudiomSource'
 import FeatureLayer from 'esri/layers/FeatureLayer'
+import { StepSize } from '../../../../shared/audiom-client/StepSize'
 const { useState, useRef } = React
 
 
@@ -29,6 +30,7 @@ const indoorConfig = AudiomEmbedConfig.dynamic({
   ],
   center: [-159.48414838102337, 22.151119308677917],
   zoom: 9.5,
+  stepsize: StepSize.Miles(1),
 });
 
 const indoorUrl = indoorConfig.toUrl('https://audiom-staging.herokuapp.com');
