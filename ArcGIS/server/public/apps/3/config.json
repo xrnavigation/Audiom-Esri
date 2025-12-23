@@ -804,6 +804,36 @@
       "order": [
         "0"
       ]
+    },
+    "layout_144": {
+      "type": "FIXED",
+      "content": {
+        "0": {
+          "type": "WIDGET",
+          "widgetId": "widget_115",
+          "bbox": {
+            "left": "0.0%",
+            "right": "0.0%",
+            "top": "0.0%",
+            "bottom": "0.0%",
+            "width": "100.0%",
+            "height": "100.0%"
+          },
+          "setting": {
+            "autoProps": {
+              "left": true,
+              "right": false,
+              "top": true,
+              "bottom": false
+            },
+            "vCenter": false,
+            "hCenter": false
+          }
+        }
+      },
+      "order": [
+        "0"
+      ]
     }
   },
   "widgets": {
@@ -1305,6 +1335,18 @@
       "useMapWidgetIds": [
         "widget_92"
       ]
+    },
+    "widget_115": {
+      "uri": "widgets/common/embed/",
+      "version": "1.19.0",
+      "label": "Embed",
+      "config": {
+        "embedType": "url",
+        "expression": "<p>https://youtu.be/s1TvWY5oZPQ</p>",
+        "enableLabel": false
+      },
+      "id": "widget_115",
+      "useDataSources": []
     }
   },
   "exbVersion": "1.19.0",
@@ -1340,6 +1382,27 @@
       "layout": {
         "LARGE": "layout_143"
       }
+    },
+    "view_4": {
+      "id": "view_4",
+      "label": "Demo",
+      "layout": {
+        "LARGE": "layout_144"
+      },
+      "icon": {
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 16 16\"><path fill=\"#000\" d=\"M8 5.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2M6.5 7.5A.5.5 0 0 1 7 7h1.5v4.5h1a.5.5 0 0 1 0 1h-3a.5.5 0 0 1 0-1h1V8H7a.5.5 0 0 1-.5-.5\"></path><path fill=\"#000\" fill-rule=\"evenodd\" d=\"M8 16A8 8 0 1 1 8 0a8 8 0 0 1 0 16m0-1A7 7 0 1 0 8 1a7 7 0 0 0 0 14\" clip-rule=\"evenodd\"></path></svg>",
+        "properties": {
+          "filename": "Info",
+          "originalName": "outlined/suggested/info.svg",
+          "path": [
+            "generalAndArrows",
+            "info"
+          ],
+          "inlineSvg": true,
+          "isUploaded": false,
+          "color": "var(--ref-palette-neutral-1100)"
+        }
+      }
     }
   },
   "sections": {
@@ -1348,7 +1411,8 @@
       "label": "Map Views",
       "views": [
         "view_3",
-        "view_1"
+        "view_1",
+        "view_4"
       ]
     }
   },
@@ -1474,11 +1538,11 @@
       }
     }
   },
-  "publishTimestamp": 1765487936961,
+  "publishTimestamp": 1766450231235,
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1765487418276,
+  "timestamp": 1766450227668,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {},

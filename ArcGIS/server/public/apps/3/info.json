@@ -2,20 +2,23 @@
   "created": 1765420468454,
   "description": "",
   "id": "3",
-  "modified": 1765487936968,
+  "modified": 1766450231240,
   "owner": "scionofdesign@gmail.com",
-  "tags": [],
+  "tags": [
+    "heatmap",
+    "Audiom"
+  ],
   "thumbnail": null,
   "title": "Audiom Demo - Census",
   "type": "Web Experience",
-  "snippet": "",
+  "snippet": "An Audiom map of the Hawaii Census.",
   "typeKeywords": [
     "EXB Experience",
     "Ready To Use",
     "JavaScript",
     "status: Published",
     "version:1.19.0",
-    "modified: 1765487418311",
+    "modified: 1766450227717",
     "publishVersion:1.19.0"
   ],
   "portalUrl": "https://xrnavigation.maps.arcgis.com",
@@ -24,5 +27,7 @@
   "isLocalApp": true,
   "url": null,
   "success": true,
-  "clearEmptyFields": true
+  "clearEmptyFields": true,
+  "userRole": "org_admin",
+  "userName": "scionofdesign@gmail.com"
 }

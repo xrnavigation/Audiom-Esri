@@ -124,7 +124,7 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
       {props.useMapWidgetIds && props.useMapWidgetIds.length === 1 && (
         <JimuMapViewComponent useMapWidgetId={props.useMapWidgetIds?.[0]} onActiveViewChange={activeViewChangeHandler} />
       )}
-      <iframe name="Test" src={indoorUrl} width="100%" height="100%" title="test" style={{ border: '0px' }}></iframe>
+      <iframe name="audiom" src={indoorUrl} width="100%" height="100%" title="ESRI Map" style={{ border: '0px' }}></iframe>
     </div>
   )
 }
