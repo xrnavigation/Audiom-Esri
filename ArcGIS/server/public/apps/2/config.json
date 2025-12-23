@@ -1410,9 +1410,9 @@
       "id": "section_1",
       "label": "Map Views",
       "views": [
+        "view_4",
         "view_3",
-        "view_1",
-        "view_4"
+        "view_1"
       ],
       "autoPlay": false
     }
@@ -1539,11 +1539,11 @@
       }
     }
   },
-  "publishTimestamp": 1766450149856,
+  "publishTimestamp": 1766451690527,
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1766449885018,
+  "timestamp": 1766451689457,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {},

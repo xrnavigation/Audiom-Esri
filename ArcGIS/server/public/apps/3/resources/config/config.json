@@ -1413,9 +1413,9 @@
       "id": "section_1",
       "label": "Map Views",
       "views": [
+        "view_4",
         "view_3",
-        "view_1",
-        "view_4"
+        "view_1"
       ]
     }
   },
@@ -1545,7 +1545,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1766450227668,
+  "timestamp": 1766451674458,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {},
