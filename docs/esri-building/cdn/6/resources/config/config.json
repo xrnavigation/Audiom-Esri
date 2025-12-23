@@ -780,24 +780,22 @@
       "content": {
         "0": {
           "type": "WIDGET",
-          "widgetId": "widget_114",
+          "widgetId": "widget_111",
           "bbox": {
             "left": "0.0%",
             "right": "0.0%",
-            "top": "0.1%",
+            "top": "0.0%",
             "bottom": "0.0%",
             "width": "100.0%",
-            "height": "99.9%"
+            "height": "100.0%"
           },
           "setting": {
             "autoProps": {
-              "left": true,
               "right": false,
+              "left": true,
               "top": true,
               "bottom": false
-            },
-            "vCenter": false,
-            "hCenter": false
+            }
           }
         }
       },
@@ -810,7 +808,7 @@
       "content": {
         "0": {
           "type": "WIDGET",
-          "widgetId": "widget_115",
+          "widgetId": "widget_114",
           "bbox": {
             "left": "0.0%",
             "right": "0.0%",
@@ -966,7 +964,8 @@
       "uri": "widgets/common/text/",
       "version": "1.19.0",
       "config": {
-        "text": "<p><span style=\"font-size: 18px;\">Lorem ipsum dolor sit amet</span></p><p><br></p><p><img src=\"data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBjbGlwLXBhdGg9InVybCgjY2xpcDBfNjE1XzIxODEpIj48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTE2IDBIMFYxNkgxNlYwWk03LjUgNS43NUM3LjUgNi4xNjQyMSA3LjE2NDIxIDYuNSA2Ljc1IDYuNUM2LjMzNTc5IDYuNSA2IDYuMTY0MjEgNiA1Ljc1QzYgNS4zMzU3OSA2LjMzNTc5IDUgNi43NSA1QzcuMTY0MjEgNSA3LjUgNS4zMzU3OSA3LjUgNS43NVpNNy4yODU3MSA5Ljg0NDM1TDUuNSA3LjUzMzI0TDMgMTAuOTk5OUgxM0w5Ljc4NTcyIDYuMzc3NjlMNy4yODU3MSA5Ljg0NDM1WiIgZmlsbD0iI2NjYyIvPjwvZz48ZGVmcz48Y2xpcFBhdGggaWQ9ImNsaXAwXzYxNV8yMTgxIj48cmVjdCB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIGZpbGw9IiM0NDQiLz48L2NsaXBQYXRoPjwvZGVmcz48L3N2Zz4=\" data-name=\"svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBjbGlwLXBhdGg9InVybCgjY2xpcDBfNjE1XzIxODEpIj48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTE2IDBIMFYxNkgxNlYwWk03LjUgNS43NUM3LjUgNi4xNjQyMSA3LjE2NDIxIDYuNSA2Ljc1IDYuNUM2LjMzNTc5IDYuNSA2IDYuMTY0MjEgNiA1Ljc1QzYgNS4zMzU3OSA2LjMzNTc5IDUgNi43NSA1QzcuMTY0MjEgNSA3LjUgNS4zMzU3OSA3LjUgNS43NVpNNy4yODU3MSA5Ljg0NDM1TDUuNSA3LjUzMzI0TDMgMTAuOTk5OUgxM0w5Ljc4NTcyIDYuMzc3NjlMNy4yODU3MSA5Ljg0NDM1WiIgZmlsbD0iI2NjYyIvPjwvZz48ZGVmcz48Y2xpcFBhdGggaWQ9ImNsaXAwXzYxNV8yMTgxIj48cmVjdCB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIGZpbGw9IiM0NDQiLz48L2NsaXBQYXRoPjwvZGVmcz48L3N2Zz4=\" width=\"145\" style=\"display: block; float: left; margin: 0px 0.9em 0.9em 0px; width: 31.66%;\">Ne debet assentior qui. Zril salutandi comprehensam an qui, nam no semper temporibus dissentiet, eleifend antiopam evertitur at sed. An wisi efficiendi sit.</p><p><br></p><p>Vel ea mentitum dissentiet, partem saperet accumsan vim ex, meliore repudiare consetetur et has.</p><p><br></p><p>Eu nostrum volutpat maluisset has, per ea homero utamur, ius ut wisi nominati. Sumo denique appareat.</p><p><br></p><p>Inermis vituperatoribus et ius. Aeque tritani eu qui, ne pri euripidis, mandamus reprimique te vix. Ei case atqui sonet vim.</p>"
+        "text": "<p><span style=\"font-size: 18px;\">Lorem ipsum dolor sit amet</span></p><p><br></p><p><img src=\"data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBjbGlwLXBhdGg9InVybCgjY2xpcDBfNjE1XzIxODEpIj48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTE2IDBIMFYxNkgxNlYwWk03LjUgNS43NUM3LjUgNi4xNjQyMSA3LjE2NDIxIDYuNSA2Ljc1IDYuNUM2LjMzNTc5IDYuNSA2IDYuMTY0MjEgNiA1Ljc1QzYgNS4zMzU3OSA2LjMzNTc5IDUgNi43NSA1QzcuMTY0MjEgNSA3LjUgNS4zMzU3OSA3LjUgNS43NVpNNy4yODU3MSA5Ljg0NDM1TDUuNSA3LjUzMzI0TDMgMTAuOTk5OUgxM0w5Ljc4NTcyIDYuMzc3NjlMNy4yODU3MSA5Ljg0NDM1WiIgZmlsbD0iI2NjYyIvPjwvZz48ZGVmcz48Y2xpcFBhdGggaWQ9ImNsaXAwXzYxNV8yMTgxIj48cmVjdCB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIGZpbGw9IiM0NDQiLz48L2NsaXBQYXRoPjwvZGVmcz48L3N2Zz4=\" data-name=\"svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBjbGlwLXBhdGg9InVybCgjY2xpcDBfNjE1XzIxODEpIj48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTE2IDBIMFYxNkgxNlYwWk03LjUgNS43NUM3LjUgNi4xNjQyMSA3LjE2NDIxIDYuNSA2Ljc1IDYuNUM2LjMzNTc5IDYuNSA2IDYuMTY0MjEgNiA1Ljc1QzYgNS4zMzU3OSA2LjMzNTc5IDUgNi43NSA1QzcuMTY0MjEgNSA3LjUgNS4zMzU3OSA3LjUgNS43NVpNNy4yODU3MSA5Ljg0NDM1TDUuNSA3LjUzMzI0TDMgMTAuOTk5OUgxM0w5Ljc4NTcyIDYuMzc3NjlMNy4yODU3MSA5Ljg0NDM1WiIgZmlsbD0iI2NjYyIvPjwvZz48ZGVmcz48Y2xpcFBhdGggaWQ9ImNsaXAwXzYxNV8yMTgxIj48cmVjdCB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIGZpbGw9IiM0NDQiLz48L2NsaXBQYXRoPjwvZGVmcz48L3N2Zz4=\" width=\"145\" style=\"display: block; float: left; margin: 0px 0.9em 0.9em 0px; width: 31.66%;\">Ne debet assentior qui. Zril salutandi comprehensam an qui, nam no semper temporibus dissentiet, eleifend antiopam evertitur at sed. An wisi efficiendi sit.</p><p><br></p><p>Vel ea mentitum dissentiet, partem saperet accumsan vim ex, meliore repudiare consetetur et has.</p><p><br></p><p>Eu nostrum volutpat maluisset has, per ea homero utamur, ius ut wisi nominati. Sumo denique appareat.</p><p><br></p><p>Inermis vituperatoribus et ius. Aeque tritani eu qui, ne pri euripidis, mandamus reprimique te vix. Ei case atqui sonet vim.</p>",
+        "placeholder": "Double click to edit text"
       },
       "id": "widget_44",
       "label": "Text 5"
@@ -1021,6 +1020,7 @@
       "label": "Product Text",
       "config": {
         "text": "<h1 style=\"text-align: left;\"><span style=\"font-family: &quot;Avenir Next&quot;; font-size: 28px;\">﻿Audiom</span></h1>",
+        "placeholder": "<p><strong style=\"font-size: 22px;\">Logo</strong></p>",
         "style": {
           "verticalAlign": "start",
           "wrap": false
@@ -1065,7 +1065,8 @@
       "version": "1.19.0",
       "label": "Title Text",
       "config": {
-        "text": "<h2><span style=\"font-size: 20px; font-family: &quot;Avenir Next&quot;;\">Hawaii Census</span></h2>",
+        "text": "<h2><span style=\"font-family: &quot;Avenir Next&quot;; font-size: 20px;\">Esri Building</span></h2>",
+        "placeholder": "<h5>Double click to edit text</h5>",
         "style": {
           "verticalAlign": "start",
           "wrap": true,
@@ -1090,23 +1091,23 @@
         "initialMapState": {
           "viewPoint": {
             "rotation": 0,
-            "scale": 288895.277144,
+            "scale": 564.248588,
             "targetGeometry": {
               "spatialReference": {
                 "wkid": 102100
               },
-              "x": -17761958.243403077,
-              "y": 2516896.4402531865
+              "x": -13046027.649285203,
+              "y": 4036428.5686013363
             }
           },
           "extent": {
             "spatialReference": {
               "wkid": 102100
             },
-            "xmin": -17816534.28159862,
-            "ymin": 2483187.710779469,
-            "xmax": -17707382.205207534,
-            "ymax": 2550605.169726904
+            "xmin": -13046134.24310977,
+            "ymin": 4036362.358011426,
+            "xmax": -13045921.055460636,
+            "ymax": 4036494.7791912467
           },
           "rotation": 0,
           "viewType": "2d"
@@ -1285,6 +1286,18 @@
         }
       }
     },
+    "widget_111": {
+      "uri": "widgets/audiom-basic/",
+      "version": "1.19.0",
+      "label": "Audiom Basic",
+      "config": {
+        "exampleConfigProperty": "test"
+      },
+      "id": "widget_111",
+      "useMapWidgetIds": [
+        "widget_92"
+      ]
+    },
     "widget_113": {
       "uri": "widgets/common/navigator/",
       "version": "1.19.0",
@@ -1325,27 +1338,17 @@
       "id": "widget_113"
     },
     "widget_114": {
-      "uri": "widgets/audiom-census/",
-      "version": "1.19.0",
-      "label": "Audiom Census",
-      "config": {
-        "exampleConfigProperty": "test"
-      },
-      "id": "widget_114",
-      "useMapWidgetIds": [
-        "widget_92"
-      ]
-    },
-    "widget_115": {
       "uri": "widgets/common/embed/",
       "version": "1.19.0",
       "label": "Embed",
       "config": {
         "embedType": "url",
-        "expression": "<p>https://youtu.be/s1TvWY5oZPQ</p>",
+        "expression": "<p>https://youtu.be/W_Xct4ijbD8</p>",
+        "honorThemeFont": false,
         "enableLabel": false
       },
-      "id": "widget_115",
+      "id": "widget_114",
+      "useDataSourcesEnabled": false,
       "useDataSources": []
     }
   },
@@ -1365,7 +1368,7 @@
       }
     }
   },
-  "template": "2",
+  "template": "0",
   "customTheme": {},
   "widgetsManifest": {},
   "views": {
@@ -1410,10 +1413,11 @@
       "id": "section_1",
       "label": "Map Views",
       "views": [
+        "view_4",
         "view_3",
-        "view_1",
-        "view_4"
-      ]
+        "view_1"
+      ],
+      "autoPlay": false
     }
   },
   "dialogs": {
@@ -1538,18 +1542,11 @@
       }
     }
   },
-  "publishTimestamp": 1766450231235,
+  "publishTimestamp": 1761632029018,
   "attributes": {
-    "portalUrl": "https://xrnavigation.maps.arcgis.com",
-    "isWebTier": false,
-    "clientId": "",
-    "express": false,
-    "title": "Audiom Demo - Census",
-    "description": "An Audiom map of the Hawaii Census.",
-    "type": "Web Experience",
-    "thumbnail": null
+    "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1766450227668,
+  "timestamp": 1766451689457,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {},

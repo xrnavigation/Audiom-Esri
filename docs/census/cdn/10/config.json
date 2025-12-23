@@ -780,22 +780,24 @@
       "content": {
         "0": {
           "type": "WIDGET",
-          "widgetId": "widget_111",
+          "widgetId": "widget_114",
           "bbox": {
             "left": "0.0%",
             "right": "0.0%",
-            "top": "0.0%",
+            "top": "0.1%",
             "bottom": "0.0%",
             "width": "100.0%",
-            "height": "100.0%"
+            "height": "99.9%"
           },
           "setting": {
             "autoProps": {
-              "right": false,
               "left": true,
+              "right": false,
               "top": true,
               "bottom": false
-            }
+            },
+            "vCenter": false,
+            "hCenter": false
           }
         }
       },
@@ -808,7 +810,7 @@
       "content": {
         "0": {
           "type": "WIDGET",
-          "widgetId": "widget_114",
+          "widgetId": "widget_115",
           "bbox": {
             "left": "0.0%",
             "right": "0.0%",
@@ -1063,7 +1065,7 @@
       "version": "1.19.0",
       "label": "Title Text",
       "config": {
-        "text": "<h2><span style=\"font-family: &quot;Avenir Next&quot;; font-size: 20px;\">Esri Building</span></h2>",
+        "text": "<h2><span style=\"font-size: 20px; font-family: &quot;Avenir Next&quot;;\">Hawaii Census</span></h2>",
         "style": {
           "verticalAlign": "start",
           "wrap": true,
@@ -1088,23 +1090,23 @@
         "initialMapState": {
           "viewPoint": {
             "rotation": 0,
-            "scale": 564.248588,
+            "scale": 288895.277144,
             "targetGeometry": {
               "spatialReference": {
                 "wkid": 102100
               },
-              "x": -13046027.649285203,
-              "y": 4036428.5686013363
+              "x": -17761958.243403077,
+              "y": 2516896.4402531865
             }
           },
           "extent": {
             "spatialReference": {
               "wkid": 102100
             },
-            "xmin": -13046134.24310977,
-            "ymin": 4036362.358011426,
-            "xmax": -13045921.055460636,
-            "ymax": 4036494.7791912467
+            "xmin": -17816534.28159862,
+            "ymin": 2483187.710779469,
+            "xmax": -17707382.205207534,
+            "ymax": 2550605.169726904
           },
           "rotation": 0,
           "viewType": "2d"
@@ -1283,18 +1285,6 @@
         }
       }
     },
-    "widget_111": {
-      "uri": "widgets/audiom-basic/",
-      "version": "1.19.0",
-      "label": "Audiom Basic",
-      "config": {
-        "exampleConfigProperty": "test"
-      },
-      "id": "widget_111",
-      "useMapWidgetIds": [
-        "widget_92"
-      ]
-    },
     "widget_113": {
       "uri": "widgets/common/navigator/",
       "version": "1.19.0",
@@ -1335,17 +1325,27 @@
       "id": "widget_113"
     },
     "widget_114": {
+      "uri": "widgets/audiom-census/",
+      "version": "1.19.0",
+      "label": "Audiom Census",
+      "config": {
+        "exampleConfigProperty": "test"
+      },
+      "id": "widget_114",
+      "useMapWidgetIds": [
+        "widget_92"
+      ]
+    },
+    "widget_115": {
       "uri": "widgets/common/embed/",
       "version": "1.19.0",
       "label": "Embed",
       "config": {
         "embedType": "url",
-        "expression": "<p>https://youtu.be/W_Xct4ijbD8</p>",
-        "honorThemeFont": false,
+        "expression": "<p>https://youtu.be/s1TvWY5oZPQ</p>",
         "enableLabel": false
       },
-      "id": "widget_114",
-      "useDataSourcesEnabled": false,
+      "id": "widget_115",
       "useDataSources": []
     }
   },
@@ -1365,7 +1365,7 @@
       }
     }
   },
-  "template": "0",
+  "template": "2",
   "customTheme": {},
   "widgetsManifest": {},
   "views": {
@@ -1410,11 +1410,10 @@
       "id": "section_1",
       "label": "Map Views",
       "views": [
+        "view_4",
         "view_3",
-        "view_1",
-        "view_4"
-      ],
-      "autoPlay": false
+        "view_1"
+      ]
     }
   },
   "dialogs": {
@@ -1539,18 +1538,18 @@
       }
     }
   },
-  "publishTimestamp": 1766450149856,
+  "publishTimestamp": 1766451675306,
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com",
     "isWebTier": false,
     "clientId": "",
     "express": false,
-    "title": "Audiom Demo - ESRI Building",
-    "description": "An Audiom map of the ESRI building.",
+    "title": "Audiom Demo - Census",
+    "description": "An Audiom map of the Hawaii Census.",
     "type": "Web Experience",
     "thumbnail": null
   },
-  "timestamp": 1766449885018,
+  "timestamp": 1766451674458,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {},
