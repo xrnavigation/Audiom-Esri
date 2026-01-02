@@ -1343,7 +1343,7 @@
       "label": "Embed",
       "config": {
         "embedType": "url",
-        "expression": "<p>https://youtu.be/W_Xct4ijbD8</p>",
+        "expression": "<p>https://youtu.be/7gLye8yG9Qw?si=ruMH_id5NOUvuV0J</p>",
         "honorThemeFont": false,
         "enableLabel": false
       },
@@ -1546,7 +1546,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1766451689457,
+  "timestamp": 1767391949609,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {},
