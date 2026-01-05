@@ -2,6 +2,7 @@
 ArcGIS/*
 arcgis-experience-builder-*.zip
 .temp*
+*.npmrc
 
 # But keep these specific folders
 !ArcGIS/client/

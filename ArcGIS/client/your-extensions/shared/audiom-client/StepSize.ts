@@ -9,6 +9,16 @@ export enum StepSizeUnit {
 }
 
 /**
+ * Conversion factors from each unit to meters
+ */
+const METERS_PER_UNIT: Record<StepSizeUnit, number> = {
+  [StepSizeUnit.Meters]: 1,
+  [StepSizeUnit.Kilometers]: 1000,
+  [StepSizeUnit.Miles]: 1609.34,
+  [StepSizeUnit.Feet]: 0.3048
+};
+
+/**
  * Represents a step size with value and unit
  */
 export interface IStepSize {
@@ -80,5 +90,48 @@ export class StepSize implements IStepSize {
    */
   toString(): string {
     return `${this.value}${this.unit}`;
+  }
+
+  /**
+   * Convert to a different unit
+   */
+  convertTo(targetUnit: StepSizeUnit): StepSize {
+    if (this.unit === targetUnit) {
+      return new StepSize(this.value, this.unit);
+    }
+
+    // Convert through meters: source -> meters -> target
+    const valueInMeters = this.value * METERS_PER_UNIT[this.unit];
+    const convertedValue = valueInMeters / METERS_PER_UNIT[targetUnit];
+
+    return new StepSize(convertedValue, targetUnit);
+  }
+
+  /**
+   * Convert to meters and return the numeric value
+   */
+  toMeters(): StepSize {
+    return this.convertTo(StepSizeUnit.Meters);
+  }
+
+  /**
+   * Convert to kilometers and return the numeric value
+   */
+  toKilometers(): StepSize {
+    return this.convertTo(StepSizeUnit.Kilometers);
+  }
+
+  /**
+   * Convert to miles and return the numeric value
+   */
+  toMiles(): StepSize {
+    return this.convertTo(StepSizeUnit.Miles);
+  }
+
+  /**
+   * Convert to feet and return the numeric value
+   */
+  toFeet(): StepSize {
+    return this.convertTo(StepSizeUnit.Feet);
   }
 }
