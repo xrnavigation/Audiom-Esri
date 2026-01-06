@@ -1,3 +1,6 @@
+import { AudiomSource, MapType } from '../../../../shared/audiom-client/AudiomSource'
+import { AudiomEmbedConfig } from '../../../../shared/audiom-client/AudiomEmbedConfig'
+
 export enum FieldType {
   Text = 'text',
   Number = 'number',
@@ -12,13 +15,13 @@ export interface FieldConfig {
   min?: number
   max?: number
   defaultValue?: string | number | boolean
-  showWhen?: (config: IMConfig) => boolean
+  showWhen?: (config: IAudiomConfig) => boolean
 }
 
-export interface IMConfig {
+export interface IAudiomConfig {
   apiKey?: string
   baseUrl?: string
-  heading?: number
+  heading?:  1 | 2 | 3 | 4 | 5 | 6;
   title?: string
   stepSize?: number
   showVisualMap?: boolean
@@ -31,5 +34,3 @@ export interface IMConfig {
   zoom?: number
   useExistingMap?: boolean
 }
-
-

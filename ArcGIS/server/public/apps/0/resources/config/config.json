@@ -1200,7 +1200,12 @@
         "exampleConfigProperty": "test",
         "apiKey": "wO35blaGsjJREGuXehqWU",
         "baseUrl": "https://audiom-staging.herokuapp.com",
-        "title": "ESRI Building"
+        "title": "ESRI Building",
+        "rulesFileUrl": "/rules/esri-indoor.json",
+        "centerLatitude": 34.05679755835778,
+        "centerLongitude": -117.1945001420124,
+        "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
+        "zoom": 19
       },
       "id": "widget_112",
       "useMapWidgetIds": [
@@ -1355,7 +1360,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1767656357798,
+  "timestamp": 1767660819454,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {},

@@ -2,12 +2,10 @@ import { React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
 import { TextInput, NumericInput, Switch, Label } from 'jimu-ui'
-import { FieldType, type IMConfig, type FieldConfig } from './types'
+import { FieldType, type IAudiomConfig, type FieldConfig } from './types'
 
 const Setting = (props: AllWidgetSettingProps<any>) => {
   const { config } = props
-
-  config.apiKey = "";
 
   const onMapWidgetSelected = (useMapWidgetIds: string[]) => {
     props.onSettingChange({
@@ -30,7 +28,7 @@ const Setting = (props: AllWidgetSettingProps<any>) => {
     { key: 'title', label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title' },
     { key: 'stepSize', label: 'Step Size', type: FieldType.Number, min: 0.1, defaultValue: 1 },
     { key: 'showVisualMap', label: 'Show Visual Map', type: FieldType.Switch, defaultValue: true },
-    { key: 'showHeading', label: 'Show Heading', type: FieldType.Switch, defaultValue: true },
+    { key: 'showHeading', label: 'Show Heading', type: FieldType.Switch, defaultValue: false },
     { key: 'soundpackUrl', label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL' },
     { key: 'rulesFileUrl', label: 'Rules File URL', type: FieldType.Text, placeholder: 'Enter rules file URL' }
   ]
