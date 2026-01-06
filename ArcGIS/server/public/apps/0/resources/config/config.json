@@ -1197,7 +1197,10 @@
       "version": "1.0.0",
       "label": "Audiom",
       "config": {
-        "exampleConfigProperty": "test"
+        "exampleConfigProperty": "test",
+        "apiKey": "wO35blaGsjJREGuXehqWU",
+        "baseUrl": "https://audiom-staging.herokuapp.com",
+        "title": "ESRI Building"
       },
       "id": "widget_112",
       "useMapWidgetIds": [
@@ -1352,7 +1355,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1767655352229,
+  "timestamp": 1767656357798,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {},
