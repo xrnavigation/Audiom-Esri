@@ -18,6 +18,14 @@ export interface FieldConfig {
   showWhen?: (config: IAudiomConfig) => boolean
 }
 
+export interface ISourceConfig {
+  source?: string
+  name?: string
+  sourceUrl?: string
+  rulesFileUrl?: string
+  mapType?: MapType
+}
+
 export interface IAudiomConfig {
   apiKey?: string
   baseUrl?: string
@@ -27,8 +35,7 @@ export interface IAudiomConfig {
   showVisualMap?: boolean
   showHeading?: boolean
   soundpackUrl?: string
-  rulesFileUrl?: string
-  sourceUrl?: string
+  sourceConfig?: ISourceConfig
   centerLatitude?: number
   centerLongitude?: number
   zoom?: number

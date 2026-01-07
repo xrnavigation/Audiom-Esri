@@ -21,6 +21,14 @@ const Setting = (props: AllWidgetSettingProps<any>) => {
     })
   }
 
+  const onSourceConfigChange = (property: string, value: any) => {
+    const sourceConfig = config?.sourceConfig || {}
+    props.onSettingChange({
+      id: props.id,
+      config: config.set('sourceConfig', { ...sourceConfig, [property]: value })
+    })
+  }
+
   const alwaysPresentFields: FieldConfig[] = [
     { key: 'apiKey', label: 'API Key', type: FieldType.Text, placeholder: 'Enter API key' },
     { key: 'baseUrl', label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL' },
@@ -29,16 +37,64 @@ const Setting = (props: AllWidgetSettingProps<any>) => {
     { key: 'stepSize', label: 'Step Size', type: FieldType.Number, min: 0.1, defaultValue: 1 },
     { key: 'showVisualMap', label: 'Show Visual Map', type: FieldType.Switch, defaultValue: true },
     { key: 'showHeading', label: 'Show Heading', type: FieldType.Switch, defaultValue: false },
-    { key: 'soundpackUrl', label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL' },
-    { key: 'rulesFileUrl', label: 'Rules File URL', type: FieldType.Text, placeholder: 'Enter rules file URL' }
+    { key: 'soundpackUrl', label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL' }
+  ]
+
+  const sourceConfigFields: FieldConfig[] = [
+    { key: 'source', label: 'Source', type: FieldType.Text, placeholder: 'Enter source identifier (e.g., units)' },
+    { key: 'name', label: 'Name', type: FieldType.Text, placeholder: 'Enter source display name' },
+    { key: 'sourceUrl', label: 'Source URL', type: FieldType.Text, placeholder: 'Enter map source URL' },
+    { key: 'rulesFileUrl', label: 'Rules File URL', type: FieldType.Text, placeholder: 'Enter rules file URL' },
+    { key: 'mapType', label: 'Map Type', type: FieldType.Text, placeholder: 'indoor, travel, or heatmap' }
   ]
 
   const urlModeFields: FieldConfig[] = [
-    { key: 'sourceUrl', label: 'Source URL', type: FieldType.Text, placeholder: 'Enter map source URL' },
     { key: 'centerLatitude', label: 'Center Latitude', type: FieldType.Number, defaultValue: 0 },
     { key: 'centerLongitude', label: 'Center Longitude', type: FieldType.Number, defaultValue: 0 },
     { key: 'zoom', label: 'Zoom Level', type: FieldType.Number, min: 0, max: 20, defaultValue: 10 }
   ]
+
+  const renderSourceField = (field: FieldConfig) => {
+    const value = config?.sourceConfig?.[field.key] ?? field.defaultValue
+
+    switch (field.type) {
+      case FieldType.Text:
+        return (
+          <SettingRow key={field.key} flow="wrap">
+            <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
+            <TextInput
+              style={{ width: '100%' }}
+              value={value || ''}
+              onChange={(e) => onSourceConfigChange(field.key, e.target.value)}
+              placeholder={field.placeholder}
+            />
+          </SettingRow>
+        )
+      case FieldType.Number:
+        return (
+          <SettingRow key={field.key} flow="wrap">
+            <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
+            <NumericInput
+              style={{ width: '100%' }}
+              value={value}
+              onChange={(val) => onSourceConfigChange(field.key, val)}
+              min={field.min}
+              max={field.max}
+            />
+          </SettingRow>
+        )
+      case FieldType.Switch:
+        return (
+          <SettingRow key={field.key} flow="wrap">
+            <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
+            <Switch
+              checked={value}
+              onChange={(e) => onSourceConfigChange(field.key, e.target.checked)}
+            />
+          </SettingRow>
+        )
+    }
+  }
 
   const renderField = (field: FieldConfig) => {
     const value = config?.[field.key] ?? field.defaultValue
@@ -99,7 +155,12 @@ const Setting = (props: AllWidgetSettingProps<any>) => {
             <MapWidgetSelector useMapWidgetIds={props.useMapWidgetIds} onSelect={onMapWidgetSelected} />
           </SettingRow>
         ) : (
-          urlModeFields.map(renderField)
+          <>
+            {urlModeFields.map(renderField)}
+            <SettingSection title="Source Configuration">
+              {sourceConfigFields.map(renderSourceField)}
+            </SettingSection>
+          </>
         )}
       </SettingSection>
 
