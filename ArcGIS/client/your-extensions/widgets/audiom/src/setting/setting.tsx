@@ -1,11 +1,15 @@
 import { React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
-import { TextInput, NumericInput, Switch, Label } from 'jimu-ui'
+import { TextInput, NumericInput, Switch, Label, Select, Option, Collapse, Button } from 'jimu-ui'
 import { FieldType, type IAudiomConfig, type FieldConfig } from './types'
+import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 
-const Setting = (props: AllWidgetSettingProps<any>) => {
+const { useState } = React
+
+const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
+  const [sourceConfigOpen, setSourceConfigOpen] = useState(true)
 
   const onMapWidgetSelected = (useMapWidgetIds: string[]) => {
     props.onSettingChange({
@@ -30,22 +34,32 @@ const Setting = (props: AllWidgetSettingProps<any>) => {
   }
 
   const alwaysPresentFields: FieldConfig[] = [
+    { key: 'title', label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title' },
     { key: 'apiKey', label: 'API Key', type: FieldType.Text, placeholder: 'Enter API key' },
     { key: 'baseUrl', label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL' },
-    { key: 'heading', label: 'Heading', type: FieldType.Number, min: 0, max: 360, defaultValue: 0 },
-    { key: 'title', label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title' },
     { key: 'stepSize', label: 'Step Size', type: FieldType.Number, min: 0.1, defaultValue: 1 },
     { key: 'showVisualMap', label: 'Show Visual Map', type: FieldType.Switch, defaultValue: true },
     { key: 'showHeading', label: 'Show Heading', type: FieldType.Switch, defaultValue: false },
+    { key: 'heading', label: 'Heading', type: FieldType.Number, min: 0, max: 360, defaultValue: 0 },
     { key: 'soundpackUrl', label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL' }
   ]
 
   const sourceConfigFields: FieldConfig[] = [
-    { key: 'source', label: 'Source', type: FieldType.Text, placeholder: 'Enter source identifier (e.g., units)' },
     { key: 'name', label: 'Name', type: FieldType.Text, placeholder: 'Enter source display name' },
     { key: 'sourceUrl', label: 'Source URL', type: FieldType.Text, placeholder: 'Enter map source URL' },
     { key: 'rulesFileUrl', label: 'Rules File URL', type: FieldType.Text, placeholder: 'Enter rules file URL' },
-    { key: 'mapType', label: 'Map Type', type: FieldType.Text, placeholder: 'indoor, travel, or heatmap' }
+    { key: 'source', label: 'Source', type: FieldType.Text, placeholder: 'Enter source identifier (e.g., units)' },
+    {
+      key: 'mapType',
+      label: 'Map Type',
+      type: FieldType.Enum,
+      enumOptions: [
+        { label: 'Travel', value: MapType.Travel },
+        { label: 'Heatmap', value: MapType.Heatmap },
+        { label: 'Indoor', value: MapType.Indoor }
+      ],
+      defaultValue: MapType.Indoor
+    }
   ]
 
   const urlModeFields: FieldConfig[] = [
@@ -91,6 +105,23 @@ const Setting = (props: AllWidgetSettingProps<any>) => {
               checked={value}
               onChange={(e) => onSourceConfigChange(field.key, e.target.checked)}
             />
+          </SettingRow>
+        )
+      case FieldType.Enum:
+        return (
+          <SettingRow key={field.key} flow="wrap">
+            <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
+            <Select
+              style={{ width: '100%' }}
+              value={value || field.defaultValue}
+              onChange={(e) => onSourceConfigChange(field.key, e.target.value)}
+            >
+              {field.enumOptions?.map((option) => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
+            </Select>
           </SettingRow>
         )
     }
@@ -157,9 +188,25 @@ const Setting = (props: AllWidgetSettingProps<any>) => {
         ) : (
           <>
             {urlModeFields.map(renderField)}
-            <SettingSection title="Source Configuration">
+            <SettingRow>
+              <Button 
+                size="sm" 
+                type="tertiary"
+                onClick={() => setSourceConfigOpen(!sourceConfigOpen)}
+                aria-expanded={sourceConfigOpen}
+                aria-controls="source-config-panel"
+                aria-label={`${sourceConfigOpen ? 'Collapse' : 'Expand'} Source Configuration section`}
+              >
+                <span aria-hidden="true">{sourceConfigOpen ? '▼' : '▶'}</span> Source Configuration
+              </Button>
+            </SettingRow>
+            <Collapse
+              isOpen={sourceConfigOpen}
+              role="region"
+              aria-labelledby="source-config-button"
+            >
               {sourceConfigFields.map(renderSourceField)}
-            </SettingSection>
+            </Collapse>
           </>
         )}
       </SettingSection>

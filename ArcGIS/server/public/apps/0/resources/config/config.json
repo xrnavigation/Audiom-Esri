@@ -1205,7 +1205,14 @@
         "centerLatitude": 34.05679755835778,
         "centerLongitude": -117.1945001420124,
         "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
-        "zoom": 19
+        "zoom": 19,
+        "sourceConfig": {
+          "source": "units",
+          "name": "Units",
+          "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
+          "rulesFileUrl": "/rules/esri-indoor.json"
+        },
+        "useExistingMap": false
       },
       "id": "widget_112",
       "useMapWidgetIds": [
@@ -1360,7 +1367,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1767660819454,
+  "timestamp": 1767824445278,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {},

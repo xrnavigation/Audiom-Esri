@@ -1,10 +1,10 @@
 import { AudiomSource, MapType } from '../../../../shared/audiom-client/AudiomSource'
-import { AudiomEmbedConfig } from '../../../../shared/audiom-client/AudiomEmbedConfig'
 
 export enum FieldType {
   Text = 'text',
   Number = 'number',
-  Switch = 'switch'
+  Switch = 'switch',
+  Enum = 'enum'
 }
 
 export interface FieldConfig {
@@ -16,6 +16,7 @@ export interface FieldConfig {
   max?: number
   defaultValue?: string | number | boolean
   showWhen?: (config: IAudiomConfig) => boolean
+  enumOptions?: Array<{ label: string; value: string }>
 }
 
 export interface ISourceConfig {
@@ -26,7 +27,8 @@ export interface ISourceConfig {
   mapType?: MapType
 }
 
-export interface IAudiomConfig {
+// TODO: Find a way to not use any here
+export interface IAudiomConfig extends Record<string, any> {
   apiKey?: string
   baseUrl?: string
   heading?:  1 | 2 | 3 | 4 | 5 | 6;
