@@ -80,7 +80,7 @@ export interface IAudiomEmbedConfig {
   /**
    * Step size for navigation
    */
-  stepsize?: StepSize | string;
+  stepSize?: StepSize | string;
 
   /**
    * Additional custom parameters
@@ -105,8 +105,13 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   showVisualMap?: boolean;
   heading?: 1 | 2 | 3 | 4 | 5 | 6;
   showHeading?: boolean;
-  stepsize?: StepSize;
+  stepSize?: StepSize;
   additionalParams?: Record<string, string | number | boolean>;
+
+  /**
+   * Default base URL for Audiom API
+   */
+  static defaultBaseURL = 'https://audiom-staging.herokuapp.com';
 
   constructor(config: IAudiomEmbedConfig) {
     // Required
@@ -137,10 +142,10 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     this.showHeading = config.showHeading;
 
     // Step size
-    if (config.stepsize) {
-      this.stepsize = typeof config.stepsize === 'string'
-        ? StepSize.parse(config.stepsize)
-        : config.stepsize;
+    if (config.stepSize) {
+      this.stepSize = typeof config.stepSize === 'string'
+        ? StepSize.parse(config.stepSize)
+        : config.stepSize;
     }
 
     this.additionalParams = config.additionalParams;
@@ -225,8 +230,8 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     if (this.showHeading !== undefined) {
       params.showHeading = String(this.showHeading);
     }
-    if (this.stepsize) {
-      params.stepsize = this.stepsize.toString();
+    if (this.stepSize) {
+      params.stepsize = this.stepSize.toString();
     }
 
     // Additional custom parameters
@@ -242,7 +247,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   /**
    * Generate the complete embed URL
    */
-  toUrl(baseUrl: string = 'https://audiom-staging.herokuapp.com'): string {
+  toUrl(baseUrl: string = AudiomEmbedConfig.defaultBaseURL): string {
     const params = this.toQueryParams();
     const queryString = Object.entries(params)
       .map(([key, value]) => `${key}=${value}`)

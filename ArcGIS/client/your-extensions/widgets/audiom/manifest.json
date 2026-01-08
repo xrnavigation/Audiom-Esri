@@ -1,0 +1,20 @@
+{
+  "name": "audiom",
+  "label": "Audiom",
+  "type": "widget",
+  "version": "1.0.0",
+  "exbVersion": "1.0.0",
+  "dependency": ["jimu-arcgis"],
+  "author": "XR Navigation",
+  "description": "Integrate Audion's fully-accessible audio maps into your ArcGIS Experience Builder applications.",
+  "copyright": "",
+  "license": "© 2026 XR Navigation. All rights reserved.",
+  "properties": {},
+  "translatedLocales": [
+    "en"
+  ],
+  "defaultSize": {
+    "width": 800,
+    "height": 500
+  }
+}

@@ -274,32 +274,30 @@
         },
         "2": {
           "type": "WIDGET",
-          "widgetId": "widget_111",
+          "widgetId": "widget_112",
           "bbox": {
-            "left": "50.00%",
-            "right": "0.00%",
+            "left": "50.0%",
+            "right": "0.0%",
             "top": "80.00px",
-            "bottom": "0.00%",
-            "width": "56.0%",
-            "height": "51.7%"
+            "bottom": "0.0%",
+            "width": "50.0%",
+            "height": "91.8%"
           },
           "setting": {
             "autoProps": {
-              "right": true,
-              "left": false,
-              "top": false,
-              "bottom": true,
-              "width": "STRETCH",
+              "right": false,
+              "left": true,
+              "top": true,
+              "bottom": false,
               "height": "STRETCH"
-            },
-            "hCenter": false
+            }
           }
         }
       },
       "order": [
         "0",
-        "1",
-        "2"
+        "2",
+        "1"
       ]
     },
     "layout_109": {
@@ -974,7 +972,7 @@
       "version": "1.19.0",
       "label": "Title Text",
       "config": {
-         "text": "<h2><span style=\"font-family: &quot;Avenir Next&quot;; font-size: 20px;\">Esri Building</span></h2>",
+        "text": "<h2><span style=\"font-family: &quot;Avenir Next&quot;; font-size: 20px;\">Esri Building</span></h2>",
         "style": {
           "verticalAlign": "start",
           "wrap": true,
@@ -1194,14 +1192,29 @@
         }
       }
     },
-    "widget_111": {
-      "uri": "widgets/audiom-basic/",
-      "version": "1.19.0",
-      "label": "Audiom Basic",
+    "widget_112": {
+      "uri": "widgets/audiom/",
+      "version": "1.0.0",
+      "label": "Audiom",
       "config": {
-        "exampleConfigProperty": "test"
+        "exampleConfigProperty": "test",
+        "apiKey": "wO35blaGsjJREGuXehqWU",
+        "baseUrl": "https://audiom-staging.herokuapp.com",
+        "title": "ESRI Building",
+        "rulesFileUrl": "/rules/esri-indoor.json",
+        "centerLatitude": 34.05679755835778,
+        "centerLongitude": -117.1945001420124,
+        "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
+        "zoom": 19,
+        "sourceConfig": {
+          "source": "units",
+          "name": "Units",
+          "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
+          "rulesFileUrl": "/rules/esri-indoor.json"
+        },
+        "useExistingMap": false
       },
-      "id": "widget_111",
+      "id": "widget_112",
       "useMapWidgetIds": [
         "widget_92"
       ]
@@ -1354,7 +1367,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1764801554742,
+  "timestamp": 1767824445278,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {},
