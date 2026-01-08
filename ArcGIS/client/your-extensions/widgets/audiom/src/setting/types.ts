@@ -1,4 +1,6 @@
-import { AudiomSource, MapType } from '../../../../shared/audiom-client/AudiomSource'
+import { MapType } from '../../../../shared/audiom-client/AudiomSource'
+
+export const defaultBaseUrl = 'https://audiom-staging.herokuapp.com'
 
 export enum FieldType {
   Text = 'text',
