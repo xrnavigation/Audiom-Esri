@@ -14,7 +14,8 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const onMapWidgetSelected = (useMapWidgetIds: string[]) => {
     props.onSettingChange({
       id: props.id,
-      useMapWidgetIds: useMapWidgetIds
+      useMapWidgetIds: useMapWidgetIds,
+      config: config.set('existingMapId', useMapWidgetIds[0] || '')
     })
   }
 

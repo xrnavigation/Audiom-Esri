@@ -993,31 +993,11 @@
           "canNavigation": true,
           "canLayers": true
         },
-        "isUseCustomMapState": true,
-        "initialMapState": {
-          "viewPoint": {
-            "rotation": 0,
-            "scale": 564.248588,
-            "targetGeometry": {
-              "spatialReference": {
-                "wkid": 102100
-              },
-              "x": -13046058.462965734,
-              "y": 4036423.5524204476
-            }
-          },
-          "extent": {
-            "spatialReference": {
-              "wkid": 102100
-            },
-            "xmin": -13046111.759878019,
-            "ymin": 4036357.341830537,
-            "xmax": -13046005.16605345,
-            "ymax": 4036489.763010358
-          },
-          "rotation": 0,
-          "viewType": "2d"
-        }
+        "isUseCustomMapState": false,
+        "initialMapState": null,
+        "initialMapDataSourceID": "dataSource_3",
+        "scaleRange": null,
+        "customLODs": null
       },
       "id": "widget_92",
       "style": {
@@ -1104,7 +1084,13 @@
             }
           }
         }
-      }
+      },
+      "useDataSources": [
+        {
+          "dataSourceId": "dataSource_3",
+          "mainDataSourceId": "dataSource_3"
+        }
+      ]
     },
     "widget_106": {
       "uri": "widgets/layout/fixed/",
@@ -1212,7 +1198,8 @@
           "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
           "rulesFileUrl": "/rules/esri-indoor.json"
         },
-        "useExistingMap": false
+        "useExistingMap": true,
+        "existingMapId": "widget_92"
       },
       "id": "widget_112",
       "useMapWidgetIds": [
@@ -1367,10 +1354,18 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1767824445278,
+  "timestamp": 1768002421402,
   "sharedThemeVariables": null,
   "mainLocale": "en",
-  "dataSources": {},
+  "dataSources": {
+    "dataSource_3": {
+      "id": "dataSource_3",
+      "type": "WEB_MAP",
+      "sourceLabel": "Colwood GIS",
+      "itemId": "71b164bb8ebb4217908f48ae7a75fcdb",
+      "portalUrl": "https://xrnavigation.maps.arcgis.com"
+    }
+  },
   "permission": {
     "restrictions": []
   }

@@ -44,4 +44,5 @@ export interface IAudiomConfig extends Record<string, any> {
   centerLongitude?: number
   zoom?: number
   useExistingMap?: boolean
+  existingMapId?: string
 }

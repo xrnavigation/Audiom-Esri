@@ -2,6 +2,7 @@ import { DataSourceManager, type AllWidgetProps } from 'jimu-core'
 import { AudiomSource, MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { defaultBaseUrl, IAudiomConfig } from '../setting/types'
 import { audiomConfigToEmbedConfig } from '../utils/maputils'
+import { MapViewManager } from 'jimu-arcgis';
 
 
 const dsManager = DataSourceManager.getInstance();
@@ -10,23 +11,7 @@ const allDataSources = dsManager.getDataSources();
 
 
 const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
-
   const indoorConfig = audiomConfigToEmbedConfig(props.config);
-  const sourceConfig = props.config?.sourceConfig;
-
-  let sources: AudiomSource[] = [];
-  if (sourceConfig?.sourceUrl) {
-    const source = AudiomSource.fromEsri({
-        name: sourceConfig.name,
-        source: sourceConfig.source,
-        url: sourceConfig.sourceUrl,
-        mapType: sourceConfig.mapType || MapType.Indoor,
-        rules: sourceConfig.rulesFileUrl || ''
-      });
-    sources.push(source);
-  }
-
-  indoorConfig.sources = sources;
 
   const indoorUrl = indoorConfig.toUrl(props.config?.baseUrl || defaultBaseUrl);
 
