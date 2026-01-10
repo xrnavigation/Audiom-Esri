@@ -36,10 +36,11 @@ const MAP_TYPE_LABEL_INDOOR = 'Indoor'
 interface SourceConfigListProps {
   sourceConfigs: ISourceConfig[]
   onChange: (sourceConfigs: ISourceConfig[]) => void
+  readOnly?: boolean
 }
 
 const SourceConfigList = (props: SourceConfigListProps) => {
-  const { sourceConfigs, onChange } = props
+  const { sourceConfigs, onChange, readOnly = false } = props
   const [sourceConfigsOpen, setSourceConfigsOpen] = useState(true)
   const [expandedSources, setExpandedSources] = useState<{ [key: number]: boolean }>({})
 
@@ -100,6 +101,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
               value={value || ''}
               onChange={(e) => onSourceConfigChange(index, field.key, e.target.value)}
               placeholder={field.placeholder}
+              disabled={readOnly}
             />
           </SettingRow>
         )
@@ -113,6 +115,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
               onChange={(val) => onSourceConfigChange(index, field.key, val)}
               min={field.min}
               max={field.max}
+              disabled={readOnly}
             />
           </SettingRow>
         )
@@ -123,6 +126,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
             <Switch
               checked={value}
               onChange={(e) => onSourceConfigChange(index, field.key, e.target.checked)}
+              disabled={readOnly}
             />
           </SettingRow>
         )
@@ -134,6 +138,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
               style={{ width: '100%' }}
               value={value || field.defaultValue}
               onChange={(e) => onSourceConfigChange(index, field.key, e.target.value)}
+              disabled={readOnly}
             >
               {field.enumOptions?.map((option) => (
                 <Option key={option.value} value={option.value}>
@@ -181,14 +186,16 @@ const SourceConfigList = (props: SourceConfigListProps) => {
                   <span aria-hidden="true">{isExpanded ? ARROW_DOWN : ARROW_RIGHT}</span>
                 </Button>
                 <Label style={{ flex: 1, fontWeight: 'bold', marginLeft: '8px' }}>{sourceName}</Label>
-                <Button
-                  size={ButtonSize.Small}
-                  type={ButtonType.Danger}
-                  onClick={() => onRemoveSourceConfig(index)}
-                  aria-label={`${BUTTON_REMOVE} ${sourceName}`}
-                >
-                  {BUTTON_REMOVE}
-                </Button>
+                {!readOnly && (
+                  <Button
+                    size={ButtonSize.Small}
+                    type={ButtonType.Danger}
+                    onClick={() => onRemoveSourceConfig(index)}
+                    aria-label={`${BUTTON_REMOVE} ${sourceName}`}
+                  >
+                    {BUTTON_REMOVE}
+                  </Button>
+                )}
               </SettingRow>
               <Collapse isOpen={isExpanded}>
                 {sourceConfigFields.map((field) => renderSourceField(field, index))}
@@ -196,15 +203,17 @@ const SourceConfigList = (props: SourceConfigListProps) => {
             </div>
           )
         })}
-        <SettingRow>
-          <Button
-            size={ButtonSize.Small}
-            type={ButtonType.Primary}
-            onClick={onAddSourceConfig}
-          >
-            {BUTTON_ADD}
-          </Button>
-        </SettingRow>
+        {!readOnly && (
+          <SettingRow>
+            <Button
+              size={ButtonSize.Small}
+              type={ButtonType.Primary}
+              onClick={onAddSourceConfig}
+            >
+              {BUTTON_ADD}
+            </Button>
+          </SettingRow>
+        )}
       </Collapse>
     </>
   )

@@ -49,7 +49,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     { key: 'zoom', label: 'Zoom Level', type: FieldType.Number, min: 0, max: 20, defaultValue: 10 }
   ]
 
-  const renderField = (field: FieldConfig) => {
+  const renderField = (field: FieldConfig, readOnly: boolean = false) => {
     const value = config?.[field.key] ?? field.defaultValue
 
     switch (field.type) {
@@ -62,6 +62,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
               value={value || ''}
               onChange={(e) => onPropertyChange(field.key, e.target.value)}
               placeholder={field.placeholder}
+              disabled={readOnly}
             />
           </SettingRow>
         )
@@ -75,6 +76,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
               onChange={(val) => onPropertyChange(field.key, val)}
               min={field.min}
               max={field.max}
+              disabled={readOnly}
             />
           </SettingRow>
         )
@@ -85,6 +87,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
             <Switch
               checked={value}
               onChange={(e) => onPropertyChange(field.key, e.target.checked)}
+              disabled={readOnly}
             />
           </SettingRow>
         )
@@ -107,19 +110,19 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
             <Label style={{ width: '100%', marginBottom: '4px' }}>Select Map Widget</Label>
             <MapWidgetSelector useMapWidgetIds={props.useMapWidgetIds} onSelect={onMapWidgetSelected} />
           </SettingRow>
-        ) : (
-          <>
-            {urlModeFields.map(renderField)}
-            <SourceConfigList
-              sourceConfigs={config?.sourceConfigs || []}
-              onChange={onSourceConfigsChange}
-            />
-          </>
-        )}
+        ) : null}
+        
+        {urlModeFields.map((field) => renderField(field, config?.useExistingMap ?? true))}
+        
+        <SourceConfigList
+          sourceConfigs={config?.sourceConfigs || []}
+          onChange={onSourceConfigsChange}
+          readOnly={config?.useExistingMap ?? true}
+        />
       </SettingSection>
 
       <SettingSection title="Configuration">
-        {alwaysPresentFields.map(renderField)}
+        {alwaysPresentFields.map((field) => renderField(field, false))}
       </SettingSection>
     </div>
   )
