@@ -274,32 +274,30 @@
         },
         "2": {
           "type": "WIDGET",
-          "widgetId": "widget_111",
+          "widgetId": "widget_112",
           "bbox": {
-            "left": "50.00%",
-            "right": "0.00%",
+            "left": "50.0%",
+            "right": "0.0%",
             "top": "80.00px",
-            "bottom": "0.00%",
-            "width": "56.0%",
-            "height": "51.7%"
+            "bottom": "0.0%",
+            "width": "50.0%",
+            "height": "91.8%"
           },
           "setting": {
             "autoProps": {
-              "right": true,
-              "left": false,
-              "top": false,
-              "bottom": true,
-              "width": "STRETCH",
+              "right": false,
+              "left": true,
+              "top": true,
+              "bottom": false,
               "height": "STRETCH"
-            },
-            "hCenter": false
+            }
           }
         }
       },
       "order": [
         "0",
-        "1",
-        "2"
+        "2",
+        "1"
       ]
     },
     "layout_109": {
@@ -974,7 +972,7 @@
       "version": "1.19.0",
       "label": "Title Text",
       "config": {
-         "text": "<h2><span style=\"font-family: &quot;Avenir Next&quot;; font-size: 20px;\">Esri Building</span></h2>",
+        "text": "<h2><span style=\"font-family: &quot;Avenir Next&quot;; font-size: 20px;\">Esri Building</span></h2>",
         "style": {
           "verticalAlign": "start",
           "wrap": true,
@@ -995,31 +993,11 @@
           "canNavigation": true,
           "canLayers": true
         },
-        "isUseCustomMapState": true,
-        "initialMapState": {
-          "viewPoint": {
-            "rotation": 0,
-            "scale": 564.248588,
-            "targetGeometry": {
-              "spatialReference": {
-                "wkid": 102100
-              },
-              "x": -13046058.462965734,
-              "y": 4036423.5524204476
-            }
-          },
-          "extent": {
-            "spatialReference": {
-              "wkid": 102100
-            },
-            "xmin": -13046111.759878019,
-            "ymin": 4036357.341830537,
-            "xmax": -13046005.16605345,
-            "ymax": 4036489.763010358
-          },
-          "rotation": 0,
-          "viewType": "2d"
-        }
+        "isUseCustomMapState": false,
+        "initialMapState": null,
+        "initialMapDataSourceID": "dataSource_3",
+        "scaleRange": null,
+        "customLODs": null
       },
       "id": "widget_92",
       "style": {
@@ -1106,7 +1084,13 @@
             }
           }
         }
-      }
+      },
+      "useDataSources": [
+        {
+          "dataSourceId": "dataSource_3",
+          "mainDataSourceId": "dataSource_3"
+        }
+      ]
     },
     "widget_106": {
       "uri": "widgets/layout/fixed/",
@@ -1194,14 +1178,115 @@
         }
       }
     },
-    "widget_111": {
-      "uri": "widgets/audiom-basic/",
-      "version": "1.19.0",
-      "label": "Audiom Basic",
+    "widget_112": {
+      "uri": "widgets/audiom/",
+      "version": "1.0.0",
+      "label": "Audiom",
       "config": {
-        "exampleConfigProperty": "test"
+        "exampleConfigProperty": "test",
+        "apiKey": "wO35blaGsjJREGuXehqWU",
+        "baseUrl": "https://audiom-staging.herokuapp.com",
+        "title": "ESRI Building",
+        "rulesFileUrl": "/rules/esri-indoor.json",
+        "centerLatitude": 48.42406221488305,
+        "centerLongitude": -123.4920992387118,
+        "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
+        "zoom": 13,
+        "sourceConfig": {
+          "source": "units",
+          "name": "Units",
+          "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
+          "rulesFileUrl": "/rules/esri-indoor.json"
+        },
+        "useExistingMap": true,
+        "existingMapId": "widget_92",
+        "sourceConfigs": [
+          {
+            "name": "Parks",
+            "source": "19340af634f-layer-23",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapParks/FeatureServer/1",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Properties",
+            "source": "1865c2ea8ad-layer-32",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapParcel/FeatureServer/0",
+            "mapType": "indoor"
+          },
+          {
+            "name": "Ditch",
+            "source": "Ditch_4691",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Ditch/FeatureServer/0",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Drain Manhole",
+            "source": "18b5d7653af-layer-25",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Drain_Manhole/FeatureServer/6",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Drain Main",
+            "source": "182ac73cfc7-layer-21",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Drain_Main/FeatureServer/5",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Sewer Lift Stations",
+            "source": "SAN_LSTN_5970",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_LSTN/FeatureServer/0",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Sewer Manhole",
+            "source": "18638ba29f9-layer-32",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_Manhole/FeatureServer/4",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Sewer Cleanout",
+            "source": "18b5e6fb0ab-layer-26",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_Cleanout/FeatureServer/3",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Sewer Force Main",
+            "source": "18b5e7b1cb5-layer-27",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_FM/FeatureServer/7",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Sewer Mains",
+            "source": "180629d15dc-layer-20",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_SewerMain/FeatureServer/5",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Zoning",
+            "source": "18a483c71ad-layer-32",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapZoning/FeatureServer/1",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Municipal Boundary",
+            "source": "19a8374bc92-layer-25",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapBoundaryMunicipal/FeatureServer/1",
+            "mapType": "indoor",
+            "enabled": false
+          }
+        ]
       },
-      "id": "widget_111",
+      "id": "widget_112",
       "useMapWidgetIds": [
         "widget_92"
       ]
@@ -1350,14 +1435,22 @@
       }
     }
   },
-  "publishTimestamp": 1764801605098,
+  "publishTimestamp": 1768011622937,
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1764801554742,
+  "timestamp": 1768011622867,
   "sharedThemeVariables": null,
   "mainLocale": "en",
-  "dataSources": {},
+  "dataSources": {
+    "dataSource_3": {
+      "id": "dataSource_3",
+      "type": "WEB_MAP",
+      "sourceLabel": "Colwood GIS",
+      "itemId": "71b164bb8ebb4217908f48ae7a75fcdb",
+      "portalUrl": "https://xrnavigation.maps.arcgis.com"
+    }
+  },
   "permission": {
     "restrictions": []
   }
