@@ -4,6 +4,7 @@ import { TextInput, NumericInput, Switch, Label, Select, Option, Collapse, Butto
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { FieldConfig, ISourceConfig } from './configs'
 import { ButtonSize, ButtonType, FieldType, FlowType } from './enums'
+import { SourceConfigKey } from './configKeys'
 
 const { useState } = React
 
@@ -71,12 +72,12 @@ const SourceConfigList = (props: SourceConfigListProps) => {
   }
 
   const sourceConfigFields: FieldConfig[] = [
-    { key: 'name', label: FIELD_LABEL_NAME, type: FieldType.Text, placeholder: PLACEHOLDER_NAME },
-    { key: 'sourceUrl', label: FIELD_LABEL_SOURCE_URL, type: FieldType.Text, placeholder: PLACEHOLDER_SOURCE_URL },
-    { key: 'rulesFileUrl', label: FIELD_LABEL_RULES_URL, type: FieldType.Text, placeholder: PLACEHOLDER_RULES_URL },
-    { key: 'source', label: FIELD_LABEL_SOURCE, type: FieldType.Text, placeholder: PLACEHOLDER_SOURCE },
+    { key: SourceConfigKey.Name, label: FIELD_LABEL_NAME, type: FieldType.Text, placeholder: PLACEHOLDER_NAME },
+    { key: SourceConfigKey.SourceUrl, label: FIELD_LABEL_SOURCE_URL, type: FieldType.Text, placeholder: PLACEHOLDER_SOURCE_URL },
+    { key: SourceConfigKey.RulesFileUrl, label: FIELD_LABEL_RULES_URL, type: FieldType.Text, placeholder: PLACEHOLDER_RULES_URL },
+    { key: SourceConfigKey.Source, label: FIELD_LABEL_SOURCE, type: FieldType.Text, placeholder: PLACEHOLDER_SOURCE },
     {
-      key: 'mapType',
+      key: SourceConfigKey.MapType,
       label: FIELD_LABEL_MAP_TYPE,
       type: FieldType.Enum,
       enumOptions: [

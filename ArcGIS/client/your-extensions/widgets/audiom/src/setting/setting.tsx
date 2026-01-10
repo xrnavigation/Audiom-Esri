@@ -8,6 +8,7 @@ import { MapViewManager } from 'jimu-arcgis'
 import { extractMapConfigFromEsriMap } from '../utils/maputils'
 import { FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
 import { FieldType, FlowType } from './enums'
+import { AudiomConfigKey } from './configKeys'
 
 const { useState, useEffect } = React
 
@@ -29,13 +30,13 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         
         if (needsUpdate) {
           let newConfig = config
-            .set('centerLatitude', extractedConfig.centerLatitude)
-            .set('centerLongitude', extractedConfig.centerLongitude)
-            .set('zoom', extractedConfig.zoom)
+            .set(AudiomConfigKey.CenterLatitude, extractedConfig.centerLatitude)
+            .set(AudiomConfigKey.CenterLongitude, extractedConfig.centerLongitude)
+            .set(AudiomConfigKey.Zoom, extractedConfig.zoom)
           
           // Update source configs if available
           if (extractedConfig.sourceConfigs) {
-            newConfig = newConfig.set('sourceConfigs', extractedConfig.sourceConfigs)
+            newConfig = newConfig.set(AudiomConfigKey.SourceConfigs, extractedConfig.sourceConfigs)
           }
           
           props.onSettingChange({
@@ -52,7 +53,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     props.onSettingChange({
       id: props.id,
       useMapWidgetIds: useMapWidgetIds,
-      config: config.set('existingMapId', useMapWidgetIds[0] || '')
+      config: config.set(AudiomConfigKey.ExistingMapId, useMapWidgetIds[0] || '')
     })
   }
 
@@ -66,25 +67,25 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const onSourceConfigsChange = (sourceConfigs: ISourceConfig[]) => {
     props.onSettingChange({
       id: props.id,
-      config: config.set('sourceConfigs', sourceConfigs)
+      config: config.set(AudiomConfigKey.SourceConfigs, sourceConfigs)
     })
   }
 
   const alwaysPresentFields: FieldConfig[] = [
-    { key: 'title', label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title' },
-    { key: 'apiKey', label: 'API Key', type: FieldType.Text, placeholder: 'Enter API key' },
-    { key: 'baseUrl', label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL' },
-    { key: 'stepSize', label: 'Step Size', type: FieldType.Number, min: 0.1, defaultValue: 1 },
-    { key: 'showVisualMap', label: 'Show Visual Map', type: FieldType.Switch, defaultValue: true },
-    { key: 'showHeading', label: 'Show Heading', type: FieldType.Switch, defaultValue: false },
-    { key: 'heading', label: 'Heading', type: FieldType.Number, min: 0, max: 360, defaultValue: 0 },
-    { key: 'soundpackUrl', label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL' }
+    { key: AudiomConfigKey.Title, label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title' },
+    { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Text, placeholder: 'Enter API key' },
+    { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL' },
+    { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Number, min: 0.1, defaultValue: 1 },
+    { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: true },
+    { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: false },
+    { key: AudiomConfigKey.Heading, label: 'Heading', type: FieldType.Number, min: 0, max: 360, defaultValue: 0 },
+    { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL' }
   ]
 
   const urlModeFields: FieldConfig[] = [
-    { key: 'centerLatitude', label: 'Center Latitude', type: FieldType.Number, defaultValue: 0 },
-    { key: 'centerLongitude', label: 'Center Longitude', type: FieldType.Number, defaultValue: 0 },
-    { key: 'zoom', label: 'Zoom Level', type: FieldType.Number, min: 0, max: 20, defaultValue: 10 }
+    { key: AudiomConfigKey.CenterLatitude, label: 'Center Latitude', type: FieldType.Number, defaultValue: 0 },
+    { key: AudiomConfigKey.CenterLongitude, label: 'Center Longitude', type: FieldType.Number, defaultValue: 0 },
+    { key: AudiomConfigKey.Zoom, label: 'Zoom Level', type: FieldType.Number, min: 0, max: 20, defaultValue: 10 }
   ]
 
   const renderField = (field: FieldConfig, readOnly: boolean = false) => {
