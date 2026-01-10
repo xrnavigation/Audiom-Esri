@@ -51,19 +51,21 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
 }
 
 export function getSourcesFromConfig(config: IAudiomConfig): AudiomSource[] {
-  const sourceConfig = config?.sourceConfig;
+  const sourceConfigs = config?.sourceConfigs || [];
 
-  let sources: AudiomSource[] = [];
-  if (sourceConfig?.sourceUrl) {
-    const source = AudiomSource.fromEsri({
+  const sources: AudiomSource[] = [];
+  sourceConfigs.forEach((sourceConfig) => {
+    if (sourceConfig?.sourceUrl) {
+      const source = AudiomSource.fromEsri({
         name: sourceConfig.name,
         source: sourceConfig.source,
         url: sourceConfig.sourceUrl,
         mapType: sourceConfig.mapType || MapType.Indoor,
         rules: sourceConfig.rulesFileUrl || ''
       });
-    sources.push(source);
-  }
+      sources.push(source);
+    }
+  });
   return sources;
 }
 

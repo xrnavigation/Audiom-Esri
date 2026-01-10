@@ -39,7 +39,7 @@ export interface IAudiomConfig extends Record<string, any> {
   showVisualMap?: boolean
   showHeading?: boolean
   soundpackUrl?: string
-  sourceConfig?: ISourceConfig
+  sourceConfigs?: ISourceConfig[]
   centerLatitude?: number
   centerLongitude?: number
   zoom?: number

@@ -9,7 +9,15 @@ const { useState } = React
 
 const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
-  const [sourceConfigOpen, setSourceConfigOpen] = useState(true)
+  const [sourceConfigsOpen, setSourceConfigsOpen] = useState(true)
+  const [expandedSources, setExpandedSources] = useState<{ [key: number]: boolean }>({})
+
+  const toggleSourceExpanded = (index: number) => {
+    setExpandedSources(prev => ({
+      ...prev,
+      [index]: prev[index] !== undefined ? !prev[index] : false
+    }))
+  }
 
   const onMapWidgetSelected = (useMapWidgetIds: string[]) => {
     props.onSettingChange({
@@ -26,11 +34,30 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     })
   }
 
-  const onSourceConfigChange = (property: string, value: any) => {
-    const sourceConfig = config?.sourceConfig || {}
+  const onSourceConfigChange = (index: number, property: string, value: any) => {
+    const sourceConfigs = [...(config?.sourceConfigs || [])]
+    sourceConfigs[index] = { ...sourceConfigs[index], [property]: value }
     props.onSettingChange({
       id: props.id,
-      config: config.set('sourceConfig', { ...sourceConfig, [property]: value })
+      config: config.set('sourceConfigs', sourceConfigs)
+    })
+  }
+
+  const onAddSourceConfig = () => {
+    const sourceConfigs = [...(config?.sourceConfigs || [])]
+    sourceConfigs.push({})
+    props.onSettingChange({
+      id: props.id,
+      config: config.set('sourceConfigs', sourceConfigs)
+    })
+  }
+
+  const onRemoveSourceConfig = (index: number) => {
+    const sourceConfigs = [...(config?.sourceConfigs || [])]
+    sourceConfigs.splice(index, 1)
+    props.onSettingChange({
+      id: props.id,
+      config: config.set('sourceConfigs', sourceConfigs)
     })
   }
 
@@ -69,8 +96,9 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     { key: 'zoom', label: 'Zoom Level', type: FieldType.Number, min: 0, max: 20, defaultValue: 10 }
   ]
 
-  const renderSourceField = (field: FieldConfig) => {
-    const value = config?.sourceConfig?.[field.key] ?? field.defaultValue
+  const renderSourceField = (field: FieldConfig, index: number) => {
+    const sourceConfig = config?.sourceConfigs?.[index] || {}
+    const value = sourceConfig[field.key] ?? field.defaultValue
 
     switch (field.type) {
       case FieldType.Text:
@@ -80,7 +108,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
             <TextInput
               style={{ width: '100%' }}
               value={value || ''}
-              onChange={(e) => onSourceConfigChange(field.key, e.target.value)}
+              onChange={(e) => onSourceConfigChange(index, field.key, e.target.value)}
               placeholder={field.placeholder}
             />
           </SettingRow>
@@ -92,7 +120,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
             <NumericInput
               style={{ width: '100%' }}
               value={value}
-              onChange={(val) => onSourceConfigChange(field.key, val)}
+              onChange={(val) => onSourceConfigChange(index, field.key, val)}
               min={field.min}
               max={field.max}
             />
@@ -104,7 +132,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
             <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
             <Switch
               checked={value}
-              onChange={(e) => onSourceConfigChange(field.key, e.target.checked)}
+              onChange={(e) => onSourceConfigChange(index, field.key, e.target.checked)}
             />
           </SettingRow>
         )
@@ -115,7 +143,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
             <Select
               style={{ width: '100%' }}
               value={value || field.defaultValue}
-              onChange={(e) => onSourceConfigChange(field.key, e.target.value)}
+              onChange={(e) => onSourceConfigChange(index, field.key, e.target.value)}
             >
               {field.enumOptions?.map((option) => (
                 <Option key={option.value} value={option.value}>
@@ -190,23 +218,62 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
           <>
             {urlModeFields.map(renderField)}
             <SettingRow>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 type="tertiary"
-                onClick={() => setSourceConfigOpen(!sourceConfigOpen)}
-                aria-expanded={sourceConfigOpen}
-                aria-controls="source-config-panel"
-                aria-label={`${sourceConfigOpen ? 'Collapse' : 'Expand'} Source Configuration section`}
+                onClick={() => setSourceConfigsOpen(!sourceConfigsOpen)}
+                aria-expanded={sourceConfigsOpen}
+                aria-controls="source-configs-panel"
+                aria-label={`${sourceConfigsOpen ? 'Collapse' : 'Expand'} Source Configurations section`}
               >
-                <span aria-hidden="true">{sourceConfigOpen ? '▼' : '▶'}</span> Source Configuration
+                <span aria-hidden="true">{sourceConfigsOpen ? '▼' : '▶'}</span> Source Configurations
               </Button>
             </SettingRow>
             <Collapse
-              isOpen={sourceConfigOpen}
+              isOpen={sourceConfigsOpen}
               role="region"
-              aria-labelledby="source-config-button"
             >
-              {sourceConfigFields.map(renderSourceField)}
+              {(config?.sourceConfigs || []).map((sourceConfig, index) => {
+                const isExpanded = expandedSources[index] !== undefined ? expandedSources[index] : true
+                const sourceName = sourceConfig?.name && sourceConfig.name.trim() ? sourceConfig.name : `Source ${index + 1}`
+                return (
+                  <div key={index} style={{ marginBottom: '16px', padding: '12px', border: '1px solid #ccc', borderRadius: '4px' }}>
+                    <SettingRow flow="wrap">
+                      <Button
+                        size="sm"
+                        type="tertiary"
+                        onClick={() => toggleSourceExpanded(index)}
+                        aria-expanded={isExpanded}
+                        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} Source ${index + 1}`}
+                        style={{ padding: '4px 8px' }}
+                      >
+                        <span aria-hidden="true">{isExpanded ? '▼' : '▶'}</span>
+                      </Button>
+                      <Label style={{ flex: 1, fontWeight: 'bold', marginLeft: '8px' }}>{sourceName}</Label>
+                      <Button
+                        size="sm"
+                        type="danger"
+                        onClick={() => onRemoveSourceConfig(index)}
+                        aria-label={`Remove ${sourceName}`}
+                      >
+                        Remove
+                      </Button>
+                    </SettingRow>
+                    <Collapse isOpen={isExpanded}>
+                      {sourceConfigFields.map((field) => renderSourceField(field, index))}
+                    </Collapse>
+                  </div>
+                )
+              })}
+              <SettingRow>
+                <Button
+                  size="sm"
+                  type="primary"
+                  onClick={onAddSourceConfig}
+                >
+                  Add Source Configuration
+                </Button>
+              </SettingRow>
             </Collapse>
           </>
         )}

@@ -1198,7 +1198,7 @@
           "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
           "rulesFileUrl": "/rules/esri-indoor.json"
         },
-        "useExistingMap": true,
+        "useExistingMap": false,
         "existingMapId": "widget_92"
       },
       "id": "widget_112",
@@ -1354,7 +1354,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1768002421402,
+  "timestamp": 1768007353380,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {
