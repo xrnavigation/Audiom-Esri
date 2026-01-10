@@ -2,10 +2,12 @@ import { React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
 import { TextInput, NumericInput, Switch, Label } from 'jimu-ui'
-import { FieldType, FlowType, type IAudiomConfig, type FieldConfig, type ISourceConfig } from './types'
+
 import SourceConfigList from './SourceConfigList'
 import { MapViewManager } from 'jimu-arcgis'
 import { extractMapConfigFromEsriMap } from '../utils/maputils'
+import { FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
+import { FieldType, FlowType } from './enums'
 
 const { useState, useEffect } = React
 

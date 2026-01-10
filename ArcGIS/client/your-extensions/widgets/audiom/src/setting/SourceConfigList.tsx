@@ -1,8 +1,9 @@
 import { React } from 'jimu-core'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
 import { TextInput, NumericInput, Switch, Label, Select, Option, Collapse, Button } from 'jimu-ui'
-import { FieldType, ButtonSize, ButtonType, FlowType, type ISourceConfig, type FieldConfig } from './types'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
+import { FieldConfig, ISourceConfig } from './configs'
+import { ButtonSize, ButtonType, FieldType, FlowType } from './enums'
 
 const { useState } = React
 
