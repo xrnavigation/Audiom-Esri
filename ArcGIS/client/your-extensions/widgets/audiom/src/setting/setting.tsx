@@ -5,7 +5,7 @@ import { TextInput, NumericInput, Switch, Label } from 'jimu-ui'
 import { FieldType, FlowType, type IAudiomConfig, type FieldConfig, type ISourceConfig } from './types'
 import SourceConfigList from './SourceConfigList'
 import { MapViewManager } from 'jimu-arcgis'
-import { getJimuMapViewById, getSourcesFromEsriMap } from '../utils/maputils'
+import { extractMapConfigFromEsriMap } from '../utils/maputils'
 
 const { useState, useEffect } = React
 
@@ -16,36 +16,24 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   useEffect(() => {
     if (config?.useExistingMap && config?.existingMapId) {
       const mapViewManager = MapViewManager.getInstance()
-      const jimuMapView = getJimuMapViewById(config.existingMapId, mapViewManager)
+      const extractedConfig = extractMapConfigFromEsriMap(config.existingMapId, mapViewManager)
       
-      if (jimuMapView && jimuMapView.view) {
-        const view = jimuMapView.view
-        const center = view.center
-        const zoom = view.zoom
-        
+      if (extractedConfig) {
         // Update config if values are different
         const needsUpdate = 
-          config.centerLatitude !== center.latitude ||
-          config.centerLongitude !== center.longitude ||
-          config.zoom !== zoom
+          config.centerLatitude !== extractedConfig.centerLatitude ||
+          config.centerLongitude !== extractedConfig.centerLongitude ||
+          config.zoom !== extractedConfig.zoom
         
         if (needsUpdate) {
           let newConfig = config
-            .set('centerLatitude', center.latitude)
-            .set('centerLongitude', center.longitude)
-            .set('zoom', zoom)
+            .set('centerLatitude', extractedConfig.centerLatitude)
+            .set('centerLongitude', extractedConfig.centerLongitude)
+            .set('zoom', extractedConfig.zoom)
           
-          // Also extract sources from the map
-          const sources = getSourcesFromEsriMap(jimuMapView)
-          if (sources.length > 0) {
-            const sourceConfigs = sources.map(source => ({
-              name: source.name,
-              source: source.source,
-              sourceUrl: source.url,
-              mapType: source.mapType,
-              rulesFileUrl: source.rules
-            }))
-            newConfig = newConfig.set('sourceConfigs', sourceConfigs)
+          // Update source configs if available
+          if (extractedConfig.sourceConfigs) {
+            newConfig = newConfig.set('sourceConfigs', extractedConfig.sourceConfigs)
           }
           
           props.onSettingChange({

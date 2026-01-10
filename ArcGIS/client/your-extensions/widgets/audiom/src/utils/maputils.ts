@@ -105,6 +105,46 @@ export function getSourcesFromEsriMap(jimuMapView: JimuMapView | undefined): Aud
   return sources;
 }
 
+export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapViewManager): {
+  centerLatitude?: number;
+  centerLongitude?: number;
+  zoom?: number;
+  sourceConfigs?: Array<{
+    name?: string;
+    source?: string;
+    sourceUrl?: string;
+    mapType?: MapType;
+    rulesFileUrl?: string;
+  }>;
+} | null {
+  const jimuMapView = getJimuMapViewById(mapId, mapViewManager);
+  
+  if (!jimuMapView || !jimuMapView.view) {
+    return null;
+  }
+
+  const view = jimuMapView.view;
+  const center = view.center;
+  const zoom = view.zoom;
+
+  // Extract sources from the map
+  const sources = getSourcesFromEsriMap(jimuMapView);
+  const sourceConfigs = sources.map(source => ({
+    name: source.name,
+    source: source.source,
+    sourceUrl: source.url,
+    mapType: source.mapType,
+    rulesFileUrl: source.rules
+  }));
+
+  return {
+    centerLatitude: center.latitude,
+    centerLongitude: center.longitude,
+    zoom: zoom,
+    sourceConfigs: sourceConfigs.length > 0 ? sourceConfigs : undefined
+  };
+}
+
 function processLayer(layer: __esri.Layer): AudiomSource[] {
   console.log(`${LOG_PROCESSING_LAYER} ${layer.title} (type: ${layer.type})`);
 
