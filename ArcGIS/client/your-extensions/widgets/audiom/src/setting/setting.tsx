@@ -4,11 +4,59 @@ import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/
 import { TextInput, NumericInput, Switch, Label } from 'jimu-ui'
 import { FieldType, FlowType, type IAudiomConfig, type FieldConfig, type ISourceConfig } from './types'
 import SourceConfigList from './SourceConfigList'
+import { MapViewManager } from 'jimu-arcgis'
+import { getJimuMapViewById, getSourcesFromEsriMap } from '../utils/maputils'
 
-const { useState } = React
+const { useState, useEffect } = React
 
 const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
+
+  // Update map center and zoom from ESRI map when using existing map
+  useEffect(() => {
+    if (config?.useExistingMap && config?.existingMapId) {
+      const mapViewManager = MapViewManager.getInstance()
+      const jimuMapView = getJimuMapViewById(config.existingMapId, mapViewManager)
+      
+      if (jimuMapView && jimuMapView.view) {
+        const view = jimuMapView.view
+        const center = view.center
+        const zoom = view.zoom
+        
+        // Update config if values are different
+        const needsUpdate = 
+          config.centerLatitude !== center.latitude ||
+          config.centerLongitude !== center.longitude ||
+          config.zoom !== zoom
+        
+        if (needsUpdate) {
+          let newConfig = config
+            .set('centerLatitude', center.latitude)
+            .set('centerLongitude', center.longitude)
+            .set('zoom', zoom)
+          
+          // Also extract sources from the map
+          const sources = getSourcesFromEsriMap(jimuMapView)
+          if (sources.length > 0) {
+            const sourceConfigs = sources.map(source => ({
+              name: source.name,
+              source: source.source,
+              sourceUrl: source.url,
+              mapType: source.mapType,
+              rulesFileUrl: source.rules
+            }))
+            newConfig = newConfig.set('sourceConfigs', sourceConfigs)
+          }
+          
+          props.onSettingChange({
+            id: props.id,
+            config: newConfig
+          })
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config?.useExistingMap, config?.existingMapId])
 
   const onMapWidgetSelected = (useMapWidgetIds: string[]) => {
     props.onSettingChange({
