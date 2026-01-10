@@ -23,6 +23,11 @@ export enum ButtonType {
   Link = 'link'
 }
 
+export enum FlowType {
+  Wrap = 'wrap',
+  NoWrap = 'no-wrap'
+}
+
 export interface FieldConfig {
   key: string
   label: string

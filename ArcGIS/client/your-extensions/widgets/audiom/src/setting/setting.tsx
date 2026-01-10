@@ -2,7 +2,7 @@ import { React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
 import { TextInput, NumericInput, Switch, Label } from 'jimu-ui'
-import { FieldType, type IAudiomConfig, type FieldConfig, type ISourceConfig } from './types'
+import { FieldType, FlowType, type IAudiomConfig, type FieldConfig, type ISourceConfig } from './types'
 import SourceConfigList from './SourceConfigList'
 
 const { useState } = React
@@ -55,7 +55,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     switch (field.type) {
       case FieldType.Text:
         return (
-          <SettingRow key={field.key} flow="wrap">
+          <SettingRow key={field.key} flow={FlowType.Wrap}>
             <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
             <TextInput
               style={{ width: '100%' }}
@@ -67,7 +67,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         )
       case FieldType.Number:
         return (
-          <SettingRow key={field.key} flow="wrap">
+          <SettingRow key={field.key} flow={FlowType.Wrap}>
             <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
             <NumericInput
               style={{ width: '100%' }}
@@ -80,7 +80,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         )
       case FieldType.Switch:
         return (
-          <SettingRow key={field.key} flow="wrap">
+          <SettingRow key={field.key} flow={FlowType.Wrap}>
             <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
             <Switch
               checked={value}
@@ -94,7 +94,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   return (
     <div className="widget-setting-demo">
       <SettingSection title="Map Source">
-        <SettingRow flow="wrap">
+        <SettingRow flow={FlowType.Wrap}>
           <Label style={{ width: '100%', marginBottom: '4px' }}>Use Existing Map Widget</Label>
           <Switch
             checked={config?.useExistingMap ?? true}
@@ -103,7 +103,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         </SettingRow>
 
         {config?.useExistingMap ? (
-          <SettingRow flow="wrap">
+          <SettingRow flow={FlowType.Wrap}>
             <Label style={{ width: '100%', marginBottom: '4px' }}>Select Map Widget</Label>
             <MapWidgetSelector useMapWidgetIds={props.useMapWidgetIds} onSelect={onMapWidgetSelected} />
           </SettingRow>

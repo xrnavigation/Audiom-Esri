@@ -1,7 +1,7 @@
 import { React } from 'jimu-core'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
 import { TextInput, NumericInput, Switch, Label, Select, Option, Collapse, Button } from 'jimu-ui'
-import { FieldType, ButtonSize, ButtonType, type ISourceConfig, type FieldConfig } from './types'
+import { FieldType, ButtonSize, ButtonType, FlowType, type ISourceConfig, type FieldConfig } from './types'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 
 const { useState } = React
@@ -93,7 +93,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
     switch (field.type) {
       case FieldType.Text:
         return (
-          <SettingRow key={field.key} flow="wrap">
+          <SettingRow key={field.key} flow={FlowType.Wrap}>
             <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
             <TextInput
               style={{ width: '100%' }}
@@ -105,7 +105,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
         )
       case FieldType.Number:
         return (
-          <SettingRow key={field.key} flow="wrap">
+          <SettingRow key={field.key} flow={FlowType.Wrap}>
             <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
             <NumericInput
               style={{ width: '100%' }}
@@ -118,7 +118,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
         )
       case FieldType.Switch:
         return (
-          <SettingRow key={field.key} flow="wrap">
+          <SettingRow key={field.key} flow={FlowType.Wrap}>
             <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
             <Switch
               checked={value}
@@ -128,7 +128,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
         )
       case FieldType.Enum:
         return (
-          <SettingRow key={field.key} flow="wrap">
+          <SettingRow key={field.key} flow={FlowType.Wrap}>
             <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
             <Select
               style={{ width: '100%' }}
@@ -169,7 +169,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
           const sourceName = sourceConfig?.name && sourceConfig.name.trim() ? sourceConfig.name : `${SOURCE_PREFIX}${index + 1}`
           return (
             <div key={index} style={{ marginBottom: '16px', padding: '12px', border: '1px solid #ccc', borderRadius: '4px' }}>
-              <SettingRow flow="wrap">
+              <SettingRow flow={FlowType.Wrap}>
                 <Button
                   size={ButtonSize.Small}
                   type={ButtonType.Tertiary}
