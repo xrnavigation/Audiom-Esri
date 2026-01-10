@@ -22,14 +22,15 @@ const LOG_FOUND_GEOJSON_LAYER = 'Found GeoJSON layer:';
 const LOG_FOUND_SUBLAYER = 'Found sublayer:';
 const LOG_EXTRACTED_SOURCES = 'Extracted';
 
-export function audiomConfigToEmbedConfig(config: IAudiomConfig): AudiomEmbedConfig {
+export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapView | undefined): AudiomEmbedConfig {
   const mapViewManager = MapViewManager.getInstance();
   const sources: AudiomSource[] = [];
 
   console.log('audiomConfigToEmbedConfig - useExistingMap:', config.useExistingMap);
 
   if (config.useExistingMap) {
-    const jimuMapView = getJimuMapViewById(config.existingMapId, mapViewManager);
+    //const jimuMapView = getJimuMapViewById(config.existingMapId, mapViewManager);
+    const jimuMapView = jmv;
     const mapSources = getSourcesFromEsriMap(jimuMapView);
     sources.push(...mapSources);
   } else {
@@ -136,13 +137,13 @@ function processFeatureLayer(layer: __esri.Layer): AudiomSource | null {
   }
 
   const source = AudiomSource.fromEsri({
-    name: layer.title || DEFAULT_FEATURE_LAYER_NAME,
-    source: layer.id,
-    url: featureLayer.url,
+    name: featureLayer.title || DEFAULT_FEATURE_LAYER_NAME,
+    source: featureLayer.id,
+    url: `${featureLayer.url}/${featureLayer.layerId}`,
     mapType: MapType.Indoor
   });
   
-  console.log(`${LOG_FOUND_FEATURE_LAYER} ${layer.title} - ${featureLayer.url}`);
+  console.log(`${LOG_FOUND_FEATURE_LAYER} ${featureLayer.title} - ${featureLayer.url}`);
   return source;
 }
 
@@ -155,10 +156,10 @@ function processCSVLayer(layer: __esri.Layer): AudiomSource | null {
 
   const source = AudiomSource.fromGeoJsonUrl(
     csvLayer.url,
-    layer.title || DEFAULT_CSV_LAYER_NAME
+    csvLayer.title || DEFAULT_CSV_LAYER_NAME
   );
   
-  console.log(`${LOG_FOUND_CSV_LAYER} ${layer.title} - ${csvLayer.url}`);
+  console.log(`${LOG_FOUND_CSV_LAYER} ${csvLayer.title} - ${csvLayer.url}`);
   return source;
 }
 
@@ -171,10 +172,10 @@ function processGeoJSONLayer(layer: __esri.Layer): AudiomSource | null {
 
   const source = AudiomSource.fromGeoJsonUrl(
     geoJsonLayer.url,
-    layer.title || DEFAULT_GEOJSON_LAYER_NAME
+    geoJsonLayer.title || DEFAULT_GEOJSON_LAYER_NAME
   );
   
-  console.log(`${LOG_FOUND_GEOJSON_LAYER} ${layer.title} - ${geoJsonLayer.url}`);
+  console.log(`${LOG_FOUND_GEOJSON_LAYER} ${geoJsonLayer.title} - ${geoJsonLayer.url}`);
   return source;
 }
 
