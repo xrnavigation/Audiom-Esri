@@ -1,11 +1,7 @@
-import { AudiomSource, MapType } from '../../../../shared/audiom-client/AudiomSource'
+import { MapType } from '../../../../shared/audiom-client/AudiomSource'
+import { FieldType } from './enums'
 
-export enum FieldType {
-  Text = 'text',
-  Number = 'number',
-  Switch = 'switch',
-  Enum = 'enum'
-}
+export const defaultBaseUrl = 'https://audiom-staging.herokuapp.com'
 
 export interface FieldConfig {
   key: string
@@ -25,6 +21,7 @@ export interface ISourceConfig {
   sourceUrl?: string
   rulesFileUrl?: string
   mapType?: MapType
+  enabled?: boolean
 }
 
 // TODO: Find a way to not use any here
@@ -37,9 +34,10 @@ export interface IAudiomConfig extends Record<string, any> {
   showVisualMap?: boolean
   showHeading?: boolean
   soundpackUrl?: string
-  sourceConfig?: ISourceConfig
+  sourceConfigs?: ISourceConfig[]
   centerLatitude?: number
   centerLongitude?: number
   zoom?: number
   useExistingMap?: boolean
+  existingMapId?: string
 }
