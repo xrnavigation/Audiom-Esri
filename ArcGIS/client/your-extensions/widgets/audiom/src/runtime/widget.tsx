@@ -1,7 +1,6 @@
 import { DataSourceManager, type AllWidgetProps } from 'jimu-core'
-import { AudiomSource, MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { audiomConfigToEmbedConfig } from '../utils/maputils'
-import { JimuMapView, JimuMapViewComponent, MapViewManager } from 'jimu-arcgis';
+import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis';
 import { useState } from 'react';
 import { defaultBaseUrl, IAudiomConfig } from '../setting/configs';
 

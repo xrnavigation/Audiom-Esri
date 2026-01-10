@@ -10,7 +10,7 @@ import { FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
 import { FieldType, FlowType } from './enums'
 import { AudiomConfigKey } from './configKeys'
 
-const { useState, useEffect } = React
+const { useEffect } = React
 
 const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
@@ -20,25 +20,25 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     if (config?.useExistingMap && config?.existingMapId) {
       const mapViewManager = MapViewManager.getInstance()
       const extractedConfig = extractMapConfigFromEsriMap(config.existingMapId, mapViewManager)
-      
+
       if (extractedConfig) {
         // Update config if values are different
         const needsUpdate = 
           config.centerLatitude !== extractedConfig.centerLatitude ||
           config.centerLongitude !== extractedConfig.centerLongitude ||
           config.zoom !== extractedConfig.zoom
-        
+
         if (needsUpdate) {
           let newConfig = config
             .set(AudiomConfigKey.CenterLatitude, extractedConfig.centerLatitude)
             .set(AudiomConfigKey.CenterLongitude, extractedConfig.centerLongitude)
             .set(AudiomConfigKey.Zoom, extractedConfig.zoom)
-          
+
           // Update source configs if available
           if (extractedConfig.sourceConfigs) {
             newConfig = newConfig.set(AudiomConfigKey.SourceConfigs, extractedConfig.sourceConfigs)
           }
-          
+
           props.onSettingChange({
             id: props.id,
             config: newConfig
@@ -150,9 +150,9 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
             <MapWidgetSelector useMapWidgetIds={props.useMapWidgetIds} onSelect={onMapWidgetSelected} />
           </SettingRow>
         ) : null}
-        
+
         {urlModeFields.map((field) => renderField(field, config?.useExistingMap ?? true))}
-        
+
         <SourceConfigList
           sourceConfigs={config?.sourceConfigs || []}
           onChange={onSourceConfigsChange}

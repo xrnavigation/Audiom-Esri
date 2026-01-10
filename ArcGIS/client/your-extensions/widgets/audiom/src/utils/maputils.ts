@@ -31,7 +31,7 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
   if (config.useExistingMap) {
     const jimuMapView = jmv;
     const mapSources = getSourcesFromEsriMap(jimuMapView);
-    
+
     // Filter sources based on enabled status from config
     const enabledSources = mapSources.filter(mapSource => {
       const sourceConfig = config.sourceConfigs?.find(sc => 
@@ -40,7 +40,7 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
       // If source is in config, respect its enabled status; otherwise include it (default enabled)
       return sourceConfig ? sourceConfig.enabled !== false : true;
     });
-    
+
     sources.push(...enabledSources);
   } else {
     const configSources = getSourcesFromConfig(config);
@@ -68,7 +68,7 @@ export function getSourcesFromConfig(config: IAudiomConfig): AudiomSource[] {
     if (sourceConfig.enabled === false) {
       return;
     }
-    
+
     if (sourceConfig?.sourceUrl) {
       const source = AudiomSource.fromEsri({
         name: sourceConfig.name,
@@ -133,7 +133,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
   }>;
 } | null {
   const jimuMapView = getJimuMapViewById(mapId, mapViewManager);
-  
+
   if (!jimuMapView || !jimuMapView.view) {
     return null;
   }
@@ -168,84 +168,77 @@ function processLayer(layer: __esri.Layer): AudiomSource[] {
 
   switch (layer.type) {
     case LayerTypes.FEATURE:
-      source = processFeatureLayer(layer);
+      source = processFeatureLayer(layer as FeatureLayer);
       return source ? [source] : [];
 
     case LayerTypes.CSV:
-      source = processCSVLayer(layer);
+      source = processCSVLayer(layer as CSVLayer);
       return source ? [source] : [];
 
     case LayerTypes.GEOJSON:
-      source = processGeoJSONLayer(layer);
+      source = processGeoJSONLayer(layer as GeoJSONLayer);
       return source ? [source] : [];
 
     case LayerTypes.MAP_IMAGE:
-      return processMapImageLayer(layer);
+      return processMapImageLayer(layer as MapImageLayer);
 
     default:
       return [];
   }
 }
 
-function processFeatureLayer(layer: __esri.Layer): AudiomSource | null {
-  const featureLayer = layer as FeatureLayer;
-  
-  if (!featureLayer.url) {
+function processFeatureLayer(layer: FeatureLayer | null): AudiomSource | null {
+  if (!layer || !layer.url) {
     return null;
   }
 
   const source = AudiomSource.fromEsri({
-    name: featureLayer.title || DEFAULT_FEATURE_LAYER_NAME,
-    source: featureLayer.id,
-    url: `${featureLayer.url}/${featureLayer.layerId}`,
+    name: layer.title || DEFAULT_FEATURE_LAYER_NAME,
+    source: layer.id,
+    url: `${layer.url}/${layer.layerId}`,
     mapType: MapType.Indoor
   });
-  
-  console.log(`${LOG_FOUND_FEATURE_LAYER} ${featureLayer.title} - ${featureLayer.url}`);
+
+  console.log(`${LOG_FOUND_FEATURE_LAYER} ${layer.title} - ${layer.url}`);
   return source;
 }
 
-function processCSVLayer(layer: __esri.Layer): AudiomSource | null {
-  const csvLayer = layer as CSVLayer;
-  
-  if (!csvLayer.url) {
+function processCSVLayer(layer: CSVLayer | null): AudiomSource | null {
+  if (!layer || !layer.url) {
     return null;
   }
 
   const source = AudiomSource.fromGeoJsonUrl(
-    csvLayer.url,
-    csvLayer.title || DEFAULT_CSV_LAYER_NAME
+    layer.url,
+    layer.title || DEFAULT_CSV_LAYER_NAME
   );
-  
-  console.log(`${LOG_FOUND_CSV_LAYER} ${csvLayer.title} - ${csvLayer.url}`);
+
+  console.log(`${LOG_FOUND_CSV_LAYER} ${layer.title} - ${layer.url}`);
   return source;
 }
 
-function processGeoJSONLayer(layer: __esri.Layer): AudiomSource | null {
-  const geoJsonLayer = layer as GeoJSONLayer;
-  
-  if (!geoJsonLayer.url) {
+function processGeoJSONLayer(layer: GeoJSONLayer | null): AudiomSource | null {
+  if (!layer || !layer.url) {
     return null;
   }
 
   const source = AudiomSource.fromGeoJsonUrl(
-    geoJsonLayer.url,
-    geoJsonLayer.title || DEFAULT_GEOJSON_LAYER_NAME
+    layer.url,
+    layer.title || DEFAULT_GEOJSON_LAYER_NAME
   );
   
-  console.log(`${LOG_FOUND_GEOJSON_LAYER} ${geoJsonLayer.title} - ${geoJsonLayer.url}`);
+  console.log(`${LOG_FOUND_GEOJSON_LAYER} ${layer.title} - ${layer.url}`);
   return source;
 }
 
-function processMapImageLayer(layer: __esri.Layer): AudiomSource[] {
-  const mapImageLayer = layer as MapImageLayer;
+function processMapImageLayer(layer: MapImageLayer | null): AudiomSource[] {
   const sources: AudiomSource[] = [];
-  
-  if (!mapImageLayer.sublayers) {
+
+  if (!layer || !layer.sublayers) {
     return sources;
   }
 
-  mapImageLayer.sublayers.forEach((sublayer) => {
+  layer.sublayers.forEach((sublayer) => {
     if (!sublayer.url) {
       return;
     }
@@ -256,7 +249,7 @@ function processMapImageLayer(layer: __esri.Layer): AudiomSource[] {
       url: sublayer.url,
       mapType: MapType.Indoor
     });
-    
+
     sources.push(source);
     console.log(`${LOG_FOUND_SUBLAYER} ${sublayer.title} - ${sublayer.url}`);
   });
