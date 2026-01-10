@@ -1188,25 +1188,101 @@
         "baseUrl": "https://audiom-staging.herokuapp.com",
         "title": "ESRI Building",
         "rulesFileUrl": "/rules/esri-indoor.json",
-        "centerLatitude": 34.05679755835778,
-        "centerLongitude": -117.1945001420124,
+        "centerLatitude": 48.42406221488305,
+        "centerLongitude": -123.4920992387118,
         "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
-        "zoom": 19,
+        "zoom": 13,
         "sourceConfig": {
           "source": "units",
           "name": "Units",
           "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
           "rulesFileUrl": "/rules/esri-indoor.json"
         },
-        "useExistingMap": false,
+        "useExistingMap": true,
         "existingMapId": "widget_92",
         "sourceConfigs": [
           {
-            "name": "Units",
+            "name": "Parks",
+            "source": "19340af634f-layer-23",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapParks/FeatureServer/1",
             "mapType": "indoor",
-            "source": "units",
-            "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
-            "rulesFileUrl": "/rules/esri-indoor.json"
+            "enabled": false
+          },
+          {
+            "name": "Properties",
+            "source": "1865c2ea8ad-layer-32",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapParcel/FeatureServer/0",
+            "mapType": "indoor"
+          },
+          {
+            "name": "Ditch",
+            "source": "Ditch_4691",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Ditch/FeatureServer/0",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Drain Manhole",
+            "source": "18b5d7653af-layer-25",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Drain_Manhole/FeatureServer/6",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Drain Main",
+            "source": "182ac73cfc7-layer-21",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Drain_Main/FeatureServer/5",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Sewer Lift Stations",
+            "source": "SAN_LSTN_5970",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_LSTN/FeatureServer/0",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Sewer Manhole",
+            "source": "18638ba29f9-layer-32",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_Manhole/FeatureServer/4",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Sewer Cleanout",
+            "source": "18b5e6fb0ab-layer-26",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_Cleanout/FeatureServer/3",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Sewer Force Main",
+            "source": "18b5e7b1cb5-layer-27",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_FM/FeatureServer/7",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Sewer Mains",
+            "source": "180629d15dc-layer-20",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_SewerMain/FeatureServer/5",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Zoning",
+            "source": "18a483c71ad-layer-32",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapZoning/FeatureServer/1",
+            "mapType": "indoor",
+            "enabled": false
+          },
+          {
+            "name": "Municipal Boundary",
+            "source": "19a8374bc92-layer-25",
+            "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapBoundaryMunicipal/FeatureServer/1",
+            "mapType": "indoor",
+            "enabled": false
           }
         ]
       },
@@ -1363,7 +1439,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1768008216060,
+  "timestamp": 1768010680752,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {

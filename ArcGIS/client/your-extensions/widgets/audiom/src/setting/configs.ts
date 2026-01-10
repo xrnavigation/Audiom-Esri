@@ -21,6 +21,7 @@ export interface ISourceConfig {
   sourceUrl?: string
   rulesFileUrl?: string
   mapType?: MapType
+  enabled?: boolean
 }
 
 // TODO: Find a way to not use any here

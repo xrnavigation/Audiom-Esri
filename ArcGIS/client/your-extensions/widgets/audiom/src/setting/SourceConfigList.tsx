@@ -17,6 +17,8 @@ const ACTION_EXPAND = 'Expand'
 const SECTION_LABEL = 'Source Configurations section'
 const SOURCE_PREFIX = 'Source '
 const BUTTON_REMOVE = 'Remove'
+const BUTTON_ENABLE = 'Enable'
+const BUTTON_DISABLE = 'Disable'
 const BUTTON_ADD = 'Add Source Configuration'
 
 // Field Configuration Constants
@@ -71,6 +73,13 @@ const SourceConfigList = (props: SourceConfigListProps) => {
     onChange(newSourceConfigs)
   }
 
+  const onToggleSourceEnabled = (index: number) => {
+    const newSourceConfigs = [...sourceConfigs]
+    const currentEnabled = newSourceConfigs[index].enabled ?? true
+    newSourceConfigs[index] = { ...newSourceConfigs[index], enabled: !currentEnabled }
+    onChange(newSourceConfigs)
+  }
+
   const sourceConfigFields: FieldConfig[] = [
     { key: SourceConfigKey.Name, label: FIELD_LABEL_NAME, type: FieldType.Text, placeholder: PLACEHOLDER_NAME },
     { key: SourceConfigKey.SourceUrl, label: FIELD_LABEL_SOURCE_URL, type: FieldType.Text, placeholder: PLACEHOLDER_SOURCE_URL },
@@ -92,6 +101,9 @@ const SourceConfigList = (props: SourceConfigListProps) => {
   const renderSourceField = (field: FieldConfig, index: number) => {
     const sourceConfig = sourceConfigs[index] || {}
     const value = sourceConfig[field.key] ?? field.defaultValue
+    
+    // MapType and RulesFileUrl remain editable even when readOnly is true
+    const isFieldDisabled = readOnly && field.key !== SourceConfigKey.MapType && field.key !== SourceConfigKey.RulesFileUrl
 
     switch (field.type) {
       case FieldType.Text:
@@ -103,7 +115,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
               value={value || ''}
               onChange={(e) => onSourceConfigChange(index, field.key, e.target.value)}
               placeholder={field.placeholder}
-              disabled={readOnly}
+              disabled={isFieldDisabled}
             />
           </SettingRow>
         )
@@ -117,7 +129,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
               onChange={(val) => onSourceConfigChange(index, field.key, val)}
               min={field.min}
               max={field.max}
-              disabled={readOnly}
+              disabled={isFieldDisabled}
             />
           </SettingRow>
         )
@@ -128,7 +140,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
             <Switch
               checked={value}
               onChange={(e) => onSourceConfigChange(index, field.key, e.target.checked)}
-              disabled={readOnly}
+              disabled={isFieldDisabled}
             />
           </SettingRow>
         )
@@ -140,7 +152,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
               style={{ width: '100%' }}
               value={value || field.defaultValue}
               onChange={(e) => onSourceConfigChange(index, field.key, e.target.value)}
-              disabled={readOnly}
+              disabled={isFieldDisabled}
             >
               {field.enumOptions?.map((option) => (
                 <Option key={option.value} value={option.value}>
@@ -188,7 +200,16 @@ const SourceConfigList = (props: SourceConfigListProps) => {
                   <span aria-hidden="true">{isExpanded ? ARROW_DOWN : ARROW_RIGHT}</span>
                 </Button>
                 <Label style={{ flex: 1, fontWeight: 'bold', marginLeft: '8px' }}>{sourceName}</Label>
-                {!readOnly && (
+                {readOnly ? (
+                  <Button
+                    size={ButtonSize.Small}
+                    type={sourceConfig.enabled === false ? ButtonType.Primary : ButtonType.Secondary}
+                    onClick={() => onToggleSourceEnabled(index)}
+                    aria-label={`${sourceConfig.enabled === false ? BUTTON_ENABLE : BUTTON_DISABLE} ${sourceName}`}
+                  >
+                    {sourceConfig.enabled === false ? BUTTON_ENABLE : BUTTON_DISABLE}
+                  </Button>
+                ) : (
                   <Button
                     size={ButtonSize.Small}
                     type={ButtonType.Danger}

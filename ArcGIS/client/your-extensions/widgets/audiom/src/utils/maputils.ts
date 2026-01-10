@@ -29,10 +29,19 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
   console.log('audiomConfigToEmbedConfig - useExistingMap:', config.useExistingMap);
 
   if (config.useExistingMap) {
-    //const jimuMapView = getJimuMapViewById(config.existingMapId, mapViewManager);
     const jimuMapView = jmv;
     const mapSources = getSourcesFromEsriMap(jimuMapView);
-    sources.push(...mapSources);
+    
+    // Filter sources based on enabled status from config
+    const enabledSources = mapSources.filter(mapSource => {
+      const sourceConfig = config.sourceConfigs?.find(sc => 
+        sc.sourceUrl === mapSource.url || sc.source === mapSource.source
+      );
+      // If source is in config, respect its enabled status; otherwise include it (default enabled)
+      return sourceConfig ? sourceConfig.enabled !== false : true;
+    });
+    
+    sources.push(...enabledSources);
   } else {
     const configSources = getSourcesFromConfig(config);
     sources.push(...configSources);
@@ -55,6 +64,11 @@ export function getSourcesFromConfig(config: IAudiomConfig): AudiomSource[] {
 
   const sources: AudiomSource[] = [];
   sourceConfigs.forEach((sourceConfig) => {
+    // Skip disabled sources
+    if (sourceConfig.enabled === false) {
+      return;
+    }
+    
     if (sourceConfig?.sourceUrl) {
       const source = AudiomSource.fromEsri({
         name: sourceConfig.name,
@@ -115,6 +129,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     sourceUrl?: string;
     mapType?: MapType;
     rulesFileUrl?: string;
+    enabled?: boolean;
   }>;
 } | null {
   const jimuMapView = getJimuMapViewById(mapId, mapViewManager);
@@ -134,7 +149,8 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     source: source.source,
     sourceUrl: source.url,
     mapType: source.mapType,
-    rulesFileUrl: source.rules
+    rulesFileUrl: source.rules,
+    enabled: true // Default to enabled when extracted from map
   }));
 
   return {
