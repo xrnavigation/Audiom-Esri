@@ -9,6 +9,20 @@ export enum FieldType {
   Enum = 'enum'
 }
 
+export enum ButtonSize {
+  Default = 'default',
+  Small = 'sm',
+  Large = 'lg'
+}
+
+export enum ButtonType {
+  Primary = 'primary',
+  Secondary = 'secondary',
+  Tertiary = 'tertiary',
+  Danger = 'danger',
+  Link = 'link'
+}
+
 export interface FieldConfig {
   key: string
   label: string
