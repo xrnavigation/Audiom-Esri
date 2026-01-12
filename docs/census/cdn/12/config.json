@@ -1341,9 +1341,12 @@
       "version": "1.19.0",
       "label": "Embed",
       "config": {
-        "embedType": "url",
+        "embedType": "code",
         "expression": "<p>https://youtu.be/s1TvWY5oZPQ</p>",
-        "enableLabel": false
+        "enableLabel": false,
+        "honorThemeFont": false,
+        "embedCode": "<iframe src=\"https://youtu.be/s1TvWY5oZPQ\" title=\"Hawaii Census Demo Video\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>",
+        "autoRefresh": false
       },
       "id": "widget_115",
       "useDataSources": []
@@ -1538,7 +1541,7 @@
       }
     }
   },
-  "publishTimestamp": 1766451675306,
+  "publishTimestamp": 1768247001218,
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com",
     "isWebTier": false,
@@ -1549,7 +1552,7 @@
     "type": "Web Experience",
     "thumbnail": null
   },
-  "timestamp": 1766451674458,
+  "timestamp": 1768246980240,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {},
