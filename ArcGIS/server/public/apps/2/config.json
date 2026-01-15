@@ -1339,16 +1339,17 @@
       "version": "1.19.0",
       "label": "Embed",
       "config": {
-        "embedType": "code",
-        "expression": "<p>https://youtu.be/7gLye8yG9Qw?si=ruMH_id5NOUvuV0J</p><p><br></p>",
+        "embedType": "url",
+        "expression": "<p>https://youtu.be/7gLye8yG9Qw</p>",
         "honorThemeFont": false,
         "enableLabel": false,
-        "embedCode": "<iframe src=\"https://youtu.be/7gLye8yG9Qw\" title=\"ESRI Building Demo Video\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>",
+        "embedCode": "",
         "autoRefresh": true
       },
       "id": "widget_114",
       "useDataSourcesEnabled": false,
-      "useDataSources": []
+      "useDataSources": [],
+      "a11yLabel": "ESRI Building Demo Video"
     }
   },
   "exbVersion": "1.19.0",
@@ -1541,11 +1542,12 @@
       }
     }
   },
-  "publishTimestamp": 1768247028160,
+  "publishTimestamp": 1768508205233,
   "attributes": {
-    "portalUrl": "https://xrnavigation.maps.arcgis.com"
+    "portalUrl": "https://xrnavigation.maps.arcgis.com",
+    "enableA11yForWidgetSettings": true
   },
-  "timestamp": 1768247025119,
+  "timestamp": 1768508136691,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {},
