@@ -1,13 +1,13 @@
 import { AudiomSource, MapType } from "../../../../shared/audiom-client/AudiomSource";
 import { AudiomEmbedConfig } from "../../../../shared/audiom-client/AudiomEmbedConfig";
 import { StepSize } from "../../../../shared/audiom-client/StepSize";
-import { IAudiomConfig } from "../setting/types";
 import { JimuMapView, MapViewManager } from "jimu-arcgis";
 import FeatureLayer from 'esri/layers/FeatureLayer';
 import CSVLayer from 'esri/layers/CSVLayer';
 import GeoJSONLayer from 'esri/layers/GeoJSONLayer';
 import MapImageLayer from 'esri/layers/MapImageLayer';
 import { LayerTypes } from "../../../../shared/constants/LayerTypes";
+import { IAudiomConfig } from "../setting/configs";
 
 // Constants
 const DEFAULT_FEATURE_LAYER_NAME = 'Feature Layer';
@@ -141,7 +141,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
   const view = jimuMapView.view;
   const center = view.center;
   const zoom = view.zoom;
-
+  
   // Extract sources from the map
   const sources = getSourcesFromEsriMap(jimuMapView);
   const sourceConfigs = sources.map(source => ({
