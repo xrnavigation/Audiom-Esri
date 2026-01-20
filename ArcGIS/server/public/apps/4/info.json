@@ -1,0 +1,31 @@
+{
+  "created": 1768861219998,
+  "description": "",
+  "id": "4",
+  "modified": 1768861895907,
+  "owner": "scionofdesign@gmail.com",
+  "tags": [],
+  "thumbnail": null,
+  "title": "Audiom Demo - Embed",
+  "type": "Web Experience",
+  "snippet": "A demo of Audiom made using the built-in Embed widget.",
+  "typeKeywords": [
+    "EXB Experience",
+    "Ready To Use",
+    "JavaScript",
+    "status: Published",
+    "version:1.19.0",
+    "modified: 1768861894862",
+    "publishVersion:1.19.0"
+  ],
+  "portalUrl": "https://xrnavigation.maps.arcgis.com",
+  "username": "scionofdesign@gmail.com",
+  "name": "Audiom Demo - Embed",
+  "isLocalApp": true,
+  "url": null,
+  "success": true,
+  "clearEmptyFields": true,
+  "userRole": "org_admin",
+  "userName": "scionofdesign@gmail.com",
+  "text": ""
+}
