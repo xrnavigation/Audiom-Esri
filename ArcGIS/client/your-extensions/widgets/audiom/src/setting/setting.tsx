@@ -4,6 +4,7 @@ import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/
 import { TextInput, NumericInput, Switch, Label, Button } from 'jimu-ui'
 
 import SourceConfigList from './SourceConfigList'
+import CopyableLabel from './CopyableLabel'
 import { MapViewManager } from 'jimu-arcgis'
 import { extractMapConfigFromEsriMap, audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/maputils'
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
@@ -104,7 +105,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       case FieldType.Text:
         return (
           <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
+            <CopyableLabel label={field.label} copyValue={field.key} />
             <TextInput
               style={{ width: '100%' }}
               value={value || ''}
@@ -117,7 +118,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       case FieldType.Number:
         return (
           <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
+            <CopyableLabel label={field.label} copyValue={field.key} />
             <NumericInput
               style={{ width: '100%' }}
               value={value}
@@ -131,7 +132,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       case FieldType.Switch:
         return (
           <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
+            <CopyableLabel label={field.label} copyValue={field.key} />
             <Switch
               checked={value}
               onChange={(e) => onPropertyChange(field.key, e.target.checked)}
@@ -146,7 +147,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     <div className="widget-setting-demo">
       <SettingSection title="Map Source">
         <SettingRow flow={FlowType.Wrap}>
-          <Label style={{ width: '100%', marginBottom: '4px' }}>Use Existing Map Widget</Label>
+          <CopyableLabel label="Use Existing Map Widget" copyValue="useExistingMap" />
           <Switch
             checked={config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap}
             onChange={(e) => onPropertyChange('useExistingMap', e.target.checked)}
@@ -155,7 +156,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
         {(config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap) ? (
           <SettingRow flow={FlowType.Wrap}>
-            <Label style={{ width: '100%', marginBottom: '4px' }}>Select Map Widget</Label>
+            <CopyableLabel label="Select Map Widget" copyValue="existingMapId" />
             <MapWidgetSelector useMapWidgetIds={props.useMapWidgetIds} onSelect={onMapWidgetSelected} />
           </SettingRow>
         ) : null}

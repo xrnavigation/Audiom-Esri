@@ -5,6 +5,7 @@ import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { FieldConfig, ISourceConfig } from './configs'
 import { ButtonSize, ButtonType, FieldType, FlowType } from './enums'
 import { SourceConfigKey } from './configKeys'
+import CopyableLabel from './CopyableLabel'
 
 const { useState } = React
 
@@ -109,7 +110,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
       case FieldType.Text:
         return (
           <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
+            <CopyableLabel label={field.label} copyValue={`sourceConfigs[${index}].${field.key}`} />
             <TextInput
               style={{ width: '100%' }}
               value={value || ''}
@@ -122,7 +123,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
       case FieldType.Number:
         return (
           <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
+            <CopyableLabel label={field.label} copyValue={`sourceConfigs[${index}].${field.key}`} />
             <NumericInput
               style={{ width: '100%' }}
               value={value}
@@ -136,7 +137,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
       case FieldType.Switch:
         return (
           <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
+            <CopyableLabel label={field.label} copyValue={`sourceConfigs[${index}].${field.key}`} />
             <Switch
               checked={value}
               onChange={(e) => onSourceConfigChange(index, field.key, e.target.checked)}
@@ -147,7 +148,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
       case FieldType.Enum:
         return (
           <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <Label style={{ width: '100%', marginBottom: '4px' }}>{field.label}</Label>
+            <CopyableLabel label={field.label} copyValue={`sourceConfigs[${index}].${field.key}`} />
             <Select
               style={{ width: '100%' }}
               value={value || field.defaultValue}
