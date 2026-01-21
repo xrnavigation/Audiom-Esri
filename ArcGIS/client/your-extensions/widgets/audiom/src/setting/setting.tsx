@@ -1,13 +1,13 @@
 import { React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
-import { TextInput, NumericInput, Switch, Label } from 'jimu-ui'
+import { TextInput, NumericInput, Switch, Label, Button } from 'jimu-ui'
 
 import SourceConfigList from './SourceConfigList'
 import { MapViewManager } from 'jimu-arcgis'
-import { extractMapConfigFromEsriMap } from '../utils/maputils'
+import { extractMapConfigFromEsriMap, audiomConfigToEmbedConfig } from '../utils/maputils'
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
-import { FieldType, FlowType } from './enums'
+import { ButtonType, FieldType, FlowType } from './enums'
 import { AudiomConfigKey } from './configKeys'
 
 const { useEffect } = React
@@ -69,6 +69,15 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       id: props.id,
       config: config.set(AudiomConfigKey.SourceConfigs, sourceConfigs)
     })
+  }
+
+  const onPreviewInAudiom = () => {
+    // For preview, we use URL mode sources (not existing map sources since we don't have JimuMapView in settings)
+    const plainConfig: IAudiomConfig = { ...config, useExistingMap: false }
+    const embedConfig = audiomConfigToEmbedConfig(plainConfig, undefined)
+
+    const previewUrl = embedConfig.toUrl(plainConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
+    window.open(previewUrl, '_blank')
   }
 
   const alwaysPresentFields: FieldConfig[] = [
@@ -162,6 +171,20 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
       <SettingSection title="Configuration">
         {alwaysPresentFields.map((field) => renderField(field, false))}
+        <SettingRow flow={FlowType.Wrap}>
+          <Button
+            type={ButtonType.Primary}
+            style={{ width: '100%' }}
+            onClick={onPreviewInAudiom}
+          >
+            Preview in Audiom
+          </Button>
+        </SettingRow>
+        <SettingRow flow={FlowType.Wrap}>
+          <Label style={{ width: '100%', color: '#6b7280', fontSize: '12px' }}>
+            Opens the current configuration in a new tab.
+          </Label>
+        </SettingRow>
       </SettingSection>
     </div>
   )
