@@ -7,7 +7,7 @@ import CSVLayer from 'esri/layers/CSVLayer';
 import GeoJSONLayer from 'esri/layers/GeoJSONLayer';
 import MapImageLayer from 'esri/layers/MapImageLayer';
 import { LayerTypes } from "../../../../shared/constants/LayerTypes";
-import { IAudiomConfig } from "../setting/configs";
+import { DEFAULT_CONFIG, IAudiomConfig } from "../setting/configs";
 
 // Constants
 const DEFAULT_FEATURE_LAYER_NAME = 'Feature Layer';
@@ -21,6 +21,10 @@ const LOG_FOUND_CSV_LAYER = 'Found CSV layer:';
 const LOG_FOUND_GEOJSON_LAYER = 'Found GeoJSON layer:';
 const LOG_FOUND_SUBLAYER = 'Found sublayer:';
 const LOG_EXTRACTED_SOURCES = 'Extracted';
+
+export function isAudiomConfigValid(config: IAudiomConfig): boolean {
+  return Boolean((config.apiKey && config.apiKey.trim() !== ''));
+}
 
 export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapView | undefined): AudiomEmbedConfig {
   const mapViewManager = MapViewManager.getInstance();
@@ -50,12 +54,12 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
   return AudiomEmbedConfig.dynamic({
     apiKey: config.apiKey || '',
     sources: sources,
-    center: [config.centerLongitude || 0, config.centerLatitude || 0],
-    showVisualMap: config.showVisualMap ?? true,
-    showHeading: config.showHeading ?? false,
-    zoom: config.zoom ?? 10,
+    center: [config.centerLongitude ?? DEFAULT_CONFIG.centerLongitude, config.centerLatitude ?? DEFAULT_CONFIG.centerLatitude],
+    showVisualMap: config.showVisualMap ?? DEFAULT_CONFIG.showVisualMap,
+    showHeading: config.showHeading ?? DEFAULT_CONFIG.showHeading,
+    zoom: config.zoom ?? DEFAULT_CONFIG.zoom,
     heading: config.heading,
-    stepSize: StepSize.Kilometers(config.stepSize ?? 1),
+    stepSize: StepSize.Kilometers(config.stepSize ?? DEFAULT_CONFIG.stepSize),
   });
 }
 

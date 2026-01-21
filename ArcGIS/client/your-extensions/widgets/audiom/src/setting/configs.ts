@@ -1,7 +1,22 @@
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { FieldType } from './enums'
 
-export const defaultBaseUrl = 'https://audiom-staging.herokuapp.com'
+/**
+ * Centralized default configuration values for the Audiom widget.
+ * Use these constants throughout the codebase to ensure consistency.
+ */
+export const DEFAULT_CONFIG = {
+  baseUrl: 'https://audiom-staging.herokuapp.com',
+  stepSize: 1,
+  showVisualMap: true,
+  showHeading: false,
+  zoom: 10,
+  heading: 1,
+  useExistingMap: true,
+  centerLatitude: 0,
+  centerLongitude: 0,
+  sourceConfigs: [] as ISourceConfig[],
+} as const satisfies Partial<IAudiomConfig>
 
 export interface FieldConfig {
   key: string
