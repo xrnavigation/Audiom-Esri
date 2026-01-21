@@ -5,7 +5,7 @@ import { TextInput, NumericInput, Switch, Label, Button } from 'jimu-ui'
 
 import SourceConfigList from './SourceConfigList'
 import { MapViewManager } from 'jimu-arcgis'
-import { extractMapConfigFromEsriMap, audiomConfigToEmbedConfig } from '../utils/maputils'
+import { extractMapConfigFromEsriMap, audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/maputils'
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
 import { ButtonType, FieldType, FlowType } from './enums'
 import { AudiomConfigKey } from './configKeys'
@@ -176,13 +176,16 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
             type={ButtonType.Primary}
             style={{ width: '100%' }}
             onClick={onPreviewInAudiom}
+            disabled={!isAudiomConfigValid(config)}
           >
             Preview in Audiom
           </Button>
         </SettingRow>
         <SettingRow flow={FlowType.Wrap}>
           <Label style={{ width: '100%', color: '#6b7280', fontSize: '12px' }}>
-            Opens the current configuration in a new tab.
+            {(!isAudiomConfigValid(config))
+              ? 'API Key is required to preview in Audiom.'
+              : 'Opens the current configuration in a new tab.'}
           </Label>
         </SettingRow>
       </SettingSection>

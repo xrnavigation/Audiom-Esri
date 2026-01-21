@@ -22,6 +22,10 @@ const LOG_FOUND_GEOJSON_LAYER = 'Found GeoJSON layer:';
 const LOG_FOUND_SUBLAYER = 'Found sublayer:';
 const LOG_EXTRACTED_SOURCES = 'Extracted';
 
+export function isAudiomConfigValid(config: IAudiomConfig): boolean {
+  return Boolean((config.apiKey && config.apiKey.trim() !== ''));
+}
+
 export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapView | undefined): AudiomEmbedConfig {
   const mapViewManager = MapViewManager.getInstance();
   const sources: AudiomSource[] = [];
