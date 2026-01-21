@@ -2,7 +2,7 @@ import { DataSourceManager, type AllWidgetProps } from 'jimu-core'
 import { audiomConfigToEmbedConfig } from '../utils/maputils'
 import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis';
 import { useState } from 'react';
-import { defaultBaseUrl, IAudiomConfig } from '../setting/configs';
+import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs';
 
 const dsManager = DataSourceManager.getInstance();
 const allDataSources = dsManager.getDataSources();
@@ -17,7 +17,7 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
 
   const indoorConfig = audiomConfigToEmbedConfig(props.config, jimuMapView);
 
-  const indoorUrl = indoorConfig.toUrl(props.config?.baseUrl || defaultBaseUrl);
+  const indoorUrl = indoorConfig.toUrl(props.config?.baseUrl || DEFAULT_CONFIG.baseUrl);
 
   return (
     <div className="jimu-widget">

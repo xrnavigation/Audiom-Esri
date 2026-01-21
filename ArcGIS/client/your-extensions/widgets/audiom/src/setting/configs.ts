@@ -18,9 +18,6 @@ export const DEFAULT_CONFIG = {
   sourceConfigs: [] as ISourceConfig[],
 } as const satisfies Partial<IAudiomConfig>
 
-/** @deprecated Use DEFAULT_CONFIG.baseUrl instead */
-export const defaultBaseUrl = DEFAULT_CONFIG.baseUrl
-
 export interface FieldConfig {
   key: string
   label: string
