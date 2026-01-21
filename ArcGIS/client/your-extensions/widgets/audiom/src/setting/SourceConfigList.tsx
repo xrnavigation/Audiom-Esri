@@ -95,7 +95,8 @@ const SourceConfigList = (props: SourceConfigListProps) => {
         { label: MAP_TYPE_LABEL_HEATMAP, value: MapType.Heatmap },
         { label: MAP_TYPE_LABEL_INDOOR, value: MapType.Indoor }
       ],
-      defaultValue: MapType.Indoor
+      defaultValue: MapType.Indoor,
+      showCopyButton: false
     }
   ]
 
@@ -110,7 +111,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
       case FieldType.Text:
         return (
           <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <CopyableLabel label={field.label} copyValue={`sourceConfigs[${index}].${field.key}`} />
+            <CopyableLabel label={field.label} copyValue={String(value || '')} showCopyButton={field.showCopyButton} />
             <TextInput
               style={{ width: '100%' }}
               value={value || ''}
@@ -123,7 +124,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
       case FieldType.Number:
         return (
           <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <CopyableLabel label={field.label} copyValue={`sourceConfigs[${index}].${field.key}`} />
+            <CopyableLabel label={field.label} copyValue={String(value ?? '')} showCopyButton={field.showCopyButton} />
             <NumericInput
               style={{ width: '100%' }}
               value={value}
@@ -137,7 +138,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
       case FieldType.Switch:
         return (
           <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <CopyableLabel label={field.label} copyValue={`sourceConfigs[${index}].${field.key}`} />
+            <CopyableLabel label={field.label} copyValue={String(value)} showCopyButton={field.showCopyButton} />
             <Switch
               checked={value}
               onChange={(e) => onSourceConfigChange(index, field.key, e.target.checked)}
@@ -148,7 +149,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
       case FieldType.Enum:
         return (
           <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <CopyableLabel label={field.label} copyValue={`sourceConfigs[${index}].${field.key}`} />
+            <CopyableLabel label={field.label} copyValue={String(value || field.defaultValue || '')} showCopyButton={field.showCopyButton} />
             <Select
               style={{ width: '100%' }}
               value={value || field.defaultValue}

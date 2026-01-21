@@ -85,10 +85,10 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     { key: AudiomConfigKey.Title, label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title' },
     { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Text, placeholder: 'Enter API key' },
     { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl },
-    { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Number, min: 0.1, defaultValue: DEFAULT_CONFIG.stepSize },
-    { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap },
-    { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading },
-    { key: AudiomConfigKey.Heading, label: 'Heading', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading },
+    { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Number, min: 0.1, defaultValue: DEFAULT_CONFIG.stepSize, showCopyButton: false },
+    { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
+    { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
+    { key: AudiomConfigKey.Heading, label: 'Heading', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
     { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL' }
   ]
 
@@ -105,7 +105,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       case FieldType.Text:
         return (
           <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <CopyableLabel label={field.label} copyValue={field.key} />
+            <CopyableLabel label={field.label} copyValue={String(value || '')} showCopyButton={field.showCopyButton} />
             <TextInput
               style={{ width: '100%' }}
               value={value || ''}
@@ -118,7 +118,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       case FieldType.Number:
         return (
           <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <CopyableLabel label={field.label} copyValue={field.key} />
+            <CopyableLabel label={field.label} copyValue={String(value ?? '')} showCopyButton={field.showCopyButton} />
             <NumericInput
               style={{ width: '100%' }}
               value={value}
@@ -132,7 +132,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       case FieldType.Switch:
         return (
           <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <CopyableLabel label={field.label} copyValue={field.key} />
+            <CopyableLabel label={field.label} copyValue={String(value)} showCopyButton={field.showCopyButton} />
             <Switch
               checked={value}
               onChange={(e) => onPropertyChange(field.key, e.target.checked)}
@@ -147,7 +147,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     <div className="widget-setting-demo">
       <SettingSection title="Map Source">
         <SettingRow flow={FlowType.Wrap}>
-          <CopyableLabel label="Use Existing Map Widget" copyValue="useExistingMap" />
+          <CopyableLabel label="Use Existing Map Widget" copyValue={String(config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap)} showCopyButton={false} />
           <Switch
             checked={config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap}
             onChange={(e) => onPropertyChange('useExistingMap', e.target.checked)}
@@ -156,7 +156,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
         {(config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap) ? (
           <SettingRow flow={FlowType.Wrap}>
-            <CopyableLabel label="Select Map Widget" copyValue="existingMapId" />
+            <CopyableLabel label="Select Map Widget" copyValue={config?.existingMapId || ''} showCopyButton={false} />
             <MapWidgetSelector useMapWidgetIds={props.useMapWidgetIds} onSelect={onMapWidgetSelected} />
           </SettingRow>
         ) : null}

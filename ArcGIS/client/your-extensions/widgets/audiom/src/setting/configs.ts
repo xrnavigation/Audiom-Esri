@@ -28,6 +28,7 @@ export interface FieldConfig {
   defaultValue?: string | number | boolean
   showWhen?: (config: IAudiomConfig) => boolean
   enumOptions?: Array<{ label: string; value: string }>
+  showCopyButton?: boolean
 }
 
 export interface ISourceConfig {

@@ -9,6 +9,8 @@ interface CopyableLabelProps {
   label: string
   /** The value to copy to clipboard (defaults to label if not provided) */
   copyValue?: string
+  /** Whether to show the copy button (default: true) */
+  showCopyButton?: boolean
   /** Additional styles for the label container */
   style?: React.CSSProperties
 }
@@ -22,7 +24,7 @@ const TOOLTIP_RESET_DELAY = 2000
  * The icon appears to the right of the label text and is styled to be unobtrusive.
  */
 const CopyableLabel = (props: CopyableLabelProps) => {
-  const { label, copyValue, style } = props
+  const { label, copyValue, showCopyButton = true, style } = props
   const [copied, setCopied] = useState(false)
 
   const handleCopy = useCallback(async (e: React.MouseEvent) => {
@@ -49,29 +51,31 @@ const CopyableLabel = (props: CopyableLabelProps) => {
       ...style 
     }}>
       <Label style={{ flex: 1, marginBottom: 0 }}>{label}</Label>
-      <Tooltip title={copied ? TOOLTIP_COPIED : TOOLTIP_COPY} placement="top">
-        <button
-          type="button"
-          onClick={handleCopy}
-          aria-label={`Copy ${label} key`}
-          style={{
-            background: 'none',
-            border: 'none',
-            padding: '2px',
-            cursor: 'pointer',
-            opacity: 0.5,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'opacity 0.2s ease',
-            marginLeft: '4px'
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1' }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5' }}
-        >
-          <CopyOutlined size={12} color={copied ? '#10b981' : '#6b7280'} />
-        </button>
-      </Tooltip>
+      {showCopyButton && (
+        <Tooltip title={copied ? TOOLTIP_COPIED : TOOLTIP_COPY} placement="top">
+          <button
+            type="button"
+            onClick={handleCopy}
+            aria-label={`Copy ${label} key`}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: '2px',
+              cursor: 'pointer',
+              opacity: 0.5,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'opacity 0.2s ease',
+              marginLeft: '4px'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = '1' }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5' }}
+          >
+            <CopyOutlined size={12} color={copied ? '#10b981' : '#6b7280'} />
+          </button>
+        </Tooltip>
+      )}
     </div>
   )
 }
