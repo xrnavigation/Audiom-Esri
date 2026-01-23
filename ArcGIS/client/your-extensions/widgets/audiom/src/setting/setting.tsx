@@ -10,11 +10,44 @@ import { extractMapConfigFromEsriMap, audiomConfigToEmbedConfig, isAudiomConfigV
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
 import { ButtonType, FieldType, FlowType } from './enums'
 import { AudiomConfigKey } from './configKeys'
+import { validateLatitude, validateLongitude, validateZoom, validateStepSize, validateUrl, sanitizeConfig, VALIDATION } from './validation'
 
-const { useEffect } = React
+const { useEffect, useRef } = React
 
 const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
+  const hasRunSanitization = useRef(false)
+
+  // Sanitize config on initial load (handles deserialized values from config.json)
+  useEffect(() => {
+    if (!hasRunSanitization.current && config) {
+      hasRunSanitization.current = true
+      const { config: sanitizedConfig, warnings } = sanitizeConfig(config)
+      
+      // Log any validation warnings
+      if (warnings.length > 0) {
+        console.warn('Audiom config validation warnings:', warnings)
+      }
+
+      // Check if any values were changed during sanitization
+      const needsUpdate = Object.keys(sanitizedConfig).some(
+        key => sanitizedConfig[key] !== config[key]
+      )
+
+      if (needsUpdate) {
+        let newConfig = config
+        Object.entries(sanitizedConfig).forEach(([key, value]) => {
+          if (value !== config[key]) {
+            newConfig = newConfig.set(key, value)
+          }
+        })
+        props.onSettingChange({
+          id: props.id,
+          config: newConfig
+        })
+      }
+    }
+  }, []) // Run only once on mount
 
   // Update map center and zoom from ESRI map when using existing map
   useEffect(() => {
@@ -84,18 +117,18 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const alwaysPresentFields: FieldConfig[] = [
     { key: AudiomConfigKey.Title, label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title' },
     { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Text, placeholder: 'Enter API key' },
-    { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl },
-    { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Number, min: 0.1, defaultValue: DEFAULT_CONFIG.stepSize, showCopyButton: false },
+    { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl, validateOnAccept: (val) => validateUrl(String(val)) },
+    { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Number, min: 0.1, defaultValue: DEFAULT_CONFIG.stepSize, showCopyButton: false, validateOnAccept: (val) => validateStepSize(val) },
     { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
     { key: AudiomConfigKey.Heading, label: 'Heading', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
-    { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL' }
+    { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL', validateOnAccept: (val) => validateUrl(String(val)) }
   ]
 
   const urlModeFields: FieldConfig[] = [
-    { key: AudiomConfigKey.CenterLatitude, label: 'Center Latitude', type: FieldType.Number, defaultValue: DEFAULT_CONFIG.centerLatitude },
-    { key: AudiomConfigKey.CenterLongitude, label: 'Center Longitude', type: FieldType.Number, defaultValue: DEFAULT_CONFIG.centerLongitude },
-    { key: AudiomConfigKey.Zoom, label: 'Zoom Level', type: FieldType.Number, min: 0, max: 20, defaultValue: DEFAULT_CONFIG.zoom }
+    { key: AudiomConfigKey.CenterLatitude, label: 'Center Latitude', type: FieldType.Number, defaultValue: DEFAULT_CONFIG.centerLatitude, min: VALIDATION.LATITUDE_MIN, max: VALIDATION.LATITUDE_MAX, validateOnAccept: (val) => validateLatitude(Number(val)) },
+    { key: AudiomConfigKey.CenterLongitude, label: 'Center Longitude', type: FieldType.Number, defaultValue: DEFAULT_CONFIG.centerLongitude, min: VALIDATION.LONGITUDE_MIN, max: VALIDATION.LONGITUDE_MAX, validateOnAccept: (val) => validateLongitude(Number(val)) },
+    { key: AudiomConfigKey.Zoom, label: 'Zoom Level', type: FieldType.Number, min: VALIDATION.ZOOM_MIN, max: VALIDATION.ZOOM_MAX, defaultValue: DEFAULT_CONFIG.zoom, validateOnAccept: (val) => validateZoom(Number(val)) }
   ]
 
   const renderField = (field: FieldConfig, readOnly: boolean = false) => {
@@ -112,6 +145,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
               onChange={(e) => onPropertyChange(field.key, e.target.value)}
               placeholder={field.placeholder}
               disabled={readOnly}
+              checkValidityOnAccept={field.validateOnAccept ? (text) => field.validateOnAccept(text) : undefined}
             />
           </SettingRow>
         )
@@ -122,7 +156,16 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
             <NumericInput
               style={{ width: '100%' }}
               value={value}
-              onChange={(val) => onPropertyChange(field.key, val)}
+              onChange={(val) => {
+                // Validate on change and only update if valid (or let NumericInput handle min/max)
+                if (field.validateOnAccept) {
+                  const result = field.validateOnAccept(val)
+                  if (!result.valid) {
+                    console.warn(`Validation failed for ${field.key}:`, result.msg)
+                  }
+                }
+                onPropertyChange(field.key, val)
+              }}
               min={field.min}
               max={field.max}
               disabled={readOnly}
