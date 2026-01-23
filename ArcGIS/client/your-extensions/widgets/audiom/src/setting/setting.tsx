@@ -5,53 +5,41 @@ import { TextInput, NumericInput, Switch, Label, Button } from 'jimu-ui'
 
 import SourceConfigList from './components/SourceConfigList'
 import CopyableLabel from './components/CopyableLabel'
-import { MapViewManager, JimuMapView, JimuLayerView } from 'jimu-arcgis'
-import { extractMapConfigFromEsriMap, audiomConfigToEmbedConfig, isAudiomConfigValid, getJimuMapViewById } from '../utils/maputils'
+import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/maputils'
+import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
 import { ButtonType, FieldType, FlowType } from './enums'
 import { AudiomConfigKey } from './configKeys'
 import { validateLatitude, validateLongitude, validateZoom, validateStepSize, validateUrl, VALIDATION } from './validation/validation'
 
-const { useEffect, useCallback, useRef } = React
-
-// Auto-sync layers with ESRI map - hidden config for now, always enabled
-const AUTO_SYNC_LAYERS = true
+const { useEffect, useCallback } = React
 
 const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
+  const mapSyncManager = getMapSyncManager()
 
-  // Ref to store the current JimuMapView for cleanup
-  const jimuMapViewRef = useRef<JimuMapView | null>(null)
-
-  // Callback to sync config from the ESRI map (center, zoom, sources with visibility)
-  const syncConfigFromMap = useCallback(() => {
-    if (!config?.useExistingMap || !config?.existingMapId) return
-
-    const mapViewManager = MapViewManager.getInstance()
-    const extractedConfig = extractMapConfigFromEsriMap(config.existingMapId, mapViewManager)
-
-    if (!extractedConfig) return
-
+  // Callback to apply synced config from MapSyncManager
+  const applyConfigFromMap = useCallback((newMapConfig: MapSyncConfig) => {
     // Check if anything actually changed to avoid infinite loops
     const currentSourcesJson = JSON.stringify(config.sourceConfigs || [])
-    const newSourcesJson = JSON.stringify(extractedConfig.sourceConfigs || [])
+    const newSourcesJson = JSON.stringify(newMapConfig.sourceConfigs || [])
     const needsUpdate = 
-      config.centerLatitude !== extractedConfig.centerLatitude ||
-      config.centerLongitude !== extractedConfig.centerLongitude ||
-      config.zoom !== extractedConfig.zoom ||
+      config.centerLatitude !== newMapConfig.centerLatitude ||
+      config.centerLongitude !== newMapConfig.centerLongitude ||
+      config.zoom !== newMapConfig.zoom ||
       currentSourcesJson !== newSourcesJson
 
     if (needsUpdate) {
       let newConfig = config
-        .set(AudiomConfigKey.CenterLatitude, extractedConfig.centerLatitude)
-        .set(AudiomConfigKey.CenterLongitude, extractedConfig.centerLongitude)
-        .set(AudiomConfigKey.Zoom, extractedConfig.zoom)
+        .set(AudiomConfigKey.CenterLatitude, newMapConfig.centerLatitude)
+        .set(AudiomConfigKey.CenterLongitude, newMapConfig.centerLongitude)
+        .set(AudiomConfigKey.Zoom, newMapConfig.zoom)
 
-      if (extractedConfig.sourceConfigs) {
-        newConfig = newConfig.set(AudiomConfigKey.SourceConfigs, extractedConfig.sourceConfigs)
+      if (newMapConfig.sourceConfigs) {
+        newConfig = newConfig.set(AudiomConfigKey.SourceConfigs, newMapConfig.sourceConfigs)
       }
 
-      console.log('Auto-sync settings: Updated config with', extractedConfig.sourceConfigs?.length || 0, 'sources')
+      console.log('Auto-sync settings: Updated config with', newMapConfig.sourceConfigs?.length || 0, 'sources')
 
       props.onSettingChange({
         id: props.id,
@@ -60,60 +48,33 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     }
   }, [config, props])
 
-  // Initial sync and layer watcher setup
+  // Initialize MapSyncManager and listen for changes
   useEffect(() => {
     if (!config?.useExistingMap || !config?.existingMapId) {
+      mapSyncManager.detach()
       return
     }
 
-    const mapViewManager = MapViewManager.getInstance()
-    const jimuMapView = getJimuMapViewById(config.existingMapId, mapViewManager)
-
-    if (!jimuMapView || !jimuMapView.view) {
+    // Attach to the map
+    const attached = mapSyncManager.attach(config.existingMapId)
+    if (!attached) {
       return
     }
-
-    // Store ref for cleanup
-    jimuMapViewRef.current = jimuMapView
 
     // Do initial sync
-    syncConfigFromMap()
-
-    // Only add layer watchers if auto-sync is enabled
-    if (!AUTO_SYNC_LAYERS) {
-      return
+    const initialConfig = mapSyncManager.getCurrentConfig(config.existingMapId)
+    if (initialConfig) {
+      applyConfigFromMap(initialConfig)
     }
 
-    // Define listener callbacks
-    const onLayerCreated = (jimuLayerView: JimuLayerView) => {
-      console.log('Auto-sync settings: Layer created', jimuLayerView.layer?.title)
-      syncConfigFromMap()
-    }
+    // Listen for changes
+    mapSyncManager.addChangeListener(applyConfigFromMap)
 
-    const onLayerRemoved = (jimuLayerView: JimuLayerView) => {
-      console.log('Auto-sync settings: Layer removed', jimuLayerView.layer?.title)
-      syncConfigFromMap()
-    }
-
-    const onVisibilityChanged = (jimuLayerViews: JimuLayerView[]) => {
-      console.log('Auto-sync settings: Layer visibility changed', jimuLayerViews.map(v => v.layer?.title))
-      syncConfigFromMap()
-    }
-
-    // Add listeners
-    jimuMapView.addJimuLayerViewCreatedListener(onLayerCreated)
-    jimuMapView.addJimuLayerViewRemovedListener(onLayerRemoved)
-    jimuMapView.addJimuLayerViewsVisibleChangeListener(onVisibilityChanged)
-
-    // Cleanup on unmount or when dependencies change
+    // Cleanup
     return () => {
-      if (jimuMapViewRef.current) {
-        jimuMapViewRef.current.removeJimuLayerViewCreatedListener(onLayerCreated)
-        jimuMapViewRef.current.removeJimuLayerViewRemovedListener(onLayerRemoved)
-        jimuMapViewRef.current.removeJimuLayerViewsVisibleChangeListener(onVisibilityChanged)
-      }
+      mapSyncManager.removeChangeListener(applyConfigFromMap)
     }
-  }, [config?.useExistingMap, config?.existingMapId, syncConfigFromMap])
+  }, [config?.useExistingMap, config?.existingMapId, applyConfigFromMap, mapSyncManager])
 
   const onMapWidgetSelected = (useMapWidgetIds: string[]) => {
     props.onSettingChange({
