@@ -8,7 +8,7 @@ import GeoJSONLayer from 'esri/layers/GeoJSONLayer';
 import MapImageLayer from 'esri/layers/MapImageLayer';
 import { LayerTypes } from "../../../../shared/constants/LayerTypes";
 import { DEFAULT_CONFIG, IAudiomConfig } from "../setting/configs";
-import { isConfigValid } from "../setting/validation";
+import { isConfigValid } from "../setting/validation/validation";
 
 // Constants
 const DEFAULT_FEATURE_LAYER_NAME = 'Feature Layer';

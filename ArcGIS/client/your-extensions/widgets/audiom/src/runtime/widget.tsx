@@ -3,7 +3,7 @@ import { audiomConfigToEmbedConfig } from '../utils/maputils'
 import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis';
 import { useState } from 'react';
 import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs';
-import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation';
+import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation';
 
 const dsManager = DataSourceManager.getInstance();
 const allDataSources = dsManager.getDataSources();

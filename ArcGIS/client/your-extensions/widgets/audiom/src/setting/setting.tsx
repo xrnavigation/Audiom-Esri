@@ -10,7 +10,7 @@ import { extractMapConfigFromEsriMap, audiomConfigToEmbedConfig, isAudiomConfigV
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
 import { ButtonType, FieldType, FlowType } from './enums'
 import { AudiomConfigKey } from './configKeys'
-import { validateLatitude, validateLongitude, validateZoom, validateStepSize, validateUrl, VALIDATION } from './validation'
+import { validateLatitude, validateLongitude, validateZoom, validateStepSize, validateUrl, VALIDATION } from './validation/validation'
 
 const { useEffect } = React
 

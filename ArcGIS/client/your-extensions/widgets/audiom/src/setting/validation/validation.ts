@@ -1,6 +1,6 @@
 import type { ValidityResult } from 'jimu-ui'
 import { React } from 'jimu-core'
-import { DEFAULT_CONFIG, IAudiomConfig } from './configs'
+import { DEFAULT_CONFIG, IAudiomConfig } from '../configs'
 import { isNullish, isNullishOrWhiteSpace, validateAndClamp, validateAndReset, parseStepSize } from './validationUtils'
 
 const { useEffect, useRef } = React
