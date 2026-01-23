@@ -1,3 +1,4 @@
+import type { ValidityResult } from 'jimu-ui'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { FieldType } from './enums'
 
@@ -11,7 +12,7 @@ export const DEFAULT_CONFIG = {
   showVisualMap: true,
   showHeading: false,
   zoom: 10,
-  heading: 1,
+  heading: 3,
   useExistingMap: true,
   centerLatitude: 0,
   centerLongitude: 0,
@@ -29,6 +30,8 @@ export interface FieldConfig {
   showWhen?: (config: IAudiomConfig) => boolean
   enumOptions?: Array<{ label: string; value: string }>
   showCopyButton?: boolean
+  /** Validation function called on blur/accept. Returns ValidityResult with valid flag and optional error message. */
+  validateOnAccept?: (value: string | number) => ValidityResult
 }
 
 export interface ISourceConfig {

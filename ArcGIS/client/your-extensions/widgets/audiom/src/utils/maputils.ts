@@ -8,6 +8,7 @@ import GeoJSONLayer from 'esri/layers/GeoJSONLayer';
 import MapImageLayer from 'esri/layers/MapImageLayer';
 import { LayerTypes } from "../../../../shared/constants/LayerTypes";
 import { DEFAULT_CONFIG, IAudiomConfig } from "../setting/configs";
+import { isConfigValid } from "../setting/validation";
 
 // Constants
 const DEFAULT_FEATURE_LAYER_NAME = 'Feature Layer';
@@ -22,8 +23,12 @@ const LOG_FOUND_GEOJSON_LAYER = 'Found GeoJSON layer:';
 const LOG_FOUND_SUBLAYER = 'Found sublayer:';
 const LOG_EXTRACTED_SOURCES = 'Extracted';
 
+/**
+ * Validates if the Audiom config is ready for use.
+ * Checks API key and validates coordinates, zoom, and step size.
+ */
 export function isAudiomConfigValid(config: IAudiomConfig): boolean {
-  return Boolean((config.apiKey && config.apiKey.trim() !== ''));
+  return isConfigValid(config);
 }
 
 export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapView | undefined): AudiomEmbedConfig {

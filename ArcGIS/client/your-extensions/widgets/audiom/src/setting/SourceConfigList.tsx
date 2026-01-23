@@ -6,6 +6,7 @@ import { FieldConfig, ISourceConfig } from './configs'
 import { ButtonSize, ButtonType, FieldType, FlowType } from './enums'
 import { SourceConfigKey } from './configKeys'
 import CopyableLabel from './CopyableLabel'
+import { validateUrl } from './validation'
 
 const { useState } = React
 
@@ -83,8 +84,8 @@ const SourceConfigList = (props: SourceConfigListProps) => {
 
   const sourceConfigFields: FieldConfig[] = [
     { key: SourceConfigKey.Name, label: FIELD_LABEL_NAME, type: FieldType.Text, placeholder: PLACEHOLDER_NAME },
-    { key: SourceConfigKey.SourceUrl, label: FIELD_LABEL_SOURCE_URL, type: FieldType.Text, placeholder: PLACEHOLDER_SOURCE_URL },
-    { key: SourceConfigKey.RulesFileUrl, label: FIELD_LABEL_RULES_URL, type: FieldType.Text, placeholder: PLACEHOLDER_RULES_URL },
+    { key: SourceConfigKey.SourceUrl, label: FIELD_LABEL_SOURCE_URL, type: FieldType.Text, placeholder: PLACEHOLDER_SOURCE_URL, validateOnAccept: (val) => validateUrl(String(val)) },
+    { key: SourceConfigKey.RulesFileUrl, label: FIELD_LABEL_RULES_URL, type: FieldType.Text, placeholder: PLACEHOLDER_RULES_URL, validateOnAccept: (val) => validateUrl(String(val)) },
     { key: SourceConfigKey.Source, label: FIELD_LABEL_SOURCE, type: FieldType.Text, placeholder: PLACEHOLDER_SOURCE },
     {
       key: SourceConfigKey.MapType,
@@ -118,6 +119,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
               onChange={(e) => onSourceConfigChange(index, field.key, e.target.value)}
               placeholder={field.placeholder}
               disabled={isFieldDisabled}
+              checkValidityOnAccept={field.validateOnAccept ? (text) => field.validateOnAccept(text) : undefined}
             />
           </SettingRow>
         )
