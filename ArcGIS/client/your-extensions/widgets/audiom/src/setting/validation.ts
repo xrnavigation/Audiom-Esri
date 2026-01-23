@@ -1,6 +1,7 @@
 import type { ValidityResult } from 'jimu-ui'
 import { React } from 'jimu-core'
 import { DEFAULT_CONFIG, IAudiomConfig } from './configs'
+import { isNullish, isNullishOrWhiteSpace } from './validationUtils'
 
 const { useEffect, useRef } = React
 
@@ -30,7 +31,7 @@ const MESSAGES = {
  * Validates latitude value is within -90 to 90 range
  */
 export function validateLatitude(value: number | undefined): ValidityResult {
-  if (value === undefined || value === null) {
+  if (isNullish(value)) {
     return { valid: true }
   }
   const valid = value >= VALIDATION.LATITUDE_MIN && value <= VALIDATION.LATITUDE_MAX
@@ -44,7 +45,7 @@ export function validateLatitude(value: number | undefined): ValidityResult {
  * Validates longitude value is within -180 to 180 range
  */
 export function validateLongitude(value: number | undefined): ValidityResult {
-  if (value === undefined || value === null) {
+  if (isNullish(value)) {
     return { valid: true }
   }
   const valid = value >= VALIDATION.LONGITUDE_MIN && value <= VALIDATION.LONGITUDE_MAX
@@ -58,7 +59,7 @@ export function validateLongitude(value: number | undefined): ValidityResult {
  * Validates zoom level is within 0 to 22 range
  */
 export function validateZoom(value: number | undefined): ValidityResult {
-  if (value === undefined || value === null) {
+  if (isNullish(value)) {
     return { valid: true }
   }
   const valid = value >= VALIDATION.ZOOM_MIN && value <= VALIDATION.ZOOM_MAX
@@ -72,7 +73,7 @@ export function validateZoom(value: number | undefined): ValidityResult {
  * Validates step size matches pattern: number optionally followed by unit (m, km, mi, ft)
  */
 export function validateStepSize(value: string | number | undefined): ValidityResult {
-  if (value === undefined || value === null || value === '') {
+  if (isNullishOrWhiteSpace(String(value))) {
     return { valid: true }
   }
   const strValue = String(value)
@@ -91,7 +92,7 @@ export function validateStepSize(value: string | number | undefined): ValidityRe
  * - Host:port patterns (localhost:3000, audiom:8080)
  */
 export function validateUrl(value: string | undefined): ValidityResult {
-  if (!value || value.trim() === '') {
+  if (isNullishOrWhiteSpace(value)) {
     return { valid: true }
   }
   
@@ -115,7 +116,7 @@ export function validateUrl(value: string | undefined): ValidityResult {
  * Validates required field is not empty
  */
 export function validateRequired(value: string | undefined): ValidityResult {
-  const valid = value !== undefined && value !== null && value.trim() !== ''
+  const valid = !isNullishOrWhiteSpace(value)
   return {
     valid,
     msg: valid ? undefined : MESSAGES.REQUIRED

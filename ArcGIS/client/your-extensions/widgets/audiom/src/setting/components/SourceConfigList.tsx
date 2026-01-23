@@ -1,12 +1,12 @@
 import { React } from 'jimu-core'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
 import { TextInput, NumericInput, Switch, Label, Select, Option, Collapse, Button } from 'jimu-ui'
-import { MapType } from '../../../../shared/audiom-client/AudiomSource'
-import { FieldConfig, ISourceConfig } from './configs'
-import { ButtonSize, ButtonType, FieldType, FlowType } from './enums'
-import { SourceConfigKey } from './configKeys'
-import CopyableLabel from './components/CopyableLabel'
-import { validateUrl } from './validation'
+import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
+import { FieldConfig, ISourceConfig } from '../configs'
+import { ButtonSize, ButtonType, FieldType, FlowType } from '../enums'
+import { SourceConfigKey } from '../configKeys'
+import CopyableLabel from './CopyableLabel'
+import { validateUrl } from '../validation'
 
 const { useState } = React
 
