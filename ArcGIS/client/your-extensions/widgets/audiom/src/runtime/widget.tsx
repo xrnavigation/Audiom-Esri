@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs'
 import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation'
 import MessagePopup, { MessageType } from './components/MessagePopup'
+import { JimuConfig } from '../utils/JimuConfig'
 
 const dsManager = DataSourceManager.getInstance()
 const allDataSources = dsManager.getDataSources()
@@ -80,7 +81,7 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
         <JimuMapViewComponent useMapWidgetId={props.useMapWidgetIds?.[0]} onActiveViewChange={activeViewChangeHandler} />
       )}
       <MessagePopup 
-        show={hasChanges} 
+        show={hasChanges && JimuConfig.getInstance().isInBuilder()} 
         message="Map changes detected. Select the Audiom widget to re-synchronize."
         variant={MessageType.Warning}
       />

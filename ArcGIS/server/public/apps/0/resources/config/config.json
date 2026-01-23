@@ -1188,10 +1188,10 @@
         "baseUrl": "https://audiom-staging.herokuapp.com",
         "title": "ESRI Building",
         "rulesFileUrl": "/rules/esri-indoor.json",
-        "centerLatitude": 48.42406221488305,
-        "centerLongitude": -123.4920992387118,
+        "centerLatitude": 48.423926938779246,
+        "centerLongitude": -123.49497456677597,
         "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
-        "zoom": 13,
+        "zoom": 14,
         "sourceConfig": {
           "source": "units",
           "name": "Units",
@@ -1283,9 +1283,10 @@
             "source": "19a8374bc92-layer-25",
             "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapBoundaryMunicipal/FeatureServer/1",
             "mapType": "indoor",
-            "enabled": true
+            "enabled": false
           }
-        ]
+        ],
+        "syncRuntimeLayers": true
       },
       "id": "widget_112",
       "useMapWidgetIds": [
@@ -1440,7 +1441,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1769189039876,
+  "timestamp": 1769210640082,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {
@@ -1459,15 +1460,8 @@
           "itemId": "4bd6d191c5b04b239851ee4735115dcf",
           "layerId": "1",
           "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapZoning/FeatureServer/1",
-          "label": "Zoning"
-        },
-        "19ba4db0130-layer-25": {
-          "id": "dataSource_3-19ba4db0130-layer-25",
-          "type": "MAP_SERVICE",
-          "sourceLabel": "Civic Address",
-          "portalUrl": "https://www.arcgis.com",
-          "itemId": "de233bf07f16467883ef23081bfea8a1",
-          "url": "https://tiles.arcgis.com/tiles/MLf7r3NQY1Pb8feC/arcgis/rest/services/AddressAnno_20260109/MapServer"
+          "label": "Zoning",
+          "isHidden": true
         },
         "19a8374bc92-layer-25": {
           "id": "dataSource_3-19a8374bc92-layer-25",
@@ -1476,7 +1470,9 @@
           "portalUrl": "https://www.arcgis.com",
           "itemId": "443c652fb59249df90f1736fbf26d7de",
           "layerId": "1",
-          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapBoundaryMunicipal/FeatureServer/1"
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapBoundaryMunicipal/FeatureServer/1",
+          "label": "Municipal Boundary",
+          "isHidden": true
         },
         "19b37cd4767-layer-26": {
           "id": "dataSource_3-19b37cd4767-layer-26",
@@ -1546,7 +1542,8 @@
           "portalUrl": "https://www.arcgis.com",
           "itemId": "4f845387d9f24a29953b422cd99a56c3",
           "layerId": "0",
-          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_LSTN/FeatureServer/0"
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_LSTN/FeatureServer/0",
+          "label": "Sewer Lift Stations"
         },
         "182ac73cfc7-layer-21": {
           "id": "dataSource_3-182ac73cfc7-layer-21",
@@ -1555,7 +1552,8 @@
           "portalUrl": "https://www.arcgis.com",
           "itemId": "a3289e56ee814eb2a9b93a42cd0176cd",
           "layerId": "5",
-          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Drain_Main/FeatureServer/5"
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Drain_Main/FeatureServer/5",
+          "label": "Drain Main"
         },
         "18b5d7653af-layer-25": {
           "id": "dataSource_3-18b5d7653af-layer-25",
@@ -1564,7 +1562,8 @@
           "portalUrl": "https://www.arcgis.com",
           "itemId": "2c6c8590d9624990993a65a70f906911",
           "layerId": "6",
-          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Drain_Manhole/FeatureServer/6"
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Drain_Manhole/FeatureServer/6",
+          "label": "Drain Manhole"
         },
         "Ditch_4691": {
           "id": "dataSource_3-Ditch_4691",
@@ -1573,7 +1572,8 @@
           "portalUrl": "https://www.arcgis.com",
           "itemId": "1b4ba3f604aa4150a52cd825d7a1712b",
           "layerId": "0",
-          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Ditch/FeatureServer/0"
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Ditch/FeatureServer/0",
+          "label": "Ditch"
         },
         "18b4dee5461-layer-22": {
           "id": "dataSource_3-18b4dee5461-layer-22",
@@ -1598,7 +1598,8 @@
               "layerId": "1",
               "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapNaturalAssetsInventory/FeatureServer/1"
             }
-          }
+          },
+          "label": "Natural Assets Inventory (2019)"
         },
         "1865c2ea8ad-layer-32": {
           "id": "dataSource_3-1865c2ea8ad-layer-32",
@@ -1608,8 +1609,7 @@
           "itemId": "5d7532aef2fb4ac6b56ab59e6f326d1b",
           "layerId": "0",
           "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapParcel/FeatureServer/0",
-          "label": "Properties",
-          "isHidden": false
+          "label": "Properties"
         },
         "19341701827-layer-23": {
           "id": "dataSource_3-19341701827-layer-23",
@@ -1634,7 +1634,8 @@
               "layerId": "0",
               "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapWater/FeatureServer/0"
             }
-          }
+          },
+          "label": "Lakes and Streams"
         },
         "19340af634f-layer-23": {
           "id": "dataSource_3-19340af634f-layer-23",
@@ -1644,10 +1645,18 @@
           "itemId": "5a009e374e40429ebb68ecd2eb34ee4e",
           "layerId": "1",
           "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapParks/FeatureServer/1",
-          "label": "Parks"
+          "label": "Parks",
+          "isHidden": false
+        },
+        "19bed066422-layer-26": {
+          "id": "dataSource_3-19bed066422-layer-26",
+          "type": "MAP_SERVICE",
+          "sourceLabel": "Civic Address",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "3e487c533040440895f7dbaab8346f4e",
+          "url": "https://tiles.arcgis.com/tiles/MLf7r3NQY1Pb8feC/arcgis/rest/services/AddressAnno_20260123/MapServer"
         }
-      },
-      "isHidden": false
+      }
     }
   },
   "permission": {
