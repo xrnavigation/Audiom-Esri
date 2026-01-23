@@ -36,8 +36,8 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
       return
     }
 
-    // Attach to the map (may already be attached by settings panel)
-    mapSyncManager.attach(sanitizedConfig.existingMapId)
+    // Attach to the map and pass current config to detect initial mismatches
+    mapSyncManager.attach(sanitizedConfig.existingMapId, sanitizedConfig)
 
     // Store the initial synced config
     const initialJson = JSON.stringify(sanitizedConfig.sourceConfigs || [])

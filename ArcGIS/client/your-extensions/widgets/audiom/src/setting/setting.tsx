@@ -55,8 +55,8 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       return
     }
 
-    // Attach to the map
-    const attached = mapSyncManager.attach(config.existingMapId)
+    // Attach to the map and pass current config to detect initial mismatches
+    const attached = mapSyncManager.attach(config.existingMapId, config)
     if (!attached) {
       return
     }

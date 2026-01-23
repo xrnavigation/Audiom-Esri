@@ -1,7 +1,6 @@
 import { JimuMapView, JimuLayerView, MapViewManager } from 'jimu-arcgis'
 import { getJimuMapViewById, extractMapConfigFromEsriMap } from './maputils'
 import { ISourceConfig } from '../setting/configs'
-import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 
 // Auto-sync layers with ESRI map - hidden config for now, always enabled
 export const AUTO_SYNC_LAYERS = true
@@ -33,8 +32,10 @@ export class MapSyncManager {
   /**
    * Initialize the sync manager with a map widget ID.
    * Sets up layer watchers if AUTO_SYNC_LAYERS is enabled.
+   * @param mapId - The map widget ID to attach to
+   * @param currentConfig - Optional current widget config to compare against for initial mismatch detection
    */
-  attach(mapId: string): boolean {
+  attach(mapId: string, currentConfig?: { sourceConfigs?: ISourceConfig[] }): boolean {
     const mapViewManager = MapViewManager.getInstance()
     const jimuMapView = getJimuMapViewById(mapId, mapViewManager)
 
@@ -49,12 +50,8 @@ export class MapSyncManager {
     this.jimuMapView = jimuMapView
     this.initialized = false
 
-    // Store initial config to avoid false positive on first check
-    const initialConfig = this.getCurrentConfig(mapId)
-    if (initialConfig) {
-      this.lastConfigJson = JSON.stringify(initialConfig)
-      this.initialized = true
-    }
+    // Initialize baseline config and check for mismatches
+    this.initializeBaselineConfig(mapId, currentConfig)
 
     if (!AUTO_SYNC_LAYERS) {
       return true
@@ -187,6 +184,39 @@ export class MapSyncManager {
         console.error('MapSyncManager: Error in change listener', e)
       }
     })
+  }
+
+  /**
+   * Initialize the baseline config and check for initial mismatch.
+   * @param mapId - The map widget ID
+   * @param currentConfig - Optional current widget config to compare against
+   */
+  private initializeBaselineConfig(mapId: string, currentConfig?: { sourceConfigs?: ISourceConfig[] }): void {
+    const mapConfig = this.getCurrentConfig(mapId)
+    if (!mapConfig) return
+
+    const mapConfigJson = JSON.stringify(mapConfig.sourceConfigs || [])
+    
+    // Check for initial mismatch if current config provided
+    if (currentConfig) {
+      const currentConfigJson = JSON.stringify(currentConfig.sourceConfigs || [])
+      const hasMismatch = currentConfigJson !== mapConfigJson
+      
+      this.initialized = true
+      
+      if (hasMismatch) {
+        console.log('MapSyncManager: Initial config mismatch detected on attach')
+        // Defer notification to next tick to allow listeners to be added
+        setTimeout(() => this.notifyChange(), 0)
+      } else {
+        // Configs match, store baseline
+        this.lastConfigJson = mapConfigJson
+      }
+    } else {
+      // No current config provided, just store the map config
+      this.lastConfigJson = mapConfigJson
+      this.initialized = true
+    }
   }
 }
 
