@@ -110,10 +110,17 @@ export class JimuConfig {
 
   /**
    * Check if the current environment is Experience Builder (design mode).
+   */
+  isBuilder(): boolean {
+    return this.config.isBuilder === true
+  }
+
+  /**
+   * Check if the current environment is Experience Builder (design mode).
    * Returns true when editing in the builder, false when viewing a deployed/preview app.
    */
   isInBuilder(): boolean {
-    return this.config.isBuilder === true || this.config.isInBuilder === true
+    return this.config.isInBuilder === true
   }
 
   /**
