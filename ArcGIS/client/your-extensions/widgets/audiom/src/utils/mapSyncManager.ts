@@ -23,6 +23,7 @@ export class MapSyncManager {
   private jimuMapView: JimuMapView | null = null
   private changeListeners: Set<MapSyncChangeListener> = new Set()
   private lastConfigJson: string = ''
+  private initialized: boolean = false
   
   // Bound listener references for cleanup
   private boundOnLayerCreated: ((jlv: JimuLayerView) => void) | null = null
@@ -46,6 +47,14 @@ export class MapSyncManager {
     this.detach()
 
     this.jimuMapView = jimuMapView
+    this.initialized = false
+
+    // Store initial config to avoid false positive on first check
+    const initialConfig = this.getCurrentConfig(mapId)
+    if (initialConfig) {
+      this.lastConfigJson = JSON.stringify(initialConfig)
+      this.initialized = true
+    }
 
     if (!AUTO_SYNC_LAYERS) {
       return true
@@ -97,6 +106,8 @@ export class MapSyncManager {
     this.boundOnLayerCreated = null
     this.boundOnLayerRemoved = null
     this.boundOnVisibilityChanged = null
+    this.initialized = false
+    this.lastConfigJson = ''
   }
 
   /**
@@ -136,6 +147,10 @@ export class MapSyncManager {
    * Check if the current map config differs from the provided config.
    */
   hasChanges(mapId: string, currentConfig: { sourceConfigs?: ISourceConfig[] }): boolean {
+    if (!this.initialized) {
+      return false
+    }
+
     const newConfig = this.getCurrentConfig(mapId)
     if (!newConfig) return false
 
