@@ -8,7 +8,7 @@ import GeoJSONLayer from 'esri/layers/GeoJSONLayer';
 import MapImageLayer from 'esri/layers/MapImageLayer';
 import { LayerTypes } from "../../../../shared/constants/LayerTypes";
 import { DEFAULT_CONFIG, IAudiomConfig } from "../setting/configs";
-import { isConfigValid } from "../setting/validation";
+import { isConfigValid } from "../setting/validation/validation";
 
 // Constants
 const DEFAULT_FEATURE_LAYER_NAME = 'Feature Layer';
@@ -151,16 +151,29 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
   const center = view.center;
   const zoom = view.zoom;
   
-  // Extract sources from the map
-  const sources = getSourcesFromEsriMap(jimuMapView);
-  const sourceConfigs = sources.map(source => ({
-    name: source.name,
-    source: source.source,
-    sourceUrl: source.url,
-    mapType: source.mapType,
-    rulesFileUrl: source.rules,
-    enabled: true // Default to enabled when extracted from map
-  }));
+  // Extract sources from the map, respecting layer visibility
+  const sourceConfigs: Array<{
+    name?: string;
+    source?: string;
+    sourceUrl?: string;
+    mapType?: MapType;
+    rulesFileUrl?: string;
+    enabled?: boolean;
+  }> = [];
+
+  view.map.layers.forEach((layer) => {
+    const layerSources = processLayer(layer);
+    layerSources.forEach(source => {
+      sourceConfigs.push({
+        name: source.name,
+        source: source.source,
+        sourceUrl: source.url,
+        mapType: source.mapType,
+        rulesFileUrl: source.rules,
+        enabled: layer.visible // Respect layer visibility
+      });
+    });
+  });
 
   return {
     centerLatitude: center.latitude,

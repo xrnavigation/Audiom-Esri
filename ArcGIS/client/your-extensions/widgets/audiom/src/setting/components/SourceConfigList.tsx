@@ -6,7 +6,7 @@ import { FieldConfig, ISourceConfig } from '../configs'
 import { ButtonSize, ButtonType, FieldType, FlowType } from '../enums'
 import { SourceConfigKey } from '../configKeys'
 import CopyableLabel from './CopyableLabel'
-import { validateUrl } from '../validation'
+import { validateUrl } from '../validation/validation'
 
 const { useState } = React
 

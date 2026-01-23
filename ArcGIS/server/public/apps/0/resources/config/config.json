@@ -1188,10 +1188,10 @@
         "baseUrl": "https://audiom-staging.herokuapp.com",
         "title": "ESRI Building",
         "rulesFileUrl": "/rules/esri-indoor.json",
-        "centerLatitude": 48.42406221488305,
-        "centerLongitude": -123.4920992387118,
+        "centerLatitude": 48.423926938779246,
+        "centerLongitude": -123.49497456677597,
         "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
-        "zoom": 13,
+        "zoom": 14,
         "sourceConfig": {
           "source": "units",
           "name": "Units",
@@ -1206,13 +1206,14 @@
             "source": "19340af634f-layer-23",
             "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapParks/FeatureServer/1",
             "mapType": "indoor",
-            "enabled": false
+            "enabled": true
           },
           {
             "name": "Properties",
             "source": "1865c2ea8ad-layer-32",
             "sourceUrl": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapParcel/FeatureServer/0",
-            "mapType": "indoor"
+            "mapType": "indoor",
+            "enabled": true
           },
           {
             "name": "Ditch",
@@ -1284,7 +1285,8 @@
             "mapType": "indoor",
             "enabled": false
           }
-        ]
+        ],
+        "syncRuntimeLayers": true
       },
       "id": "widget_112",
       "useMapWidgetIds": [
@@ -1439,7 +1441,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1768011622867,
+  "timestamp": 1769210640082,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {
@@ -1448,7 +1450,213 @@
       "type": "WEB_MAP",
       "sourceLabel": "Colwood GIS",
       "itemId": "71b164bb8ebb4217908f48ae7a75fcdb",
-      "portalUrl": "https://xrnavigation.maps.arcgis.com"
+      "portalUrl": "https://xrnavigation.maps.arcgis.com",
+      "childDataSourceJsons": {
+        "18a483c71ad-layer-32": {
+          "id": "dataSource_3-18a483c71ad-layer-32",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Zoning",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "4bd6d191c5b04b239851ee4735115dcf",
+          "layerId": "1",
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapZoning/FeatureServer/1",
+          "label": "Zoning",
+          "isHidden": true
+        },
+        "19a8374bc92-layer-25": {
+          "id": "dataSource_3-19a8374bc92-layer-25",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Municipal Boundary",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "443c652fb59249df90f1736fbf26d7de",
+          "layerId": "1",
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapBoundaryMunicipal/FeatureServer/1",
+          "label": "Municipal Boundary",
+          "isHidden": true
+        },
+        "19b37cd4767-layer-26": {
+          "id": "dataSource_3-19b37cd4767-layer-26",
+          "type": "GROUP_LAYER",
+          "sourceLabel": "Trails and Sidewalks",
+          "childDataSourceJsons": {
+            "19b37cd4881-layer-28": {
+              "id": "dataSource_3-19b37cd4767-layer-26-19b37cd4881-layer-28",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "Trails",
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "8b4eef9e35ec4fa1bd29357cc890d93b",
+              "layerId": "3",
+              "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapParkTrails/FeatureServer/3"
+            },
+            "19b37cd4881-layer-27": {
+              "id": "dataSource_3-19b37cd4767-layer-26-19b37cd4881-layer-27",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "Sidewalks",
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "8b4eef9e35ec4fa1bd29357cc890d93b",
+              "layerId": "2",
+              "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapParkTrails/FeatureServer/2"
+            }
+          }
+        },
+        "180629d15dc-layer-20": {
+          "id": "dataSource_3-180629d15dc-layer-20",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Sewer Mains",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "4a2a54983cc345a8b86e6b0df80ac910",
+          "layerId": "5",
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_SewerMain/FeatureServer/5"
+        },
+        "18b5e7b1cb5-layer-27": {
+          "id": "dataSource_3-18b5e7b1cb5-layer-27",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Sewer Force Main",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "ab76566e94354e1180bfb6c460ce0af4",
+          "layerId": "7",
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_FM/FeatureServer/7"
+        },
+        "18b5e6fb0ab-layer-26": {
+          "id": "dataSource_3-18b5e6fb0ab-layer-26",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Sewer Cleanout",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "6e11c0e517534c80b406777dae27f26e",
+          "layerId": "3",
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_Cleanout/FeatureServer/3"
+        },
+        "18638ba29f9-layer-32": {
+          "id": "dataSource_3-18638ba29f9-layer-32",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Sewer Manhole",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "69b9710a49564fa898aaee49ef8f5f25",
+          "layerId": "4",
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_Manhole/FeatureServer/4"
+        },
+        "SAN_LSTN_5970": {
+          "id": "dataSource_3-SAN_LSTN_5970",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Sewer Lift Stations",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "4f845387d9f24a29953b422cd99a56c3",
+          "layerId": "0",
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/SAN_LSTN/FeatureServer/0",
+          "label": "Sewer Lift Stations"
+        },
+        "182ac73cfc7-layer-21": {
+          "id": "dataSource_3-182ac73cfc7-layer-21",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Drain Main",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "a3289e56ee814eb2a9b93a42cd0176cd",
+          "layerId": "5",
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Drain_Main/FeatureServer/5",
+          "label": "Drain Main"
+        },
+        "18b5d7653af-layer-25": {
+          "id": "dataSource_3-18b5d7653af-layer-25",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Drain Manhole",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "2c6c8590d9624990993a65a70f906911",
+          "layerId": "6",
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Drain_Manhole/FeatureServer/6",
+          "label": "Drain Manhole"
+        },
+        "Ditch_4691": {
+          "id": "dataSource_3-Ditch_4691",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Ditch",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "1b4ba3f604aa4150a52cd825d7a1712b",
+          "layerId": "0",
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/Ditch/FeatureServer/0",
+          "label": "Ditch"
+        },
+        "18b4dee5461-layer-22": {
+          "id": "dataSource_3-18b4dee5461-layer-22",
+          "type": "GROUP_LAYER",
+          "sourceLabel": "Natural Assets Inventory (2019)",
+          "childDataSourceJsons": {
+            "18b4dee5579-layer-24": {
+              "id": "dataSource_3-18b4dee5461-layer-22-18b4dee5579-layer-24",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "Street Trees (2019)",
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "482ff98763714a1596286382fabe235c",
+              "layerId": "0",
+              "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapNaturalAssetsInventory/FeatureServer/0"
+            },
+            "18b4dee5578-layer-23": {
+              "id": "dataSource_3-18b4dee5461-layer-22-18b4dee5578-layer-23",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "Land Cover Classification (2019)",
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "482ff98763714a1596286382fabe235c",
+              "layerId": "1",
+              "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapNaturalAssetsInventory/FeatureServer/1"
+            }
+          },
+          "label": "Natural Assets Inventory (2019)"
+        },
+        "1865c2ea8ad-layer-32": {
+          "id": "dataSource_3-1865c2ea8ad-layer-32",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Properties",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "5d7532aef2fb4ac6b56ab59e6f326d1b",
+          "layerId": "0",
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapParcel/FeatureServer/0",
+          "label": "Properties"
+        },
+        "19341701827-layer-23": {
+          "id": "dataSource_3-19341701827-layer-23",
+          "type": "GROUP_LAYER",
+          "sourceLabel": "Lakes and Streams",
+          "childDataSourceJsons": {
+            "19341701912-layer-25": {
+              "id": "dataSource_3-19341701827-layer-23-19341701912-layer-25",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "Lakes and Ponds",
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "742c8ceb0ed740f3951cb3403edfed01",
+              "layerId": "3",
+              "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapWater/FeatureServer/3"
+            },
+            "19341701912-layer-24": {
+              "id": "dataSource_3-19341701827-layer-23-19341701912-layer-24",
+              "type": "FEATURE_LAYER",
+              "sourceLabel": "Streams",
+              "portalUrl": "https://www.arcgis.com",
+              "itemId": "742c8ceb0ed740f3951cb3403edfed01",
+              "layerId": "0",
+              "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapWater/FeatureServer/0"
+            }
+          },
+          "label": "Lakes and Streams"
+        },
+        "19340af634f-layer-23": {
+          "id": "dataSource_3-19340af634f-layer-23",
+          "type": "FEATURE_LAYER",
+          "sourceLabel": "Parks",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "5a009e374e40429ebb68ecd2eb34ee4e",
+          "layerId": "1",
+          "url": "https://services3.arcgis.com/MLf7r3NQY1Pb8feC/arcgis/rest/services/mapParks/FeatureServer/1",
+          "label": "Parks",
+          "isHidden": false
+        },
+        "19bed066422-layer-26": {
+          "id": "dataSource_3-19bed066422-layer-26",
+          "type": "MAP_SERVICE",
+          "sourceLabel": "Civic Address",
+          "portalUrl": "https://www.arcgis.com",
+          "itemId": "3e487c533040440895f7dbaab8346f4e",
+          "url": "https://tiles.arcgis.com/tiles/MLf7r3NQY1Pb8feC/arcgis/rest/services/AddressAnno_20260123/MapServer"
+        }
+      }
     }
   },
   "permission": {

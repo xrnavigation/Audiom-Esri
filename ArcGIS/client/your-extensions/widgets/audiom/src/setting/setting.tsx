@@ -5,51 +5,76 @@ import { TextInput, NumericInput, Switch, Label, Button } from 'jimu-ui'
 
 import SourceConfigList from './components/SourceConfigList'
 import CopyableLabel from './components/CopyableLabel'
-import { MapViewManager } from 'jimu-arcgis'
-import { extractMapConfigFromEsriMap, audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/maputils'
+import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/maputils'
+import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
 import { ButtonType, FieldType, FlowType } from './enums'
 import { AudiomConfigKey } from './configKeys'
-import { validateLatitude, validateLongitude, validateZoom, validateStepSize, validateUrl, VALIDATION } from './validation'
+import { validateLatitude, validateLongitude, validateZoom, validateStepSize, validateUrl, VALIDATION } from './validation/validation'
 
-const { useEffect } = React
+const { useEffect, useCallback } = React
 
 const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
+  const mapSyncManager = getMapSyncManager()
 
-  // Update map center and zoom from ESRI map when using existing map
-  useEffect(() => {
-    if (config?.useExistingMap && config?.existingMapId) {
-      const mapViewManager = MapViewManager.getInstance()
-      const extractedConfig = extractMapConfigFromEsriMap(config.existingMapId, mapViewManager)
+  // Callback to apply synced config from MapSyncManager
+  const applyConfigFromMap = useCallback((newMapConfig: MapSyncConfig) => {
+    // Check if anything actually changed to avoid infinite loops
+    const currentSourcesJson = JSON.stringify(config.sourceConfigs || [])
+    const newSourcesJson = JSON.stringify(newMapConfig.sourceConfigs || [])
+    const needsUpdate = 
+      config.centerLatitude !== newMapConfig.centerLatitude ||
+      config.centerLongitude !== newMapConfig.centerLongitude ||
+      config.zoom !== newMapConfig.zoom ||
+      currentSourcesJson !== newSourcesJson
 
-      if (extractedConfig) {
-        // Update config if values are different
-        const needsUpdate = 
-          config.centerLatitude !== extractedConfig.centerLatitude ||
-          config.centerLongitude !== extractedConfig.centerLongitude ||
-          config.zoom !== extractedConfig.zoom
+    if (needsUpdate) {
+      let newConfig = config
+        .set(AudiomConfigKey.CenterLatitude, newMapConfig.centerLatitude)
+        .set(AudiomConfigKey.CenterLongitude, newMapConfig.centerLongitude)
+        .set(AudiomConfigKey.Zoom, newMapConfig.zoom)
 
-        if (needsUpdate) {
-          let newConfig = config
-            .set(AudiomConfigKey.CenterLatitude, extractedConfig.centerLatitude)
-            .set(AudiomConfigKey.CenterLongitude, extractedConfig.centerLongitude)
-            .set(AudiomConfigKey.Zoom, extractedConfig.zoom)
-
-          // Update source configs if available
-          if (extractedConfig.sourceConfigs) {
-            newConfig = newConfig.set(AudiomConfigKey.SourceConfigs, extractedConfig.sourceConfigs)
-          }
-
-          props.onSettingChange({
-            id: props.id,
-            config: newConfig
-          })
-        }
+      if (newMapConfig.sourceConfigs) {
+        newConfig = newConfig.set(AudiomConfigKey.SourceConfigs, newMapConfig.sourceConfigs)
       }
+
+      console.log('Auto-sync settings: Updated config with', newMapConfig.sourceConfigs?.length || 0, 'sources')
+
+      props.onSettingChange({
+        id: props.id,
+        config: newConfig
+      })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config?.useExistingMap, config?.existingMapId])
+  }, [config, props])
+
+  // Initialize MapSyncManager and listen for changes
+  useEffect(() => {
+    if (!config?.useExistingMap || !config?.existingMapId) {
+      mapSyncManager.detach()
+      return
+    }
+
+    // Attach to the map and pass current config to detect initial mismatches
+    const attached = mapSyncManager.attach(config.existingMapId, config)
+    if (!attached) {
+      return
+    }
+
+    // Do initial sync
+    const initialConfig = mapSyncManager.getCurrentConfig(config.existingMapId)
+    if (initialConfig) {
+      applyConfigFromMap(initialConfig)
+    }
+
+    // Listen for changes
+    mapSyncManager.addChangeListener(applyConfigFromMap)
+
+    // Cleanup
+    return () => {
+      mapSyncManager.removeChangeListener(applyConfigFromMap)
+    }
+  }, [config?.useExistingMap, config?.existingMapId, applyConfigFromMap, mapSyncManager])
 
   const onMapWidgetSelected = (useMapWidgetIds: string[]) => {
     props.onSettingChange({
