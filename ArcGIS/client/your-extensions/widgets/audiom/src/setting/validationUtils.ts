@@ -49,6 +49,7 @@ export function parseStepSize(value: string | number | undefined): number | unde
  * @param sanitizer - Function that returns sanitized value
  * @param fieldLabel - Human-readable field name for warning message
  * @param warnings - Array to append warnings to
+ * @param formatWarning - Function to format the warning message given context
  * @returns Sanitized value if invalid, original value if valid, undefined if nullish
  */
 export function validateAndSanitize<T>(
@@ -56,14 +57,15 @@ export function validateAndSanitize<T>(
   validator: (val: T) => { valid: boolean; msg?: string },
   sanitizer: (val: T) => T,
   fieldLabel: string,
-  warnings: string[]
+  warnings: string[],
+  formatWarning: (fieldLabel: string, value: T, sanitizedValue: T, validationMsg: string) => string
 ): T | undefined {
   if (isNullish(value)) return undefined
   
   const validation = validator(value)
   if (!validation.valid) {
     const sanitizedValue = sanitizer(value)
-    warnings.push(`${fieldLabel} ${value} is invalid: ${validation.msg}. Sanitized to ${sanitizedValue}.`)
+    warnings.push(formatWarning(fieldLabel, value, sanitizedValue, validation.msg || 'Invalid value'))
     return sanitizedValue
   }
   return value
@@ -92,7 +94,9 @@ export function validateAndClamp(
     validator,
     (val) => clamp(val, min, max),
     fieldLabel,
-    warnings
+    warnings,
+    (label, val, sanitized, msg) =>
+      `${label} value ${val} is out of range: ${msg}. Clamped to ${sanitized}.`
   )
 }
 
@@ -117,6 +121,8 @@ export function validateAndReset<T>(
     validator,
     () => defaultValue,
     fieldLabel,
-    warnings
+    warnings,
+    (label, val, sanitized, msg) =>
+      `${label} value ${val} is invalid: ${msg}. Reset to default ${sanitized}.`
   )
 }
