@@ -10,44 +10,12 @@ import { extractMapConfigFromEsriMap, audiomConfigToEmbedConfig, isAudiomConfigV
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
 import { ButtonType, FieldType, FlowType } from './enums'
 import { AudiomConfigKey } from './configKeys'
-import { validateLatitude, validateLongitude, validateZoom, validateStepSize, validateUrl, sanitizeConfig, VALIDATION } from './validation'
+import { validateLatitude, validateLongitude, validateZoom, validateStepSize, validateUrl, VALIDATION } from './validation'
 
-const { useEffect, useRef } = React
+const { useEffect } = React
 
 const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
-  const hasRunSanitization = useRef(false)
-
-  // Sanitize config on initial load (handles deserialized values from config.json)
-  useEffect(() => {
-    if (!hasRunSanitization.current && config) {
-      hasRunSanitization.current = true
-      const { config: sanitizedConfig, warnings } = sanitizeConfig(config)
-      
-      // Log any validation warnings
-      if (warnings.length > 0) {
-        console.warn('Audiom config validation warnings:', warnings)
-      }
-
-      // Check if any values were changed during sanitization
-      const needsUpdate = Object.keys(sanitizedConfig).some(
-        key => sanitizedConfig[key] !== config[key]
-      )
-
-      if (needsUpdate) {
-        let newConfig = config
-        Object.entries(sanitizedConfig).forEach(([key, value]) => {
-          if (value !== config[key]) {
-            newConfig = newConfig.set(key, value)
-          }
-        })
-        props.onSettingChange({
-          id: props.id,
-          config: newConfig
-        })
-      }
-    }
-  }, []) // Run only once on mount
 
   // Update map center and zoom from ESRI map when using existing map
   useEffect(() => {

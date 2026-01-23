@@ -1,5 +1,8 @@
 import type { ValidityResult } from 'jimu-ui'
+import { React } from 'jimu-core'
 import { DEFAULT_CONFIG, IAudiomConfig } from './configs'
+
+const { useEffect, useRef } = React
 
 // Validation constants
 export const VALIDATION = {
@@ -81,14 +84,27 @@ export function validateStepSize(value: string | number | undefined): ValidityRe
 }
 
 /**
- * Validates a URL string
+ * Validates a URL string or local path.
+ * Allows:
+ * - Full URLs (http://, https://)
+ * - Relative paths (./path, ../path, /path)
+ * - Host:port patterns (localhost:3000, audiom:8080)
  */
 export function validateUrl(value: string | undefined): ValidityResult {
   if (!value || value.trim() === '') {
     return { valid: true }
   }
+  
+  const trimmed = value.trim()
+  
+  // Allow relative paths
+  if (trimmed.startsWith('./') || trimmed.startsWith('../') || trimmed.startsWith('/')) {
+    return { valid: true }
+  }
+  
+  // Validate full URLs (requires http://, https://, etc.)
   try {
-    new URL(value)
+    new URL(trimmed)
     return { valid: true }
   } catch {
     return { valid: false, msg: MESSAGES.INVALID_URL }
@@ -223,7 +239,26 @@ export function isConfigValid(config: IAudiomConfig): boolean {
   // Validate step size
   if (!validateStepSize(config.stepSize).valid) {
     return false
-  }
 
   return true
+  }
+}
+
+/**
+ * React hook that logs validation warnings once per unique warning set.
+ * Prevents duplicate console warnings when component re-renders with same issues.
+ *
+ * @param warnings - Array of warning messages
+ * @param prefix - Optional prefix for log messages (default: '[Audiom Config]')
+ */
+export function useLogWarnings(warnings: string[], prefix: string = '[Audiom Config]'): void {
+  const lastWarningsRef = useRef<string>('')
+
+  useEffect(() => {
+    const warningsKey = warnings.join(',')
+    if (warnings.length > 0 && warningsKey !== lastWarningsRef.current) {
+      lastWarningsRef.current = warningsKey
+      console.warn(`${prefix} Validation warnings:`, warnings)
+    }
+  }, [warnings, prefix])
 }

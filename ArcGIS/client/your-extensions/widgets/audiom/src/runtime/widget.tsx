@@ -3,21 +3,29 @@ import { audiomConfigToEmbedConfig } from '../utils/maputils'
 import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis';
 import { useState } from 'react';
 import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs';
+import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation';
 
 const dsManager = DataSourceManager.getInstance();
 const allDataSources = dsManager.getDataSources();
 
 const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   const [jimuMapView, setJimuMapView] = useState<JimuMapView>()
+  
+  // Sanitize config on every render (pure function, always reflects current config)
+  const { config: sanitizedConfig, warnings } = sanitizeConfig(props.config)
+  
+  // Log warnings once per unique set
+  logWarnings(warnings)
+  
   const activeViewChangeHandler = (jmv: JimuMapView) => {
       if (jmv) {
         setJimuMapView(jmv)
       }
     }
 
-  const indoorConfig = audiomConfigToEmbedConfig(props.config, jimuMapView);
+  const indoorConfig = audiomConfigToEmbedConfig(sanitizedConfig as IAudiomConfig, jimuMapView);
 
-  const indoorUrl = indoorConfig.toUrl(props.config?.baseUrl || DEFAULT_CONFIG.baseUrl);
+  const indoorUrl = indoorConfig.toUrl(sanitizedConfig?.baseUrl || DEFAULT_CONFIG.baseUrl);
 
   return (
     <div className="jimu-widget">
