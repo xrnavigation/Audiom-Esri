@@ -1,6 +1,7 @@
 import type { ValidityResult } from 'jimu-ui'
 import { React } from 'jimu-core'
 import { DEFAULT_CONFIG, IAudiomConfig } from './configs'
+import { isNullish, isNullishOrWhiteSpace, validateAndClamp, validateAndReset, parseStepSize } from './validationUtils'
 
 const { useEffect, useRef } = React
 
@@ -30,7 +31,7 @@ const MESSAGES = {
  * Validates latitude value is within -90 to 90 range
  */
 export function validateLatitude(value: number | undefined): ValidityResult {
-  if (value === undefined || value === null) {
+  if (isNullish(value)) {
     return { valid: true }
   }
   const valid = value >= VALIDATION.LATITUDE_MIN && value <= VALIDATION.LATITUDE_MAX
@@ -44,7 +45,7 @@ export function validateLatitude(value: number | undefined): ValidityResult {
  * Validates longitude value is within -180 to 180 range
  */
 export function validateLongitude(value: number | undefined): ValidityResult {
-  if (value === undefined || value === null) {
+  if (isNullish(value)) {
     return { valid: true }
   }
   const valid = value >= VALIDATION.LONGITUDE_MIN && value <= VALIDATION.LONGITUDE_MAX
@@ -58,7 +59,7 @@ export function validateLongitude(value: number | undefined): ValidityResult {
  * Validates zoom level is within 0 to 22 range
  */
 export function validateZoom(value: number | undefined): ValidityResult {
-  if (value === undefined || value === null) {
+  if (isNullish(value)) {
     return { valid: true }
   }
   const valid = value >= VALIDATION.ZOOM_MIN && value <= VALIDATION.ZOOM_MAX
@@ -72,7 +73,7 @@ export function validateZoom(value: number | undefined): ValidityResult {
  * Validates step size matches pattern: number optionally followed by unit (m, km, mi, ft)
  */
 export function validateStepSize(value: string | number | undefined): ValidityResult {
-  if (value === undefined || value === null || value === '') {
+  if (isNullishOrWhiteSpace(String(value))) {
     return { valid: true }
   }
   const strValue = String(value)
@@ -91,7 +92,7 @@ export function validateStepSize(value: string | number | undefined): ValidityRe
  * - Host:port patterns (localhost:3000, audiom:8080)
  */
 export function validateUrl(value: string | undefined): ValidityResult {
-  if (!value || value.trim() === '') {
+  if (isNullishOrWhiteSpace(value)) {
     return { valid: true }
   }
   
@@ -115,18 +116,11 @@ export function validateUrl(value: string | undefined): ValidityResult {
  * Validates required field is not empty
  */
 export function validateRequired(value: string | undefined): ValidityResult {
-  const valid = value !== undefined && value !== null && value.trim() !== ''
+  const valid = !isNullishOrWhiteSpace(value)
   return {
     valid,
     msg: valid ? undefined : MESSAGES.REQUIRED
   }
-}
-
-/**
- * Clamps a number to the specified range
- */
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value))
 }
 
 /**
@@ -158,49 +152,55 @@ export function sanitizeConfig(config: IAudiomConfig): SanitizeResult {
   const warnings: string[] = []
   const sanitized: Partial<IAudiomConfig> = { ...config }
 
-  // Validate and clamp latitude
-  if (config.centerLatitude !== undefined) {
-    const latValidation = validateLatitude(config.centerLatitude)
-    if (!latValidation.valid) {
-      warnings.push(`Center latitude ${config.centerLatitude} is invalid: ${latValidation.msg}. Clamped to valid range.`)
-      sanitized.centerLatitude = clamp(config.centerLatitude, VALIDATION.LATITUDE_MIN, VALIDATION.LATITUDE_MAX)
-    }
+  // Clamp numeric ranges
+  sanitized.centerLatitude = validateAndClamp(
+    config.centerLatitude,
+    validateLatitude,
+    VALIDATION.LATITUDE_MIN,
+    VALIDATION.LATITUDE_MAX,
+    'Center latitude',
+    warnings
+  ) ?? config.centerLatitude
+
+  sanitized.centerLongitude = validateAndClamp(
+    config.centerLongitude,
+    validateLongitude,
+    VALIDATION.LONGITUDE_MIN,
+    VALIDATION.LONGITUDE_MAX,
+    'Center longitude',
+    warnings
+  ) ?? config.centerLongitude
+
+  sanitized.zoom = validateAndClamp(
+    config.zoom,
+    validateZoom,
+    VALIDATION.ZOOM_MIN,
+    VALIDATION.ZOOM_MAX,
+    'Zoom level',
+    warnings
+  ) ?? config.zoom
+
+  // Reset to defaults (parse stepSize to number)
+  const sanitizedStepSize = validateAndReset(
+    config.stepSize,
+    validateStepSize,
+    DEFAULT_CONFIG.stepSize,
+    'Step size',
+    warnings
+  )
+  if (sanitizedStepSize !== undefined) {
+    sanitized.stepSize = parseStepSize(sanitizedStepSize) ?? DEFAULT_CONFIG.stepSize
   }
 
-  // Validate and clamp longitude
-  if (config.centerLongitude !== undefined) {
-    const lngValidation = validateLongitude(config.centerLongitude)
-    if (!lngValidation.valid) {
-      warnings.push(`Center longitude ${config.centerLongitude} is invalid: ${lngValidation.msg}. Clamped to valid range.`)
-      sanitized.centerLongitude = clamp(config.centerLongitude, VALIDATION.LONGITUDE_MIN, VALIDATION.LONGITUDE_MAX)
-    }
-  }
-
-  // Validate and clamp zoom
-  if (config.zoom !== undefined) {
-    const zoomValidation = validateZoom(config.zoom)
-    if (!zoomValidation.valid) {
-      warnings.push(`Zoom level ${config.zoom} is invalid: ${zoomValidation.msg}. Clamped to valid range.`)
-      sanitized.zoom = clamp(config.zoom, VALIDATION.ZOOM_MIN, VALIDATION.ZOOM_MAX)
-    }
-  }
-
-  // Validate step size format
-  if (config.stepSize !== undefined) {
-    const stepValidation = validateStepSize(config.stepSize)
-    if (!stepValidation.valid) {
-      warnings.push(`Step size "${config.stepSize}" is invalid: ${stepValidation.msg}. Reset to default.`)
-      sanitized.stepSize = DEFAULT_CONFIG.stepSize
-    }
-  }
-
-  // Validate base URL
-  if (config.baseUrl) {
-    const urlValidation = validateUrl(config.baseUrl)
-    if (!urlValidation.valid) {
-      warnings.push(`Base URL "${config.baseUrl}" is invalid: ${urlValidation.msg}. Reset to default.`)
-      sanitized.baseUrl = DEFAULT_CONFIG.baseUrl
-    }
+  const sanitizedBaseUrl = validateAndReset(
+    config.baseUrl,
+    validateUrl,
+    DEFAULT_CONFIG.baseUrl,
+    'Base URL',
+    warnings
+  )
+  if (sanitizedBaseUrl !== undefined) {
+    sanitized.baseUrl = sanitizedBaseUrl
   }
 
   return { config: sanitized, warnings }
