@@ -1,4 +1,5 @@
 import type { ValidityResult } from 'jimu-ui'
+import type { React } from 'jimu-core'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import { FieldType } from './enums'
@@ -34,6 +35,8 @@ export interface FieldConfig {
   showCopyButton?: boolean
   /** Validation function called on blur/accept. Returns ValidityResult with valid flag and optional error message. */
   validateOnAccept?: (value: string | number) => ValidityResult
+  /** Optional callback to render additional content after this field */
+  renderAfter?: () => React.ReactElement
 }
 
 export interface ISourceConfig {
