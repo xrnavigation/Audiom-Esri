@@ -24,24 +24,6 @@ const LOG_FOUND_SUBLAYER = 'Found sublayer:';
 const LOG_EXTRACTED_SOURCES = 'Extracted';
 
 /**
- * Creates a StepSize instance from value and unit
- */
-function createStepSize(value: number, unit: StepSizeUnit): StepSize {
-  switch (unit) {
-    case StepSizeUnit.Meters:
-      return StepSize.Meters(value);
-    case StepSizeUnit.Kilometers:
-      return StepSize.Kilometers(value);
-    case StepSizeUnit.Feet:
-      return StepSize.Feet(value);
-    case StepSizeUnit.Miles:
-      return StepSize.Miles(value);
-    default:
-      return StepSize.Kilometers(value);
-  }
-}
-
-/**
  * Validates if the Audiom config is ready for use.
  * Checks API key and validates coordinates, zoom, and step size.
  */
@@ -82,7 +64,7 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
     showHeading: config.showHeading ?? DEFAULT_CONFIG.showHeading,
     zoom: config.zoom ?? DEFAULT_CONFIG.zoom,
     heading: config.heading,
-    stepSize: createStepSize(config.stepSize ?? DEFAULT_CONFIG.stepSize, config.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit),
+    stepSize: StepSize.create(config.stepSize ?? DEFAULT_CONFIG.stepSize, config.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit),
   });
 }
 

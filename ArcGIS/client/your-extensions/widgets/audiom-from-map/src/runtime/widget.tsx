@@ -83,7 +83,7 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
           showVisualMap: true,
           showHeading: false,
           zoom: 11,
-          stepsize: StepSize.Miles(1),
+          stepSize: StepSize.miles(1),
         })
         
         const url = config.toUrl('https://audiom-staging.herokuapp.com')

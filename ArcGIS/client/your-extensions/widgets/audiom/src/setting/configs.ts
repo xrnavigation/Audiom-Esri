@@ -10,7 +10,7 @@ import { FieldType } from './enums'
 export const DEFAULT_CONFIG = {
   baseUrl: 'https://audiom-staging.herokuapp.com',
   stepSize: 1,
-  stepSizeUnit: StepSizeUnit.Kilometers,
+  stepSizeUnit: StepSizeUnit.Meters,
   showVisualMap: true,
   showHeading: false,
   zoom: 10,
