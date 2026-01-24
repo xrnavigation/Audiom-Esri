@@ -30,7 +30,7 @@ const indoorConfig = AudiomEmbedConfig.dynamic({
   ],
   center: [-159.48414838102337, 22.151119308677917],
   zoom: 9.5,
-  stepsize: StepSize.Miles(1),
+  stepSize: StepSize.miles(1),
 });
 
 const indoorUrl = indoorConfig.toUrl('https://audiom-staging.herokuapp.com');

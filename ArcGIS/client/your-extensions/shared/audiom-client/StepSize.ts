@@ -44,29 +44,36 @@ export class StepSize implements IStepSize {
   /**
    * Create a step size in kilometers
    */
-  static Kilometers(value: number): StepSize {
+  static kilometers(value: number): StepSize {
     return new StepSize(value, StepSizeUnit.Kilometers);
   }
 
   /**
    * Create a step size in meters
    */
-  static Meters(value: number): StepSize {
+  static meters(value: number): StepSize {
     return new StepSize(value, StepSizeUnit.Meters);
   }
 
   /**
    * Create a step size in miles
    */
-  static Miles(value: number): StepSize {
+  static miles(value: number): StepSize {
     return new StepSize(value, StepSizeUnit.Miles);
   }
 
   /**
    * Create a step size in feet
    */
-  static Feet(value: number): StepSize {
+  static feet(value: number): StepSize {
     return new StepSize(value, StepSizeUnit.Feet);
+  }
+
+  /**
+   * Create a step size with specified value and unit
+   */
+  static create(value: number, unit: StepSizeUnit): StepSize {
+    return new StepSize(value, unit);
   }
 
   /**

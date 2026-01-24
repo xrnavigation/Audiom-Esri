@@ -1,7 +1,8 @@
 import { React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
-import { TextInput, NumericInput, Switch, Label, Button } from 'jimu-ui'
+import { TextInput, NumericInput, Switch, Label, Button, ButtonGroup } from 'jimu-ui'
+import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 
 import SourceConfigList from './components/SourceConfigList'
 import CopyableLabel from './components/CopyableLabel'
@@ -107,11 +108,38 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     window.open(previewUrl, '_blank')
   }
 
+  const renderStepSizeUnitSelector = () => {
+    const currentUnit = config?.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit
+    const stepSizeUnits = [
+      { value: StepSizeUnit.Meters, label: 'm' },
+      { value: StepSizeUnit.Kilometers, label: 'km' },
+      { value: StepSizeUnit.Feet, label: 'ft' },
+      { value: StepSizeUnit.Miles, label: 'mi' }
+    ]
+    return (
+      <SettingRow flow={FlowType.Wrap}>
+        <Label style={{ width: '100%' }}>Step Size Unit</Label>
+        <ButtonGroup style={{ width: '100%' }}>
+          {stepSizeUnits.map((unit) => (
+            <Button
+              key={unit.value}
+              active={currentUnit === unit.value}
+              onClick={() => onPropertyChange(AudiomConfigKey.StepSizeUnit, unit.value)}
+              style={{ flex: 1 }}
+            >
+              {unit.label}
+            </Button>
+          ))}
+        </ButtonGroup>
+      </SettingRow>
+    )
+  }
+
   const alwaysPresentFields: FieldConfig[] = [
     { key: AudiomConfigKey.Title, label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title' },
     { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Text, placeholder: 'Enter API key' },
     { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl, validateOnAccept: (val) => validateUrl(String(val)) },
-    { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Number, min: 0.1, defaultValue: DEFAULT_CONFIG.stepSize, showCopyButton: false, validateOnAccept: (val) => validateStepSize(val) },
+    { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Number, min: 0.1, defaultValue: DEFAULT_CONFIG.stepSize, showCopyButton: false, validateOnAccept: (val) => validateStepSize(val), renderAfter: renderStepSizeUnitSelector },
     { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
     { key: AudiomConfigKey.Heading, label: 'Heading', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
@@ -127,56 +155,65 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const renderField = (field: FieldConfig, readOnly: boolean = false) => {
     const value = config?.[field.key] ?? field.defaultValue
 
-    switch (field.type) {
-      case FieldType.Text:
-        return (
-          <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <CopyableLabel label={field.label} copyValue={String(value || '')} showCopyButton={field.showCopyButton} />
-            <TextInput
-              style={{ width: '100%' }}
-              value={value || ''}
-              onChange={(e) => onPropertyChange(field.key, e.target.value)}
-              placeholder={field.placeholder}
-              disabled={readOnly}
-              checkValidityOnAccept={field.validateOnAccept ? (text) => field.validateOnAccept(text) : undefined}
-            />
-          </SettingRow>
-        )
-      case FieldType.Number:
-        return (
-          <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <CopyableLabel label={field.label} copyValue={String(value ?? '')} showCopyButton={field.showCopyButton} />
-            <NumericInput
-              style={{ width: '100%' }}
-              value={value}
-              onChange={(val) => {
-                // Validate on change and only update if valid (or let NumericInput handle min/max)
-                if (field.validateOnAccept) {
-                  const result = field.validateOnAccept(val)
-                  if (!result.valid) {
-                    console.warn(`Validation failed for ${field.key}:`, result.msg)
+    const renderFieldContent = () => {
+      switch (field.type) {
+        case FieldType.Text:
+          return (
+            <SettingRow key={field.key} flow={FlowType.Wrap}>
+              <CopyableLabel label={field.label} copyValue={String(value || '')} showCopyButton={field.showCopyButton} />
+              <TextInput
+                style={{ width: '100%' }}
+                value={value || ''}
+                onChange={(e) => onPropertyChange(field.key, e.target.value)}
+                placeholder={field.placeholder}
+                disabled={readOnly}
+                checkValidityOnAccept={field.validateOnAccept ? (text) => field.validateOnAccept(text) : undefined}
+              />
+            </SettingRow>
+          )
+        case FieldType.Number:
+          return (
+            <SettingRow key={field.key} flow={FlowType.Wrap}>
+              <CopyableLabel label={field.label} copyValue={String(value ?? '')} showCopyButton={field.showCopyButton} />
+              <NumericInput
+                style={{ width: '100%' }}
+                value={value}
+                onChange={(val) => {
+                  // Validate on change and only update if valid (or let NumericInput handle min/max)
+                  if (field.validateOnAccept) {
+                    const result = field.validateOnAccept(val)
+                    if (!result.valid) {
+                      console.warn(`Validation failed for ${field.key}:`, result.msg)
+                    }
                   }
-                }
-                onPropertyChange(field.key, val)
-              }}
-              min={field.min}
-              max={field.max}
-              disabled={readOnly}
-            />
-          </SettingRow>
-        )
-      case FieldType.Switch:
-        return (
-          <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <CopyableLabel label={field.label} copyValue={String(value)} showCopyButton={field.showCopyButton} />
-            <Switch
-              checked={value}
-              onChange={(e) => onPropertyChange(field.key, e.target.checked)}
-              disabled={readOnly}
-            />
-          </SettingRow>
-        )
+                  onPropertyChange(field.key, val)
+                }}
+                min={field.min}
+                max={field.max}
+                disabled={readOnly}
+              />
+            </SettingRow>
+          )
+        case FieldType.Switch:
+          return (
+            <SettingRow key={field.key} flow={FlowType.Wrap}>
+              <CopyableLabel label={field.label} copyValue={String(value)} showCopyButton={field.showCopyButton} />
+              <Switch
+                checked={value}
+                onChange={(e) => onPropertyChange(field.key, e.target.checked)}
+                disabled={readOnly}
+              />
+            </SettingRow>
+          )
+      }
     }
+
+    return (
+      <React.Fragment key={field.key}>
+        {renderFieldContent()}
+        {field.renderAfter?.()}
+      </React.Fragment>
+    )
   }
 
   return (

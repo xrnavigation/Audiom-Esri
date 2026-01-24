@@ -1,6 +1,6 @@
 import { AudiomSource, MapType } from "../../../../shared/audiom-client/AudiomSource";
 import { AudiomEmbedConfig } from "../../../../shared/audiom-client/AudiomEmbedConfig";
-import { StepSize } from "../../../../shared/audiom-client/StepSize";
+import { StepSize, StepSizeUnit } from "../../../../shared/audiom-client/StepSize";
 import { JimuMapView, MapViewManager } from "jimu-arcgis";
 import FeatureLayer from 'esri/layers/FeatureLayer';
 import CSVLayer from 'esri/layers/CSVLayer';
@@ -64,7 +64,7 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
     showHeading: config.showHeading ?? DEFAULT_CONFIG.showHeading,
     zoom: config.zoom ?? DEFAULT_CONFIG.zoom,
     heading: config.heading,
-    stepSize: StepSize.Kilometers(config.stepSize ?? DEFAULT_CONFIG.stepSize),
+    stepSize: StepSize.create(config.stepSize ?? DEFAULT_CONFIG.stepSize, config.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit),
   });
 }
 

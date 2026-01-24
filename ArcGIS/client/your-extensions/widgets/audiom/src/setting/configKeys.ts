@@ -25,6 +25,7 @@ export enum AudiomConfigKey {
   Heading = 'heading',
   Title = 'title',
   StepSize = 'stepSize',
+  StepSizeUnit = 'stepSizeUnit',
   ShowVisualMap = 'showVisualMap',
   ShowHeading = 'showHeading',
   SoundpackUrl = 'soundpackUrl',
