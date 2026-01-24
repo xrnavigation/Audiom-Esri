@@ -1,6 +1,6 @@
 import { AudiomSource, MapType } from "../../../../shared/audiom-client/AudiomSource";
 import { AudiomEmbedConfig } from "../../../../shared/audiom-client/AudiomEmbedConfig";
-import { StepSize } from "../../../../shared/audiom-client/StepSize";
+import { StepSize, StepSizeUnit } from "../../../../shared/audiom-client/StepSize";
 import { JimuMapView, MapViewManager } from "jimu-arcgis";
 import FeatureLayer from 'esri/layers/FeatureLayer';
 import CSVLayer from 'esri/layers/CSVLayer';
@@ -22,6 +22,24 @@ const LOG_FOUND_CSV_LAYER = 'Found CSV layer:';
 const LOG_FOUND_GEOJSON_LAYER = 'Found GeoJSON layer:';
 const LOG_FOUND_SUBLAYER = 'Found sublayer:';
 const LOG_EXTRACTED_SOURCES = 'Extracted';
+
+/**
+ * Creates a StepSize instance from value and unit
+ */
+function createStepSize(value: number, unit: StepSizeUnit): StepSize {
+  switch (unit) {
+    case StepSizeUnit.Meters:
+      return StepSize.Meters(value);
+    case StepSizeUnit.Kilometers:
+      return StepSize.Kilometers(value);
+    case StepSizeUnit.Feet:
+      return StepSize.Feet(value);
+    case StepSizeUnit.Miles:
+      return StepSize.Miles(value);
+    default:
+      return StepSize.Kilometers(value);
+  }
+}
 
 /**
  * Validates if the Audiom config is ready for use.
@@ -64,7 +82,7 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
     showHeading: config.showHeading ?? DEFAULT_CONFIG.showHeading,
     zoom: config.zoom ?? DEFAULT_CONFIG.zoom,
     heading: config.heading,
-    stepSize: StepSize.Kilometers(config.stepSize ?? DEFAULT_CONFIG.stepSize),
+    stepSize: createStepSize(config.stepSize ?? DEFAULT_CONFIG.stepSize, config.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit),
   });
 }
 

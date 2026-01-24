@@ -1,5 +1,6 @@
 import type { ValidityResult } from 'jimu-ui'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
+import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import { FieldType } from './enums'
 
 /**
@@ -9,6 +10,7 @@ import { FieldType } from './enums'
 export const DEFAULT_CONFIG = {
   baseUrl: 'https://audiom-staging.herokuapp.com',
   stepSize: 1,
+  stepSizeUnit: StepSizeUnit.Kilometers,
   showVisualMap: true,
   showHeading: false,
   zoom: 10,
@@ -50,6 +52,7 @@ export interface IAudiomConfig extends Record<string, any> {
   heading?:  1 | 2 | 3 | 4 | 5 | 6;
   title?: string
   stepSize?: number
+  stepSizeUnit?: StepSizeUnit
   showVisualMap?: boolean
   showHeading?: boolean
   soundpackUrl?: string
