@@ -236,12 +236,12 @@ export function isConfigValid(config: IAudiomConfig): boolean {
     return false
   }
 
-  // Validate step size
-  if (!validateStepSize(config.stepSize).valid) {
-    return false
+  // // TODO: Validate step size
+  // if (!validateStepSize(config.stepSize).valid) {
+  //   return false
+  // }
 
   return true
-  }
 }
 
 /**
