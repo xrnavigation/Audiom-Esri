@@ -21,26 +21,45 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
   // Callback to apply synced config from MapSyncManager
   const applyConfigFromMap = useCallback((newMapConfig: MapSyncConfig) => {
-    // Check if anything actually changed to avoid infinite loops
-    const currentSourcesJson = JSON.stringify(config.sourceConfigs || [])
-    const newSourcesJson = JSON.stringify(newMapConfig.sourceConfigs || [])
+    // Merge: preserve locked=false sources, update locked=true sources from map
+    const currentSources = config.sourceConfigs || []
+    const mapSources = newMapConfig.sourceConfigs || []
+    
+    // Build a map of current unlocked sources by source identifier
+    const unlockedSources = new Map<string, ISourceConfig>()
+    currentSources.forEach((s: ISourceConfig) => {
+      if (s.locked === false && s.source) {
+        unlockedSources.set(s.source, s)
+      }
+    })
+    
+    // Merge: use map source but preserve enabled/locked for unlocked items
+    const mergedSources = mapSources.map((mapSource: ISourceConfig) => {
+      const unlocked = unlockedSources.get(mapSource.source || '')
+      if (unlocked) {
+        // Preserve the unlocked source's enabled and locked state
+        return { ...mapSource, enabled: unlocked.enabled, locked: unlocked.locked }
+      }
+      return mapSource
+    })
+    
+    const currentSourcesJson = JSON.stringify(currentSources)
+    const mergedSourcesJson = JSON.stringify(mergedSources)
+    
     const needsUpdate = 
       config.centerLatitude !== newMapConfig.centerLatitude ||
       config.centerLongitude !== newMapConfig.centerLongitude ||
       config.zoom !== newMapConfig.zoom ||
-      currentSourcesJson !== newSourcesJson
+      currentSourcesJson !== mergedSourcesJson
 
     if (needsUpdate) {
       let newConfig = config
         .set(AudiomConfigKey.CenterLatitude, newMapConfig.centerLatitude)
         .set(AudiomConfigKey.CenterLongitude, newMapConfig.centerLongitude)
         .set(AudiomConfigKey.Zoom, newMapConfig.zoom)
+        .set(AudiomConfigKey.SourceConfigs, mergedSources)
 
-      if (newMapConfig.sourceConfigs) {
-        newConfig = newConfig.set(AudiomConfigKey.SourceConfigs, newMapConfig.sourceConfigs)
-      }
-
-      console.log('Auto-sync settings: Updated config with', newMapConfig.sourceConfigs?.length || 0, 'sources')
+      console.log('Auto-sync settings: Updated config with', mergedSources.length, 'sources')
 
       props.onSettingChange({
         id: props.id,

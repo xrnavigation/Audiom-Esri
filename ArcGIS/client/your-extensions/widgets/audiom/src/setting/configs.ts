@@ -46,6 +46,7 @@ export interface ISourceConfig {
   rulesFileUrl?: string
   mapType?: MapType
   enabled?: boolean
+  locked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual enabled state.
 }
 
 // TODO: Find a way to not use any here

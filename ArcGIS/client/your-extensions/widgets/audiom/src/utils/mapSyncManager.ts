@@ -142,6 +142,7 @@ export class MapSyncManager {
 
   /**
    * Check if the current map config differs from the provided config.
+   * Excludes unlocked sources from comparison (they are manually controlled).
    */
   hasChanges(mapId: string, currentConfig: { sourceConfigs?: ISourceConfig[] }): boolean {
     if (!this.initialized) {
@@ -151,8 +152,20 @@ export class MapSyncManager {
     const newConfig = this.getCurrentConfig(mapId)
     if (!newConfig) return false
 
-    const currentJson = JSON.stringify(currentConfig.sourceConfigs || [])
-    const newJson = JSON.stringify(newConfig.sourceConfigs || [])
+    // Build a set of unlocked source identifiers from current config
+    const unlockedSourceIds = new Set<string>()
+    ;(currentConfig.sourceConfigs || []).forEach(s => {
+      if (s.locked === false && s.source) {
+        unlockedSourceIds.add(s.source)
+      }
+    })
+
+    // Filter out unlocked sources from both configs using the current config's unlock state
+    const lockedCurrentSources = (currentConfig.sourceConfigs || []).filter(s => s.locked !== false)
+    const lockedNewSources = (newConfig.sourceConfigs || []).filter(s => !unlockedSourceIds.has(s.source || ''))
+
+    const currentJson = JSON.stringify(lockedCurrentSources)
+    const newJson = JSON.stringify(lockedNewSources)
 
     return currentJson !== newJson
   }
@@ -188,6 +201,7 @@ export class MapSyncManager {
 
   /**
    * Initialize the baseline config and check for initial mismatch.
+   * Excludes unlocked sources from comparison.
    * @param mapId - The map widget ID
    * @param currentConfig - Optional current widget config to compare against
    */
@@ -199,8 +213,21 @@ export class MapSyncManager {
     
     // Check for initial mismatch if current config provided
     if (currentConfig) {
-      const currentConfigJson = JSON.stringify(currentConfig.sourceConfigs || [])
-      const hasMismatch = currentConfigJson !== mapConfigJson
+      // Build a set of unlocked source identifiers from current config
+      const unlockedSourceIds = new Set<string>()
+      ;(currentConfig.sourceConfigs || []).forEach(s => {
+        if (s.locked === false && s.source) {
+          unlockedSourceIds.add(s.source)
+        }
+      })
+      
+      // Filter out unlocked sources using the current config's unlock state
+      const lockedCurrentSources = (currentConfig.sourceConfigs || []).filter(s => s.locked !== false)
+      const lockedMapSources = (mapConfig.sourceConfigs || []).filter(s => !unlockedSourceIds.has(s.source || ''))
+      
+      const currentConfigJson = JSON.stringify(lockedCurrentSources)
+      const mapLockedJson = JSON.stringify(lockedMapSources)
+      const hasMismatch = currentConfigJson !== mapLockedJson
       
       this.initialized = true
       
