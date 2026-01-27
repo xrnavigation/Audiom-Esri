@@ -1,7 +1,7 @@
 import { React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
-import { TextInput, NumericInput, Switch, Label, Button, ButtonGroup, Collapse } from 'jimu-ui'
+import { TextInput, NumericInput, Switch, Label, Button, ButtonGroup, Collapse, Tooltip } from 'jimu-ui'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 
 import SourceConfigList from './components/SourceConfigList'
@@ -116,36 +116,50 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
   const renderStepSizeUnitSelector = () => {
     const currentUnit = config?.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit
+    const currentStepSize = config?.stepSize ?? DEFAULT_CONFIG.stepSize
     const stepSizeUnits = [
-      { value: StepSizeUnit.Meters, label: 'm' },
-      { value: StepSizeUnit.Kilometers, label: 'km' },
-      { value: StepSizeUnit.Feet, label: 'ft' },
-      { value: StepSizeUnit.Miles, label: 'mi' }
+      { value: StepSizeUnit.Meters, label: StepSizeUnit.Meters, tooltip: 'Meters' },
+      { value: StepSizeUnit.Kilometers, label: StepSizeUnit.Kilometers, tooltip: 'Kilometers' },
+      { value: StepSizeUnit.Feet, label: StepSizeUnit.Feet, tooltip: 'Feet' },
+      { value: StepSizeUnit.Miles, label: StepSizeUnit.Miles, tooltip: 'Miles' }
     ]
     return (
-      <SettingRow flow={FlowType.Wrap}>
-        <Label style={{ width: '100%' }}>Step Size Unit</Label>
-        <ButtonGroup style={{ width: '100%' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px', alignItems: 'center', width: '100%' }}>
+        <NumericInput
+          style={{ width: '100%' }}
+          value={currentStepSize}
+          onChange={(val) => onPropertyChange(AudiomConfigKey.StepSize, val)}
+          min={0.1}
+        />
+        <ButtonGroup>
           {stepSizeUnits.map((unit) => (
-            <Button
-              key={unit.value}
-              active={currentUnit === unit.value}
-              onClick={() => onPropertyChange(AudiomConfigKey.StepSizeUnit, unit.value)}
-              style={{ flex: 1 }}
-            >
-              {unit.label}
-            </Button>
+            <Tooltip key={unit.value} title={unit.tooltip}>
+              <Button
+                active={currentUnit === unit.value}
+                onClick={() => onPropertyChange(AudiomConfigKey.StepSizeUnit, unit.value)}
+                style={{ minWidth: '36px' }}
+              >
+                {unit.label}
+              </Button>
+            </Tooltip>
           ))}
         </ButtonGroup>
-      </SettingRow>
+      </div>
     )
+  }
+
+  // Get current step size display text for the header
+  const getStepSizeDisplayText = () => {
+    const currentUnit = config?.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit
+    const currentStepSize = config?.stepSize ?? DEFAULT_CONFIG.stepSize
+    return `${currentStepSize} ${currentUnit}`
   }
 
   const alwaysPresentFields: FieldConfig[] = [
     { key: AudiomConfigKey.Title, label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title' },
     { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Text, placeholder: 'Enter API key' },
     { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl, validateOnAccept: (val) => validateUrl(String(val)) },
-    { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Number, min: 0.1, defaultValue: DEFAULT_CONFIG.stepSize, showCopyButton: false, validateOnAccept: (val) => validateStepSize(val), renderAfter: renderStepSizeUnitSelector },
+    { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Custom, showCopyButton: false, renderCustom: renderStepSizeUnitSelector },
     { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
     { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
@@ -211,6 +225,18 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
               />
             </SettingRow>
           )
+        case FieldType.Custom:
+          return (
+            <SettingRow key={field.key} flow={FlowType.Wrap}>
+              <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+                <CopyableLabel label={field.label} copyValue={''} showCopyButton={false} />
+                {field.key === AudiomConfigKey.StepSize && (
+                  <Label style={{ color: Colors.TextMuted, fontSize: '12px', whiteSpace: 'nowrap', marginLeft: '8px', flex: '1', textAlign: 'right' }}>{getStepSizeDisplayText()}</Label>
+                )}
+              </div>
+              {field.renderCustom?.()}
+            </SettingRow>
+          )
       }
     }
 
@@ -246,7 +272,9 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
           onToggle={() => setMapSettingsOpen(!mapSettingsOpen)}
         />
         <Collapse isOpen={mapSettingsOpen}>
-          {urlModeFields.map((field) => renderField(field, config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap))}
+          <div style={{ paddingLeft: '20px' }}>
+            {urlModeFields.map((field) => renderField(field, config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap))}
+          </div>
         </Collapse>
 
         <SourceConfigList

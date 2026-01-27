@@ -2,7 +2,8 @@ export enum FieldType {
   Text = 'text',
   Number = 'number',
   Switch = 'switch',
-  Enum = 'enum'
+  Enum = 'enum',
+  Custom = 'custom'
 }
 
 export enum ButtonSize {

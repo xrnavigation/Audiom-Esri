@@ -5,6 +5,8 @@ import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
 import { InvisibleOutlined } from 'jimu-icons/outlined/application/invisible'
 import { LockOutlined } from 'jimu-icons/outlined/editor/lock'
 import { UnlockOutlined } from 'jimu-icons/outlined/editor/unlock'
+import { ExpandAllOutlined } from 'jimu-icons/outlined/directional/expand-all'
+import { CollapseAllOutlined } from 'jimu-icons/outlined/directional/collapse-all'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
 import { FieldConfig, ISourceConfig } from '../configs'
 import { ButtonSize, ButtonType, FieldType, FlowType, Colors } from '../enums'
@@ -13,7 +15,7 @@ import CopyableLabel from './CopyableLabel'
 import { validateUrl } from '../validation/validation'
 import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 
-const { useState } = React
+const { useState, useEffect, useMemo } = React
 
 // UI Text Constants
 const HEADING_TEXT = 'Source Configurations'
@@ -23,6 +25,8 @@ const TOOLTIP_SHOW = 'Show source'
 const TOOLTIP_HIDE = 'Hide source'
 const TOOLTIP_LOCK = 'Lock to sync with map'
 const TOOLTIP_UNLOCK = 'Unlock to manually control visibility'
+const TOOLTIP_EXPAND_ALL = 'Expand all sources'
+const TOOLTIP_COLLAPSE_ALL = 'Collapse all sources'
 const BUTTON_ADD = 'Add Source Configuration'
 
 // Field Configuration Constants
@@ -49,14 +53,47 @@ interface SourceConfigListProps {
 
 const SourceConfigList = (props: SourceConfigListProps) => {
   const { sourceConfigs, onChange, readOnly = false } = props
-  const [sourceConfigsOpen, setSourceConfigsOpen] = useState(true)
-  const [expandedSources, setExpandedSources] = useState<{ [key: number]: boolean }>({})
+  
+  // Auto-collapse Source Configurations if 3 or more sources
+  const shouldAutoCollapse = useMemo(() => sourceConfigs.length >= 3, [sourceConfigs.length])
+  const [sourceConfigsOpen, setSourceConfigsOpen] = useState(!shouldAutoCollapse)
+  const [expandedSources, setExpandedSources] = useState<{ [key: number]: boolean }>(() => {
+    // Initialize: expand all if less than 3 sources
+    const initial: { [key: number]: boolean } = {}
+    sourceConfigs.forEach((_, index) => {
+      initial[index] = !shouldAutoCollapse
+    })
+    return initial
+  })
+
+  // Update sourceConfigsOpen when source count crosses threshold
+  useEffect(() => {
+    if (sourceConfigs.length < 3) {
+      setSourceConfigsOpen(true)
+    }
+  }, [sourceConfigs.length])
 
   const toggleSourceExpanded = (index: number) => {
     setExpandedSources(prev => ({
       ...prev,
       [index]: prev[index] !== undefined ? !prev[index] : false
     }))
+  }
+
+  const expandAllSources = () => {
+    const allExpanded: { [key: number]: boolean } = {}
+    sourceConfigs.forEach((_, index) => {
+      allExpanded[index] = true
+    })
+    setExpandedSources(allExpanded)
+  }
+
+  const collapseAllSources = () => {
+    const allCollapsed: { [key: number]: boolean } = {}
+    sourceConfigs.forEach((_, index) => {
+      allCollapsed[index] = false
+    })
+    setExpandedSources(allCollapsed)
   }
 
   const onSourceConfigChange = (index: number, property: string, value: any) => {
@@ -186,11 +223,45 @@ const SourceConfigList = (props: SourceConfigListProps) => {
 
   return (
     <div>
-      {/* Source Configurations header */}
+      {/* Source Configurations header with expand/collapse all buttons */}
       <CollapsibleHeader
         label={HEADING_TEXT}
         isOpen={sourceConfigsOpen}
         onToggle={() => setSourceConfigsOpen(!sourceConfigsOpen)}
+        actions={
+          sourceConfigs.length > 0 ? (
+            <>
+              <Tooltip title={TOOLTIP_EXPAND_ALL}>
+                <Button
+                  size={ButtonSize.Small}
+                  type={ButtonType.Tertiary}
+                  icon
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    expandAllSources()
+                  }}
+                  aria-label={TOOLTIP_EXPAND_ALL}
+                >
+                  <ExpandAllOutlined />
+                </Button>
+              </Tooltip>
+              <Tooltip title={TOOLTIP_COLLAPSE_ALL}>
+                <Button
+                  size={ButtonSize.Small}
+                  type={ButtonType.Tertiary}
+                  icon
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    collapseAllSources()
+                  }}
+                  aria-label={TOOLTIP_COLLAPSE_ALL}
+                >
+                  <CollapseAllOutlined />
+                </Button>
+              </Tooltip>
+            </>
+          ) : undefined
+        }
       />
       <Collapse isOpen={sourceConfigsOpen}>
         {sourceConfigs.map((sourceConfig, index) => {
