@@ -3,6 +3,16 @@ import { DownOutlined } from 'jimu-icons/outlined/directional/down'
 import { RightOutlined } from 'jimu-icons/outlined/directional/right'
 import { IconSize, Colors, HtmlButtonType } from '../enums'
 
+/**
+ * Collapsible header hierarchy levels.
+ */
+export enum CollapsibleHeaderLevel {
+  /** Top-level section header with minimal padding */
+  Section = 'section',
+  /** Nested card header with background and full padding */
+  Card = 'card'
+}
+
 interface CollapsibleHeaderProps {
   /** The text label to display */
   label: string
@@ -16,6 +26,8 @@ interface CollapsibleHeaderProps {
   actions?: React.ReactNode
   /** Optional id for the controlled content region (for aria-controls) */
   contentId?: string
+  /** Whether this is a top-level section header (less padding) or a nested card header */
+  level?: CollapsibleHeaderLevel
 }
 
 /**
@@ -30,13 +42,14 @@ interface CollapsibleHeaderProps {
  * - Focus-visible styling for keyboard navigation
  */
 const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
-  const { label, isOpen, onToggle, backgroundColor, actions, contentId } = props
+  const { label, isOpen, onToggle, backgroundColor, actions, contentId, level = CollapsibleHeaderLevel.Section } = props
 
+  // Section headers have minimal left padding, card headers have more padding with background
   const headerStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     width: '100%',
-    padding: '8px',
+    padding: level === CollapsibleHeaderLevel.Section ? '8px 0' : '8px',
     ...(backgroundColor ? { backgroundColor } : {})
   }
 

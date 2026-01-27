@@ -11,7 +11,7 @@ import { ButtonSize, ButtonType, FieldType, FlowType, Colors } from '../enums'
 import { SourceConfigKey } from '../configKeys'
 import CopyableLabel from './CopyableLabel'
 import { validateUrl } from '../validation/validation'
-import CollapsibleHeader from './CollapsibleHeader'
+import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 
 const { useState } = React
 
@@ -209,6 +209,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
                 isOpen={isExpanded}
                 onToggle={() => toggleSourceExpanded(index)}
                 backgroundColor={Colors.HeaderBackground}
+                level={CollapsibleHeaderLevel.Card}
                 actions={
                   readOnly ? (
                     <>

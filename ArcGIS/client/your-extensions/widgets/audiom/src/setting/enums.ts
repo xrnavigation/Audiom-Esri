@@ -49,5 +49,7 @@ export enum Colors {
   /** Primary accent color (ArcGIS blue) */
   PrimaryMain = 'var(--sys-color-primary-main, #0079c1)',
   /** Focus outline for keyboard navigation */
-  FocusOutline = 'var(--sys-color-primary-main, #0079c1)'
+  FocusOutline = 'var(--sys-color-primary-main, #0079c1)',
+  /** Muted text color for hints and secondary information */
+  TextMuted = '#6b7280'
 }

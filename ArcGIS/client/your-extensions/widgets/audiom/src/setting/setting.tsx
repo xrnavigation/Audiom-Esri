@@ -11,7 +11,7 @@ import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/maputil
 import { getMapSyncManager, MapSyncConfig } from '../utils/mapSyncManager'
 import { mergeSourcesPreservingUnlocked } from '../utils/sourceConfigUtils'
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
-import { ButtonType, FieldType, FlowType } from './enums'
+import { ButtonType, FieldType, FlowType, Colors } from './enums'
 import { AudiomConfigKey } from './configKeys'
 import { validateLatitude, validateLongitude, validateZoom, validateStepSize, validateUrl, VALIDATION } from './validation/validation'
 
@@ -276,7 +276,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
           </Button>
         </SettingRow>
         <SettingRow flow={FlowType.Wrap}>
-          <Label style={{ width: '100%', color: '#6b7280', fontSize: '12px' }}>
+          <Label style={{ width: '100%', color: Colors.TextMuted, fontSize: '12px' }}>
             {(!isAudiomConfigValid(config))
               ? 'API Key is required to preview in Audiom.'
               : 'Opens the current configuration in a new tab.'}
