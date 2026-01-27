@@ -1,6 +1,7 @@
 import { JimuMapView, JimuLayerView, MapViewManager } from 'jimu-arcgis'
 import { getJimuMapViewById, extractMapConfigFromEsriMap } from './maputils'
 import { ISourceConfig } from '../setting/configs'
+import { getLockedSources, getUnlockedSourceIds, excludeSourcesByIds } from './sourceConfigUtils'
 
 // Auto-sync layers with ESRI map - hidden config for now, always enabled
 export const AUTO_SYNC_LAYERS = true
@@ -152,17 +153,12 @@ export class MapSyncManager {
     const newConfig = this.getCurrentConfig(mapId)
     if (!newConfig) return false
 
-    // Build a set of unlocked source identifiers from current config
-    const unlockedSourceIds = new Set<string>()
-    ;(currentConfig.sourceConfigs || []).forEach(s => {
-      if (s.locked === false && s.source) {
-        unlockedSourceIds.add(s.source)
-      }
-    })
+    // Get IDs of unlocked sources from current config
+    const unlockedIds = getUnlockedSourceIds(currentConfig.sourceConfigs || [])
 
-    // Filter out unlocked sources from both configs using the current config's unlock state
-    const lockedCurrentSources = (currentConfig.sourceConfigs || []).filter(s => s.locked !== false)
-    const lockedNewSources = (newConfig.sourceConfigs || []).filter(s => !unlockedSourceIds.has(s.source || ''))
+    // Filter to only compare locked sources
+    const lockedCurrentSources = getLockedSources(currentConfig.sourceConfigs || [])
+    const lockedNewSources = excludeSourcesByIds(newConfig.sourceConfigs || [], unlockedIds)
 
     const currentJson = JSON.stringify(lockedCurrentSources)
     const newJson = JSON.stringify(lockedNewSources)
@@ -213,17 +209,12 @@ export class MapSyncManager {
     
     // Check for initial mismatch if current config provided
     if (currentConfig) {
-      // Build a set of unlocked source identifiers from current config
-      const unlockedSourceIds = new Set<string>()
-      ;(currentConfig.sourceConfigs || []).forEach(s => {
-        if (s.locked === false && s.source) {
-          unlockedSourceIds.add(s.source)
-        }
-      })
+      // Get IDs of unlocked sources from current config
+      const unlockedIds = getUnlockedSourceIds(currentConfig.sourceConfigs || [])
       
-      // Filter out unlocked sources using the current config's unlock state
-      const lockedCurrentSources = (currentConfig.sourceConfigs || []).filter(s => s.locked !== false)
-      const lockedMapSources = (mapConfig.sourceConfigs || []).filter(s => !unlockedSourceIds.has(s.source || ''))
+      // Filter to only compare locked sources
+      const lockedCurrentSources = getLockedSources(currentConfig.sourceConfigs || [])
+      const lockedMapSources = excludeSourcesByIds(mapConfig.sourceConfigs || [], unlockedIds)
       
       const currentConfigJson = JSON.stringify(lockedCurrentSources)
       const mapLockedJson = JSON.stringify(lockedMapSources)

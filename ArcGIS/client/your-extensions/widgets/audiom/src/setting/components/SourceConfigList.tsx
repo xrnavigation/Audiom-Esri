@@ -1,18 +1,17 @@
 import { React } from 'jimu-core'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
-import { TextInput, NumericInput, Switch, Select, Option, Card, CollapsablePanel, Collapse, Button, Tooltip } from 'jimu-ui'
+import { TextInput, NumericInput, Switch, Select, Option, Card, Collapse, Button, Tooltip } from 'jimu-ui'
 import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
 import { InvisibleOutlined } from 'jimu-icons/outlined/application/invisible'
 import { LockOutlined } from 'jimu-icons/outlined/editor/lock'
 import { UnlockOutlined } from 'jimu-icons/outlined/editor/unlock'
-import { DownOutlined } from 'jimu-icons/outlined/directional/down'
-import { RightOutlined } from 'jimu-icons/outlined/directional/right'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
 import { FieldConfig, ISourceConfig } from '../configs'
-import { ButtonSize, ButtonType, FieldType, FlowType } from '../enums'
+import { ButtonSize, ButtonType, FieldType, FlowType, Colors } from '../enums'
 import { SourceConfigKey } from '../configKeys'
 import CopyableLabel from './CopyableLabel'
 import { validateUrl } from '../validation/validation'
+import CollapsibleHeader from './CollapsibleHeader'
 
 const { useState } = React
 
@@ -79,17 +78,14 @@ const SourceConfigList = (props: SourceConfigListProps) => {
   }
 
   const onToggleSourceEnabled = (index: number) => {
-    console.log('onToggleSourceEnabled called for index:', index)
     const newSourceConfigs = [...sourceConfigs]
     const currentEnabled = newSourceConfigs[index].enabled ?? true
-    console.log('Current enabled:', currentEnabled, '-> New enabled:', !currentEnabled)
     // Auto-unlock when manually toggling visibility
     newSourceConfigs[index] = { 
       ...newSourceConfigs[index], 
       enabled: !currentEnabled,
       locked: false 
     }
-    console.log('Calling onChange with:', newSourceConfigs)
     onChange(newSourceConfigs)
   }
 
@@ -190,20 +186,12 @@ const SourceConfigList = (props: SourceConfigListProps) => {
 
   return (
     <div>
-      {/* Source Configurations header with arrow on left */}
-      <div
-        style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '8px 0' }}
-        onClick={() => setSourceConfigsOpen(!sourceConfigsOpen)}
-        role="button"
-        aria-expanded={sourceConfigsOpen}
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSourceConfigsOpen(!sourceConfigsOpen) }}
-      >
-        <span style={{ marginRight: '8px', display: 'flex', alignItems: 'center' }}>
-          {sourceConfigsOpen ? <DownOutlined size="s" /> : <RightOutlined size="s" />}
-        </span>
-        <span>{HEADING_TEXT}</span>
-      </div>
+      {/* Source Configurations header */}
+      <CollapsibleHeader
+        label={HEADING_TEXT}
+        isOpen={sourceConfigsOpen}
+        onToggle={() => setSourceConfigsOpen(!sourceConfigsOpen)}
+      />
       <Collapse isOpen={sourceConfigsOpen}>
         {sourceConfigs.map((sourceConfig, index) => {
           const isExpanded = expandedSources[index] !== undefined ? expandedSources[index] : true
@@ -215,67 +203,58 @@ const SourceConfigList = (props: SourceConfigListProps) => {
               key={index}
               style={{ marginBottom: '12px', border: '0px' }}
             >
-              {/* Custom header - eye icon is outside the clickable expand region */}
-              <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'rgb(88, 88, 88)', padding: '8px' }}>
-                {/* Clickable expand/collapse region - everything except the eye icon */}
-                <div
-                  style={{ display: 'flex', alignItems: 'center', flex: 1, cursor: 'pointer' }}
-                  onClick={() => toggleSourceExpanded(index)}
-                  role="button"
-                  aria-expanded={isExpanded}
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleSourceExpanded(index) }}
-                >
-                  <span style={{ marginRight: '8px', display: 'flex', alignItems: 'center' }}>
-                    {isExpanded ? <DownOutlined size="s" /> : <RightOutlined size="s" />}
-                  </span>
-                  <span style={{ flex: 1 }}>{sourceName}</span>
-                </div>
-                {readOnly && (
-                  <>
-                    <Tooltip title={(sourceConfig.locked ?? true) ? TOOLTIP_UNLOCK : TOOLTIP_LOCK}>
-                      <Button
-                        size={ButtonSize.Small}
-                        type={ButtonType.Tertiary}
-                        icon
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onToggleLocked(index)
-                        }}
-                        aria-label={(sourceConfig.locked ?? true) ? TOOLTIP_UNLOCK : TOOLTIP_LOCK}
-                        style={{ marginLeft: '4px' }}
-                      >
-                        {(sourceConfig.locked ?? true) ? <LockOutlined /> : <UnlockOutlined />}
-                      </Button>
-                    </Tooltip>
-                    <Tooltip title={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}>
-                      <Button
-                        size={ButtonSize.Small}
-                        type={ButtonType.Tertiary}
-                        icon
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onToggleSourceEnabled(index)
-                        }}
-                        aria-label={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}
-                        style={{ marginLeft: '4px' }}
-                      >
-                        {isEnabled ? <VisibleOutlined /> : <InvisibleOutlined />}
-                      </Button>
-                    </Tooltip>
-                  </>
-                )}
-                {!readOnly && (
-                  <Button
-                    size={ButtonSize.Small}
-                    type={ButtonType.Danger}
-                    onClick={() => onRemoveSourceConfig(index)}
-                    aria-label={`${BUTTON_REMOVE} ${sourceName}`}
-                  >
-                    {BUTTON_REMOVE}
-                  </Button>
-                )}
-              </div>
+              {/* Source header with expand/collapse and action buttons */}
+              <CollapsibleHeader
+                label={sourceName}
+                isOpen={isExpanded}
+                onToggle={() => toggleSourceExpanded(index)}
+                backgroundColor={Colors.HeaderBackground}
+                actions={
+                  readOnly ? (
+                    <>
+                      <Tooltip title={(sourceConfig.locked ?? true) ? TOOLTIP_UNLOCK : TOOLTIP_LOCK}>
+                        <Button
+                          size={ButtonSize.Small}
+                          type={ButtonType.Tertiary}
+                          icon
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onToggleLocked(index)
+                          }}
+                          aria-label={(sourceConfig.locked ?? true) ? TOOLTIP_UNLOCK : TOOLTIP_LOCK}
+                          style={{ marginLeft: '4px' }}
+                        >
+                          {(sourceConfig.locked ?? true) ? <LockOutlined /> : <UnlockOutlined />}
+                        </Button>
+                      </Tooltip>
+                      <Tooltip title={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}>
+                        <Button
+                          size={ButtonSize.Small}
+                          type={ButtonType.Tertiary}
+                          icon
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onToggleSourceEnabled(index)
+                          }}
+                          aria-label={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}
+                          style={{ marginLeft: '4px' }}
+                        >
+                          {isEnabled ? <VisibleOutlined /> : <InvisibleOutlined />}
+                        </Button>
+                      </Tooltip>
+                    </>
+                  ) : (
+                    <Button
+                      size={ButtonSize.Small}
+                      type={ButtonType.Danger}
+                      onClick={() => onRemoveSourceConfig(index)}
+                      aria-label={`${BUTTON_REMOVE} ${sourceName}`}
+                    >
+                      {BUTTON_REMOVE}
+                    </Button>
+                  )
+                }
+              />
               {/* Smooth collapse animation */}
               <Collapse isOpen={isExpanded}>
                 <div style={{ padding: '12px' }}>

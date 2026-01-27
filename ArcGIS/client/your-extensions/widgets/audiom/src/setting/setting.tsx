@@ -8,6 +8,7 @@ import SourceConfigList from './components/SourceConfigList'
 import CopyableLabel from './components/CopyableLabel'
 import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/maputils'
 import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
+import { mergeSourcesPreservingUnlocked } from '../utils/sourceConfigUtils'
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
 import { ButtonType, FieldType, FlowType } from './enums'
 import { AudiomConfigKey } from './configKeys'
@@ -21,27 +22,11 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
   // Callback to apply synced config from MapSyncManager
   const applyConfigFromMap = useCallback((newMapConfig: MapSyncConfig) => {
-    // Merge: preserve locked=false sources, update locked=true sources from map
     const currentSources = config.sourceConfigs || []
     const mapSources = newMapConfig.sourceConfigs || []
     
-    // Build a map of current unlocked sources by source identifier
-    const unlockedSources = new Map<string, ISourceConfig>()
-    currentSources.forEach((s: ISourceConfig) => {
-      if (s.locked === false && s.source) {
-        unlockedSources.set(s.source, s)
-      }
-    })
-    
-    // Merge: use map source but preserve enabled/locked for unlocked items
-    const mergedSources = mapSources.map((mapSource: ISourceConfig) => {
-      const unlocked = unlockedSources.get(mapSource.source || '')
-      if (unlocked) {
-        // Preserve the unlocked source's enabled and locked state
-        return { ...mapSource, enabled: unlocked.enabled, locked: unlocked.locked }
-      }
-      return mapSource
-    })
+    // Merge sources, preserving enabled/locked state for manually unlocked items
+    const mergedSources = mergeSourcesPreservingUnlocked(currentSources, mapSources)
     
     const currentSourcesJson = JSON.stringify(currentSources)
     const mergedSourcesJson = JSON.stringify(mergedSources)
