@@ -1,24 +1,26 @@
 import { React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
-import { TextInput, NumericInput, Switch, Label, Button, ButtonGroup } from 'jimu-ui'
+import { TextInput, NumericInput, Switch, Label, Button, ButtonGroup, Collapse } from 'jimu-ui'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 
 import SourceConfigList from './components/SourceConfigList'
 import CopyableLabel from './components/CopyableLabel'
+import CollapsibleHeader from './components/CollapsibleHeader'
 import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/maputils'
-import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
+import { getMapSyncManager, MapSyncConfig } from '../utils/mapSyncManager'
 import { mergeSourcesPreservingUnlocked } from '../utils/sourceConfigUtils'
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
 import { ButtonType, FieldType, FlowType } from './enums'
 import { AudiomConfigKey } from './configKeys'
 import { validateLatitude, validateLongitude, validateZoom, validateStepSize, validateUrl, VALIDATION } from './validation/validation'
 
-const { useEffect, useCallback } = React
+const { useEffect, useCallback, useState } = React
 
 const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
   const mapSyncManager = getMapSyncManager()
+  const [mapSettingsOpen, setMapSettingsOpen] = useState(true)
 
   // Callback to apply synced config from MapSyncManager
   const applyConfigFromMap = useCallback((newMapConfig: MapSyncConfig) => {
@@ -146,7 +148,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Number, min: 0.1, defaultValue: DEFAULT_CONFIG.stepSize, showCopyButton: false, validateOnAccept: (val) => validateStepSize(val), renderAfter: renderStepSizeUnitSelector },
     { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
-    { key: AudiomConfigKey.Heading, label: 'Heading', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
+    { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
     { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL', validateOnAccept: (val) => validateUrl(String(val)) }
   ]
 
@@ -238,7 +240,14 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
           </SettingRow>
         ) : null}
 
-        {urlModeFields.map((field) => renderField(field, config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap))}
+        <CollapsibleHeader
+          label="Map Settings"
+          isOpen={mapSettingsOpen}
+          onToggle={() => setMapSettingsOpen(!mapSettingsOpen)}
+        />
+        <Collapse isOpen={mapSettingsOpen}>
+          {urlModeFields.map((field) => renderField(field, config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap))}
+        </Collapse>
 
         <SourceConfigList
           sourceConfigs={config?.sourceConfigs || []}
@@ -248,7 +257,14 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       </SettingSection>
 
       <SettingSection title="Configuration">
-        {alwaysPresentFields.map((field) => renderField(field, false))}
+        {alwaysPresentFields.map((field) => {
+          // Only show Heading Size if Show Heading is true
+          if (field.key === AudiomConfigKey.Heading) {
+            const showHeading = config?.showHeading ?? DEFAULT_CONFIG.showHeading
+            if (!showHeading) return null
+          }
+          return renderField(field, false)
+        })}
         <SettingRow flow={FlowType.Wrap}>
           <Button
             type={ButtonType.Primary}
