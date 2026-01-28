@@ -1,8 +1,7 @@
-import { React } from 'jimu-core'
+import { React, css } from 'jimu-core'
 import { DownOutlined } from 'jimu-icons/outlined/directional/down'
 import { RightOutlined } from 'jimu-icons/outlined/directional/right'
 import { IconSize, HtmlButtonType } from '../enums'
-import './CollapsibleHeader.css'
 
 /**
  * Collapsible header hierarchy levels.
@@ -31,6 +30,52 @@ interface CollapsibleHeaderProps {
   level?: CollapsibleHeaderLevel
 }
 
+// Styles
+const styles = {
+  base: css`
+    display: flex;
+    align-items: center;
+    width: 100%;
+  `,
+  section: css`padding: 8px 0;`,
+  card: css`padding: 8px;`,
+  toggle: css`
+    display: flex;
+    align-items: center;
+    flex: 1;
+    justify-content: flex-start;
+    text-align: left;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid var(--sys-color-primary-main, #0079c1);
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+  `,
+  icon: css`
+    margin-right: 8px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  `,
+  label: css`
+    font-weight: 500;
+    flex: 1;
+  `,
+  actions: css`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  `
+} as const
+
 /**
  * A reusable collapsible header component following WCAG 2.1 accessibility guidelines.
  * Uses a native button for the expand/collapse toggle with proper ARIA attributes.
@@ -45,15 +90,12 @@ interface CollapsibleHeaderProps {
 const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
   const { label, isOpen, onToggle, backgroundColor, actions, contentId, level = CollapsibleHeaderLevel.Section } = props
 
-  const levelClass = level === CollapsibleHeaderLevel.Section 
-    ? 'audiom-collapsible-header--section' 
-    : 'audiom-collapsible-header--card'
-
+  const levelStyle = level === CollapsibleHeaderLevel.Section ? styles.section : styles.card
   const headerStyle: React.CSSProperties = backgroundColor ? { backgroundColor } : {}
 
   return (
     <div 
-      className={`audiom-collapsible-header ${levelClass}`}
+      css={[styles.base, levelStyle]}
       style={headerStyle}
       role="heading" 
       aria-level={3}
@@ -64,15 +106,15 @@ const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
         aria-expanded={isOpen}
         aria-controls={contentId}
         aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${label}`}
-        className="audiom-collapsible-header__toggle"
+        css={styles.toggle}
       >
-        <span className="audiom-collapsible-header__icon" aria-hidden="true">
+        <span css={styles.icon} aria-hidden="true">
           {isOpen ? <DownOutlined size={IconSize.Small} /> : <RightOutlined size={IconSize.Small} />}
         </span>
-        <span className="audiom-collapsible-header__label">{label}</span>
+        <span css={styles.label}>{label}</span>
       </button>
       {actions && (
-        <div className="audiom-collapsible-header__actions">
+        <div css={styles.actions}>
           {actions}
         </div>
       )}

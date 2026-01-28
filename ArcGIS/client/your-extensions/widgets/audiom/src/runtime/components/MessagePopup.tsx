@@ -1,4 +1,4 @@
-import './MessagePopup.css'
+import { React, css, type SerializedStyles } from 'jimu-core'
 
 export enum MessageType {
   Warning = 'warning',
@@ -30,6 +30,48 @@ const VARIANT_ICONS: Record<MessageType, string> = {
   [MessageType.Error]: '❌'
 }
 
+// Styles
+const styles = {
+  base: css`
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    z-index: 1000;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  `,
+  top: css`top: 10px;`,
+  bottom: css`bottom: 10px;`,
+  warning: css`
+    background-color: rgba(255, 193, 7, 0.95);
+    color: #000;
+  `,
+  notification: css`
+    background-color: rgba(33, 150, 243, 0.95);
+    color: #fff;
+  `,
+  error: css`
+    background-color: rgba(244, 67, 54, 0.95);
+    color: #fff;
+  `,
+  icon: css`
+    font-size: 16px;
+    flex-shrink: 0;
+  `,
+  message: css`flex: 1;`
+} as const
+
+const VARIANT_STYLES: Record<MessageType, SerializedStyles> = {
+  [MessageType.Warning]: styles.warning,
+  [MessageType.Notification]: styles.notification,
+  [MessageType.Error]: styles.error
+}
+
 /**
  * A reusable popup message component with support for different variants.
  * Displays a styled banner at the top or bottom of its container.
@@ -46,17 +88,17 @@ const MessagePopup = (props: MessagePopupProps) => {
   }
 
   const displayIcon = icon ?? VARIANT_ICONS[variant]
-  const positionClass = position === MessagePosition.Top ? 'audiom-message-popup--top' : 'audiom-message-popup--bottom'
-  const variantClass = `audiom-message-popup--${variant}`
+  const positionStyle = position === MessagePosition.Top ? styles.top : styles.bottom
+  const variantStyle = VARIANT_STYLES[variant]
 
   return (
     <div 
-      className={`audiom-message-popup ${positionClass} ${variantClass}`}
+      css={[styles.base, positionStyle, variantStyle]}
       role="alert"
       aria-live="polite"
     >
-      <span className="audiom-message-popup__icon" aria-hidden="true">{displayIcon}</span>
-      <span className="audiom-message-popup__message">{message}</span>
+      <span css={styles.icon} aria-hidden="true">{displayIcon}</span>
+      <span css={styles.message}>{message}</span>
     </div>
   )
 }

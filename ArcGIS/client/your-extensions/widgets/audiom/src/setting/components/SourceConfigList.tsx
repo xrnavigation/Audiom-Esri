@@ -1,4 +1,4 @@
-import { React } from 'jimu-core'
+import { React, css } from 'jimu-core'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
 import { Select, Option, Collapse, Button, Tooltip } from 'jimu-ui'
 import { ExpandAllOutlined } from 'jimu-icons/outlined/directional/expand-all'
@@ -10,9 +10,29 @@ import { Padding } from '../paddings'
 import CopyableLabel from './CopyableLabel'
 import CollapsibleHeader from './CollapsibleHeader'
 import SourceConfigCard from './SourceConfigCard'
-import './SourceConfigList.css'
 
 const { useState, useEffect, useMemo } = React
+
+// Styles
+const styles = {
+  container: css`width: 100%;`,
+  count: css`
+    color: var(--ref-palette-neutral-700, #6b7280);
+    font-size: 12px;
+    margin-right: 4px;
+  `,
+  mapTypeRow: css`
+    display: flex;
+    align-items: center;
+    width: 100%;
+    justify-content: space-between;
+  `,
+  buttonGroup: css`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  `
+} as const
 
 const MAX_DEFAULT_VISIBLE_SOURCES = 3
 
@@ -148,7 +168,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
   }
 
   return (
-    <div className="audiom-source-config-list">
+    <div css={styles.container}>
       {/* Source Configurations header with source count */}
       <CollapsibleHeader
         label={HEADING_TEXT}
@@ -156,7 +176,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
         onToggle={() => setSourceConfigsOpen(!sourceConfigsOpen)}
         actions={
           sourceConfigs.length > 0 ? (
-            <span className="audiom-source-config-list__count">
+            <span css={styles.count}>
               {sourceConfigs.length} {sourceConfigs.length === 1 ? 'source' : 'sources'}
             </span>
           ) : undefined
@@ -167,9 +187,9 @@ const SourceConfigList = (props: SourceConfigListProps) => {
         {sourceConfigs.length > 0 && (
           <div style={{ paddingLeft: Padding.SectionContent, paddingBottom: Padding.FieldGroupBottom }}>
           <SettingRow flow={FlowType.Wrap}>
-            <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+            <div css={styles.mapTypeRow}>
               <CopyableLabel label={FIELD_LABEL_ALL_MAP_TYPE} copyValue={''} showCopyButton={false} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div css={styles.buttonGroup}>
                 <Tooltip title={TOOLTIP_EXPAND_ALL}>
                   <Button
                     size={ButtonSize.Small}

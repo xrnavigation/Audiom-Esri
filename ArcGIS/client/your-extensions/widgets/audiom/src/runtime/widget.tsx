@@ -1,4 +1,4 @@
-import { type AllWidgetProps } from 'jimu-core'
+import { type AllWidgetProps, css } from 'jimu-core'
 import { audiomConfigToEmbedConfig } from '../utils/maputils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { getLockedSources } from '../utils/sourceConfigUtils'
@@ -8,7 +8,20 @@ import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs'
 import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation'
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
-import './widget.css'
+
+// Styles
+const styles = {
+  container: css`
+    position: relative;
+    width: 100%;
+    height: 100%;
+  `,
+  iframe: css`
+    border: 0;
+    width: 100%;
+    height: 100%;
+  `
+} as const
 
 const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   const [jimuMapView, setJimuMapView] = useState<JimuMapView>()
@@ -78,7 +91,7 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   const indoorUrl = indoorConfig.toUrl(sanitizedConfig?.baseUrl || DEFAULT_CONFIG.baseUrl)
 
   return (
-    <div className="jimu-widget audiom-widget">
+    <div className="jimu-widget" css={styles.container}>
       {props.useMapWidgetIds && props.useMapWidgetIds.length === 1 && (
         <JimuMapViewComponent useMapWidgetId={props.useMapWidgetIds?.[0]} onActiveViewChange={activeViewChangeHandler} />
       )}
@@ -90,7 +103,7 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
       <iframe 
         name="audiom" 
         src={indoorUrl} 
-        className="audiom-widget__iframe"
+        css={styles.iframe}
         title={props.config.title || 'Audiom Widget'}
       />
     </div>

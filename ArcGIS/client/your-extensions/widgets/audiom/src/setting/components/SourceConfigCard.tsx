@@ -1,4 +1,4 @@
-import { React } from 'jimu-core'
+import { React, css } from 'jimu-core'
 import { Card, Collapse, Button, Tooltip } from 'jimu-ui'
 import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
 import { InvisibleOutlined } from 'jimu-icons/outlined/application/invisible'
@@ -12,7 +12,20 @@ import { SourceConfigKey } from '../configKeys'
 import { validateUrl } from '../validation/validation'
 import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 import FieldRenderer from './FieldRenderer'
-import './SourceConfigCard.css'
+
+// Styles
+const styles = {
+  card: css`
+    margin-bottom: 12px;
+    border: 0;
+  `,
+  content: css`padding: 12px;`,
+  actions: css`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  `
+} as const
 
 // UI Text Constants
 const SOURCE_PREFIX = 'Source '
@@ -189,7 +202,7 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
   }
 
   return (
-    <Card className="audiom-source-card">
+    <Card css={styles.card}>
       <CollapsibleHeader
         label={sourceName}
         isOpen={isExpanded}
@@ -199,7 +212,7 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
         actions={renderActions()}
       />
       <Collapse isOpen={isExpanded}>
-        <div className="audiom-source-card__content">
+        <div css={styles.content}>
           {sourceConfigFields.map(renderSourceField)}
         </div>
       </Collapse>
