@@ -135,6 +135,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
           value={currentStepSize}
           onChange={(val) => onPropertyChange(AudiomConfigKey.StepSize, val)}
           min={0.1}
+          aria-label="Step Size Value"
         />
         <ButtonGroup>
           {stepSizeUnits.map((unit) => (
