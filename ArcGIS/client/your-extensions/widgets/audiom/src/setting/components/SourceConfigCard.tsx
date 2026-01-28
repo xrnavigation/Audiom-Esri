@@ -1,4 +1,4 @@
-import { React, css } from 'jimu-core'
+import { React } from 'jimu-core'
 import { Card, Collapse, Button, Tooltip } from 'jimu-ui'
 import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
 import { InvisibleOutlined } from 'jimu-icons/outlined/application/invisible'
@@ -13,19 +13,19 @@ import { validateUrl } from '../validation/validation'
 import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 import FieldRenderer from './FieldRenderer'
 
-// Styles
+// Typed styles with full key/value validation
 const styles = {
-  card: css`
-    margin-bottom: 12px;
-    border: 0;
-  `,
-  content: css`padding: 12px;`,
-  actions: css`
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  `
-} as const
+  card: {
+    marginBottom: 12,
+    border: 0
+  },
+  content: { padding: 12 },
+  actions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4
+  }
+} as const satisfies Record<string, React.CSSProperties>
 
 // UI Text Constants
 const SOURCE_PREFIX = 'Source '
@@ -202,7 +202,7 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
   }
 
   return (
-    <Card css={styles.card}>
+    <Card style={styles.card}>
       <CollapsibleHeader
         label={sourceName}
         isOpen={isExpanded}
@@ -212,7 +212,7 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
         actions={renderActions()}
       />
       <Collapse isOpen={isExpanded}>
-        <div css={styles.content}>
+        <div style={styles.content}>
           {sourceConfigFields.map(renderSourceField)}
         </div>
       </Collapse>

@@ -21,41 +21,41 @@ const TOOLTIP_COPY = 'Copy to clipboard'
 const TOOLTIP_COPIED = 'Copied!'
 const TOOLTIP_RESET_DELAY = 2000
 
-// Styles
+// Typed styles - simple properties with full key/value validation
 const styles = {
-  container: css`
-    display: flex;
-    align-items: center;
-    width: 100%;
-    margin-bottom: 4px;
-  `,
-  label: css`
-    flex: 1;
-    margin-bottom: 0;
-  `,
-  button: css`
-    padding: 2px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    color: var(--ref-palette-neutral-700, #6b7280);
-    opacity: 0.6;
-    transition: opacity 0.15s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  container: {
+    display: 'flex',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 4
+  },
+  label: {
+    flex: 1,
+    marginBottom: 0
+  }
+} as const satisfies Record<string, React.CSSProperties>
 
-    &:hover {
-      opacity: 1;
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--sys-color-primary-main, #0079c1);
-      outline-offset: 1px;
-      border-radius: 2px;
-    }
-  `
-} as const
+// Button needs :hover and :focus-visible pseudo-classes
+const copyButtonStyle = css({
+  padding: 2,
+  background: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
+  color: 'var(--ref-palette-neutral-700, #6b7280)',
+  opacity: 0.6,
+  transition: 'opacity 0.15s ease',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  '&:hover': {
+    opacity: 1
+  },
+  '&:focus-visible': {
+    outline: '2px solid var(--sys-color-primary-main, #0079c1)',
+    outlineOffset: 1,
+    borderRadius: 2
+  }
+})
 
 /**
  * A label component with a small copy icon that copies the specified value to clipboard.
@@ -81,15 +81,15 @@ const CopyableLabel = (props: CopyableLabelProps) => {
   }, [copyValue, label])
 
   return (
-    <div css={styles.container} style={style}>
-      <Label css={styles.label}>{label}</Label>
+    <div style={{ ...styles.container, ...style }}>
+      <Label style={styles.label}>{label}</Label>
       {showCopyButton && (
         <Tooltip title={copied ? TOOLTIP_COPIED : TOOLTIP_COPY} placement="top">
           <button
             type="button"
             onClick={handleCopy}
             aria-label={`Copy ${label} value to clipboard`}
-            css={styles.button}
+            css={copyButtonStyle}
           >
             <CopyOutlined size={12} color={copied ? '#10b981' : undefined} />
           </button>

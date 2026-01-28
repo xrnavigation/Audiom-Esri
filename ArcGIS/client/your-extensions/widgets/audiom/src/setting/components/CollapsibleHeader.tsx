@@ -30,51 +30,52 @@ interface CollapsibleHeaderProps {
   level?: CollapsibleHeaderLevel
 }
 
-// Styles
+// Typed styles - simple properties with full key/value validation
 const styles = {
-  base: css`
-    display: flex;
-    align-items: center;
-    width: 100%;
-  `,
-  section: css`padding: 8px 0;`,
-  card: css`padding: 8px;`,
-  toggle: css`
-    display: flex;
-    align-items: center;
-    flex: 1;
-    justify-content: flex-start;
-    text-align: left;
-    padding: 0;
-    margin: 0;
-    border: none;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
+  base: {
+    display: 'flex',
+    alignItems: 'center',
+    width: '100%'
+  },
+  section: { padding: '8px 0' },
+  card: { padding: 8 },
+  icon: {
+    marginRight: 8,
+    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center'
+  },
+  label: {
+    fontWeight: 500,
+    flex: 1
+  },
+  actions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4
+  }
+} as const satisfies Record<string, React.CSSProperties>
 
-    &:focus-visible {
-      outline: 2px solid var(--sys-color-primary-main, #0079c1);
-      outline-offset: 2px;
-      border-radius: 2px;
-    }
-  `,
-  icon: css`
-    margin-right: 8px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-  `,
-  label: css`
-    font-weight: 500;
-    flex: 1;
-  `,
-  actions: css`
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  `
-} as const
+// Button needs :focus-visible pseudo-class, so use css() with typed object
+const toggleButtonStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  flex: 1,
+  justifyContent: 'flex-start',
+  textAlign: 'left',
+  padding: 0,
+  margin: 0,
+  border: 'none',
+  background: 'transparent',
+  color: 'inherit',
+  font: 'inherit',
+  cursor: 'pointer',
+  '&:focus-visible': {
+    outline: '2px solid var(--sys-color-primary-main, #0079c1)',
+    outlineOffset: 2,
+    borderRadius: 2
+  }
+})
 
 /**
  * A reusable collapsible header component following WCAG 2.1 accessibility guidelines.
@@ -91,12 +92,11 @@ const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
   const { label, isOpen, onToggle, backgroundColor, actions, contentId, level = CollapsibleHeaderLevel.Section } = props
 
   const levelStyle = level === CollapsibleHeaderLevel.Section ? styles.section : styles.card
-  const headerStyle: React.CSSProperties = backgroundColor ? { backgroundColor } : {}
+  const containerStyle: React.CSSProperties = { ...styles.base, ...levelStyle, ...(backgroundColor ? { backgroundColor } : {}) }
 
   return (
     <div 
-      css={[styles.base, levelStyle]}
-      style={headerStyle}
+      style={containerStyle}
       role="heading" 
       aria-level={3}
     >
@@ -106,15 +106,15 @@ const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
         aria-expanded={isOpen}
         aria-controls={contentId}
         aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${label}`}
-        css={styles.toggle}
+        css={toggleButtonStyle}
       >
-        <span css={styles.icon} aria-hidden="true">
+        <span style={styles.icon} aria-hidden="true">
           {isOpen ? <DownOutlined size={IconSize.Small} /> : <RightOutlined size={IconSize.Small} />}
         </span>
-        <span css={styles.label}>{label}</span>
+        <span style={styles.label}>{label}</span>
       </button>
       {actions && (
-        <div css={styles.actions}>
+        <div style={styles.actions}>
           {actions}
         </div>
       )}

@@ -1,4 +1,4 @@
-import { React, css, type SerializedStyles } from 'jimu-core'
+import { React } from 'jimu-core'
 
 export enum MessageType {
   Warning = 'warning',
@@ -30,43 +30,43 @@ const VARIANT_ICONS: Record<MessageType, string> = {
   [MessageType.Error]: '❌'
 }
 
-// Styles
+// Typed styles with full key/value validation
 const styles = {
-  base: css`
-    position: absolute;
-    left: 10px;
-    right: 10px;
-    padding: 8px 12px;
-    border-radius: 4px;
-    font-size: 13px;
-    z-index: 1000;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  `,
-  top: css`top: 10px;`,
-  bottom: css`bottom: 10px;`,
-  warning: css`
-    background-color: rgba(255, 193, 7, 0.95);
-    color: #000;
-  `,
-  notification: css`
-    background-color: rgba(33, 150, 243, 0.95);
-    color: #fff;
-  `,
-  error: css`
-    background-color: rgba(244, 67, 54, 0.95);
-    color: #fff;
-  `,
-  icon: css`
-    font-size: 16px;
-    flex-shrink: 0;
-  `,
-  message: css`flex: 1;`
-} as const
+  base: {
+    position: 'absolute',
+    left: 10,
+    right: 10,
+    padding: '8px 12px',
+    borderRadius: 4,
+    fontSize: 13,
+    zIndex: 1000,
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8
+  },
+  top: { top: 10 },
+  bottom: { bottom: 10 },
+  warning: {
+    backgroundColor: 'rgba(255, 193, 7, 0.95)',
+    color: '#000'
+  },
+  notification: {
+    backgroundColor: 'rgba(33, 150, 243, 0.95)',
+    color: '#fff'
+  },
+  error: {
+    backgroundColor: 'rgba(244, 67, 54, 0.95)',
+    color: '#fff'
+  },
+  icon: {
+    fontSize: 16,
+    flexShrink: 0
+  },
+  message: { flex: 1 }
+} as const satisfies Record<string, React.CSSProperties>
 
-const VARIANT_STYLES: Record<MessageType, SerializedStyles> = {
+const VARIANT_STYLES: Record<MessageType, React.CSSProperties> = {
   [MessageType.Warning]: styles.warning,
   [MessageType.Notification]: styles.notification,
   [MessageType.Error]: styles.error
@@ -93,12 +93,12 @@ const MessagePopup = (props: MessagePopupProps) => {
 
   return (
     <div 
-      css={[styles.base, positionStyle, variantStyle]}
+      style={{ ...styles.base, ...positionStyle, ...variantStyle }}
       role="alert"
       aria-live="polite"
     >
-      <span css={styles.icon} aria-hidden="true">{displayIcon}</span>
-      <span css={styles.message}>{message}</span>
+      <span style={styles.icon} aria-hidden="true">{displayIcon}</span>
+      <span style={styles.message}>{message}</span>
     </div>
   )
 }

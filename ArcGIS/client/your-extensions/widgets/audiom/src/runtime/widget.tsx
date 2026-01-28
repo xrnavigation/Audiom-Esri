@@ -1,4 +1,4 @@
-import { type AllWidgetProps, css } from 'jimu-core'
+import { type AllWidgetProps, React } from 'jimu-core'
 import { audiomConfigToEmbedConfig } from '../utils/maputils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { getLockedSources } from '../utils/sourceConfigUtils'
@@ -9,19 +9,19 @@ import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/valida
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
 
-// Styles
+// Typed styles with full key/value validation
 const styles = {
-  container: css`
-    position: relative;
-    width: 100%;
-    height: 100%;
-  `,
-  iframe: css`
-    border: 0;
-    width: 100%;
-    height: 100%;
-  `
-} as const
+  container: {
+    position: 'relative',
+    width: '100%',
+    height: '100%'
+  },
+  iframe: {
+    border: 0,
+    width: '100%',
+    height: '100%'
+  }
+} as const satisfies Record<string, React.CSSProperties>
 
 const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   const [jimuMapView, setJimuMapView] = useState<JimuMapView>()
@@ -91,7 +91,7 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   const indoorUrl = indoorConfig.toUrl(sanitizedConfig?.baseUrl || DEFAULT_CONFIG.baseUrl)
 
   return (
-    <div className="jimu-widget" css={styles.container}>
+    <div className="jimu-widget" style={styles.container}>
       {props.useMapWidgetIds && props.useMapWidgetIds.length === 1 && (
         <JimuMapViewComponent useMapWidgetId={props.useMapWidgetIds?.[0]} onActiveViewChange={activeViewChangeHandler} />
       )}
@@ -103,7 +103,7 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
       <iframe 
         name="audiom" 
         src={indoorUrl} 
-        css={styles.iframe}
+        style={styles.iframe}
         title={props.config.title || 'Audiom Widget'}
       />
     </div>
