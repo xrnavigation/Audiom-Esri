@@ -12,8 +12,9 @@ import { getMapSyncManager, MapSyncConfig } from '../utils/mapSyncManager'
 import { mergeSourcesPreservingUnlocked } from '../utils/sourceConfigUtils'
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
 import { ButtonType, FieldType, FlowType, Colors } from './enums'
+import { Padding } from './paddings'
 import { AudiomConfigKey } from './configKeys'
-import { validateLatitude, validateLongitude, validateZoom, validateStepSize, validateUrl, VALIDATION } from './validation/validation'
+import { validateLatitude, validateLongitude, validateZoom, validateUrl, VALIDATION } from './validation/validation'
 
 const { useEffect, useCallback, useState } = React
 
@@ -272,7 +273,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
           onToggle={() => setMapSettingsOpen(!mapSettingsOpen)}
         />
         <Collapse isOpen={mapSettingsOpen}>
-          <div style={{ paddingLeft: '20px' }}>
+          <div style={{ paddingLeft: Padding.SectionContent }}>
             {urlModeFields.map((field) => renderField(field, config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap))}
           </div>
         </Collapse>

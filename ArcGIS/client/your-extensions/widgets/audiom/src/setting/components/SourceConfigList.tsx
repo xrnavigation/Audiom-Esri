@@ -10,12 +10,15 @@ import { CollapseAllOutlined } from 'jimu-icons/outlined/directional/collapse-al
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
 import { FieldConfig, ISourceConfig } from '../configs'
 import { ButtonSize, ButtonType, FieldType, FlowType, Colors } from '../enums'
+import { Padding } from '../paddings'
 import { SourceConfigKey } from '../configKeys'
 import CopyableLabel from './CopyableLabel'
 import { validateUrl } from '../validation/validation'
 import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 
 const { useState, useEffect, useMemo } = React
+
+const MAX_DEFAULT_VISIBLE_SOURCES = 3
 
 // UI Text Constants
 const HEADING_TEXT = 'Source Configurations'
@@ -35,6 +38,7 @@ const FIELD_LABEL_SOURCE_URL = 'Source URL'
 const FIELD_LABEL_RULES_URL = 'Rules File URL'
 const FIELD_LABEL_SOURCE = 'Source'
 const FIELD_LABEL_MAP_TYPE = 'Map Type'
+const FIELD_LABEL_ALL_MAP_TYPE = 'Map Type (All)'
 
 const PLACEHOLDER_NAME = 'Enter source display name'
 const PLACEHOLDER_SOURCE_URL = 'Enter map source URL'
@@ -55,8 +59,10 @@ const SourceConfigList = (props: SourceConfigListProps) => {
   const { sourceConfigs, onChange, readOnly = false } = props
   
   // Auto-collapse Source Configurations if 3 or more sources
-  const shouldAutoCollapse = useMemo(() => sourceConfigs.length >= 3, [sourceConfigs.length])
+  const shouldAutoCollapse = useMemo(() => sourceConfigs.length >= MAX_DEFAULT_VISIBLE_SOURCES, [sourceConfigs.length])
   const [sourceConfigsOpen, setSourceConfigsOpen] = useState(!shouldAutoCollapse)
+  // Independent state for the "Map Type (All)" selector - not derived from sources
+  const [allMapType, setAllMapType] = useState<MapType>(MapType.Indoor)
   const [expandedSources, setExpandedSources] = useState<{ [key: number]: boolean }>(() => {
     // Initialize: expand all if less than 3 sources
     const initial: { [key: number]: boolean } = {}
@@ -94,6 +100,15 @@ const SourceConfigList = (props: SourceConfigListProps) => {
       allCollapsed[index] = false
     })
     setExpandedSources(allCollapsed)
+  }
+
+  const onAllMapTypeChange = (mapType: MapType) => {
+    setAllMapType(mapType)
+    const newSourceConfigs = sourceConfigs.map(config => ({
+      ...config,
+      mapType
+    }))
+    onChange(newSourceConfigs)
   }
 
   const onSourceConfigChange = (index: number, property: string, value: any) => {
@@ -223,47 +238,63 @@ const SourceConfigList = (props: SourceConfigListProps) => {
 
   return (
     <div>
-      {/* Source Configurations header with expand/collapse all buttons */}
+      {/* Source Configurations header with source count */}
       <CollapsibleHeader
         label={HEADING_TEXT}
         isOpen={sourceConfigsOpen}
         onToggle={() => setSourceConfigsOpen(!sourceConfigsOpen)}
         actions={
           sourceConfigs.length > 0 ? (
-            <>
-              <Tooltip title={TOOLTIP_EXPAND_ALL}>
-                <Button
-                  size={ButtonSize.Small}
-                  type={ButtonType.Tertiary}
-                  icon
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    expandAllSources()
-                  }}
-                  aria-label={TOOLTIP_EXPAND_ALL}
-                >
-                  <ExpandAllOutlined />
-                </Button>
-              </Tooltip>
-              <Tooltip title={TOOLTIP_COLLAPSE_ALL}>
-                <Button
-                  size={ButtonSize.Small}
-                  type={ButtonType.Tertiary}
-                  icon
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    collapseAllSources()
-                  }}
-                  aria-label={TOOLTIP_COLLAPSE_ALL}
-                >
-                  <CollapseAllOutlined />
-                </Button>
-              </Tooltip>
-            </>
+            <span style={{ color: Colors.TextMuted, fontSize: '12px', marginRight: '4px' }}>
+              {sourceConfigs.length} {sourceConfigs.length === 1 ? 'source' : 'sources'}
+            </span>
           ) : undefined
         }
       />
       <Collapse isOpen={sourceConfigsOpen}>
+        {/* Map Type (All) field with expand/collapse all buttons */}
+        {sourceConfigs.length > 0 && (
+          <div style={{ paddingLeft: Padding.SectionContent, paddingBottom: Padding.FieldGroupBottom }}>
+          <SettingRow flow={FlowType.Wrap}>
+            <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+              <CopyableLabel label={FIELD_LABEL_ALL_MAP_TYPE} copyValue={''} showCopyButton={false} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Tooltip title={TOOLTIP_EXPAND_ALL}>
+                  <Button
+                    size={ButtonSize.Small}
+                    type={ButtonType.Tertiary}
+                    icon
+                    onClick={expandAllSources}
+                    aria-label={TOOLTIP_EXPAND_ALL}
+                  >
+                    <ExpandAllOutlined />
+                  </Button>
+                </Tooltip>
+                <Tooltip title={TOOLTIP_COLLAPSE_ALL}>
+                  <Button
+                    size={ButtonSize.Small}
+                    type={ButtonType.Tertiary}
+                    icon
+                    onClick={collapseAllSources}
+                    aria-label={TOOLTIP_COLLAPSE_ALL}
+                  >
+                    <CollapseAllOutlined />
+                  </Button>
+                </Tooltip>
+              </div>
+            </div>
+            <Select
+              style={{ width: '100%' }}
+              value={allMapType}
+              onChange={(e) => onAllMapTypeChange(e.target.value as MapType)}
+            >
+              <Option value={MapType.Travel}>{MAP_TYPE_LABEL_TRAVEL}</Option>
+              <Option value={MapType.Heatmap}>{MAP_TYPE_LABEL_HEATMAP}</Option>
+              <Option value={MapType.Indoor}>{MAP_TYPE_LABEL_INDOOR}</Option>
+            </Select>
+          </SettingRow>
+          </div>
+        )}
         {sourceConfigs.map((sourceConfig, index) => {
           const isExpanded = expandedSources[index] !== undefined ? expandedSources[index] : true
           const sourceName = sourceConfig?.name && sourceConfig.name.trim() ? sourceConfig.name : `${SOURCE_PREFIX}${index + 1}`
