@@ -156,15 +156,20 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     return `${currentStepSize} ${currentUnit}`
   }
 
-  const alwaysPresentFields: FieldConfig[] = [
-    { key: AudiomConfigKey.Title, label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title' },
+  // Connection fields - set once
+  const connectionFields: FieldConfig[] = [
     { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Text, placeholder: 'Enter API key' },
     { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl, validateOnAccept: (val) => validateUrl(String(val)) },
+    { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL', validateOnAccept: (val) => validateUrl(String(val)) }
+  ]
+
+  // Display fields - appearance & behavior
+  const displayFields: FieldConfig[] = [
+    { key: AudiomConfigKey.Title, label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title' },
     { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Custom, showCopyButton: false, renderCustom: renderStepSizeUnitSelector },
     { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
-    { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
-    { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL', validateOnAccept: (val) => validateUrl(String(val)) }
+    { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false }
   ]
 
   const urlModeFields: FieldConfig[] = [
@@ -251,7 +256,11 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
   return (
     <div className="widget-setting-demo">
-      <SettingSection title="Map Source">
+      <SettingSection title="Connection">
+        {connectionFields.map((field) => renderField(field, false))}
+      </SettingSection>
+
+      <SettingSection title="Map Configuration">
         <SettingRow flow={FlowType.Wrap}>
           <CopyableLabel label="Use Existing Map Widget" copyValue={String(config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap)} showCopyButton={false} />
           <Switch
@@ -285,8 +294,8 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         />
       </SettingSection>
 
-      <SettingSection title="Configuration">
-        {alwaysPresentFields.map((field) => {
+      <SettingSection title="Display">
+        {displayFields.map((field) => {
           // Only show Heading Size if Show Heading is true
           if (field.key === AudiomConfigKey.Heading) {
             const showHeading = config?.showHeading ?? DEFAULT_CONFIG.showHeading
