@@ -7,7 +7,7 @@ import { UnlockOutlined } from 'jimu-icons/outlined/editor/unlock'
 import { TrashOutlined } from 'jimu-icons/outlined/editor/trash'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
 import { FieldConfig, ISourceConfig } from '../configs'
-import { ButtonSize, ButtonType, FieldType, Colors } from '../enums'
+import { ButtonSize, ButtonType, FieldType, Colors, MAP_TYPE_OPTIONS } from '../enums'
 import { SourceConfigKey } from '../configKeys'
 import { validateUrl } from '../validation/validation'
 import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
@@ -46,10 +46,6 @@ const PLACEHOLDER_NAME = 'Enter source display name'
 const PLACEHOLDER_SOURCE_URL = 'Enter map source URL'
 const PLACEHOLDER_RULES_URL = 'Enter rules file URL'
 const PLACEHOLDER_SOURCE = 'Enter source identifier (e.g., units)'
-
-const MAP_TYPE_LABEL_TRAVEL = 'Travel'
-const MAP_TYPE_LABEL_HEATMAP = 'Heatmap'
-const MAP_TYPE_LABEL_INDOOR = 'Indoor'
 
 interface SourceConfigCardProps {
   /** The source configuration data */
@@ -116,11 +112,7 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
       key: SourceConfigKey.MapType,
       label: FIELD_LABEL_MAP_TYPE,
       type: FieldType.Enum,
-      enumOptions: [
-        { label: MAP_TYPE_LABEL_TRAVEL, value: MapType.Travel },
-        { label: MAP_TYPE_LABEL_HEATMAP, value: MapType.Heatmap },
-        { label: MAP_TYPE_LABEL_INDOOR, value: MapType.Indoor }
-      ],
+      enumOptions: [...MAP_TYPE_OPTIONS],
       defaultValue: MapType.Indoor,
       showCopyButton: false
     }

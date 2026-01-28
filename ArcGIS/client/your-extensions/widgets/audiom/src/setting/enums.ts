@@ -85,3 +85,12 @@ export enum Colors {
   
   BoxShadow = '0 2px 6px rgba(0, 0, 0, 0.2)'
 }
+
+// Map Type Options - shared between SourceConfigList and SourceConfigCard
+import { MapType } from '../../../../shared/audiom-client/AudiomSource'
+
+export const MAP_TYPE_OPTIONS = [
+  { label: 'Indoor', value: MapType.Indoor },
+  { label: 'Heatmap', value: MapType.Heatmap },
+  { label: 'Travel', value: MapType.Travel }
+] as const

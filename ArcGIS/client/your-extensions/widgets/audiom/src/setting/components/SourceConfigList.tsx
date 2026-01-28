@@ -1,11 +1,11 @@
 import { React } from 'jimu-core'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
-import { Select, Option, Collapse, Button, Tooltip } from 'jimu-ui'
+import { Select, Option, Collapse, Button, Tooltip, TextInput } from 'jimu-ui'
 import { ExpandAllOutlined } from 'jimu-icons/outlined/directional/expand-all'
 import { CollapseAllOutlined } from 'jimu-icons/outlined/directional/collapse-all'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
 import { ISourceConfig } from '../configs'
-import { ButtonSize, ButtonType, FlowType, Colors } from '../enums'
+import { ButtonSize, ButtonType, FlowType, Colors, MAP_TYPE_OPTIONS } from '../enums'
 import { Padding } from '../paddings'
 import CopyableLabel from './CopyableLabel'
 import CollapsibleHeader from './CollapsibleHeader'
@@ -42,9 +42,8 @@ const TOOLTIP_EXPAND_ALL = 'Expand all sources'
 const TOOLTIP_COLLAPSE_ALL = 'Collapse all sources'
 const BUTTON_ADD = 'Add Source Configuration'
 const FIELD_LABEL_ALL_MAP_TYPE = 'Map Type (All)'
-const MAP_TYPE_LABEL_TRAVEL = 'Travel'
-const MAP_TYPE_LABEL_HEATMAP = 'Heatmap'
-const MAP_TYPE_LABEL_INDOOR = 'Indoor'
+const FIELD_LABEL_ALL_RULES_FILE = 'Rules File (All)'
+const MIXED_VALUE_PLACEHOLDER = '-'
 
 interface SourceConfigListProps {
   sourceConfigs: ISourceConfig[]
@@ -127,6 +126,28 @@ const SourceConfigList = (props: SourceConfigListProps) => {
     if (sourceConfigs.length === 0) return false
     const firstType = sourceConfigs[0]?.mapType ?? MapType.Indoor
     return sourceConfigs.some(config => (config.mapType ?? MapType.Indoor) !== firstType)
+  }
+
+  // Check if sources have different rules files
+  const hasMixedRulesFiles = (): boolean => {
+    if (sourceConfigs.length === 0) return false
+    const firstRulesFile = sourceConfigs[0]?.rulesFileUrl ?? ''
+    return sourceConfigs.some(config => (config.rulesFileUrl ?? '') !== firstRulesFile)
+  }
+
+  // Get the current rules file value for display
+  const getAllRulesFileValue = (): string => {
+    if (sourceConfigs.length === 0) return ''
+    if (hasMixedRulesFiles()) return MIXED_VALUE_PLACEHOLDER
+    return sourceConfigs[0]?.rulesFileUrl ?? ''
+  }
+
+  const onAllRulesFileChange = (rulesFileUrl: string) => {
+    const newSourceConfigs = sourceConfigs.map(config => ({
+      ...config,
+      rulesFileUrl
+    }))
+    onChange(newSourceConfigs)
   }
 
   const onSourceConfigChange = (index: number, property: string, value: any) => {
@@ -222,10 +243,19 @@ const SourceConfigList = (props: SourceConfigListProps) => {
               {hasMixedMapTypes() && (
                 <Option value="" disabled style={{ fontStyle: 'italic' }}>Mixed</Option>
               )}
-              <Option value={MapType.Indoor}>{MAP_TYPE_LABEL_INDOOR}</Option>
-              <Option value={MapType.Heatmap}>{MAP_TYPE_LABEL_HEATMAP}</Option>
-              <Option value={MapType.Travel}>{MAP_TYPE_LABEL_TRAVEL}</Option>
+              {MAP_TYPE_OPTIONS.map(opt => (
+                <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+              ))}
             </Select>
+          </SettingRow>
+          <SettingRow flow={FlowType.Wrap}>
+            <CopyableLabel label={FIELD_LABEL_ALL_RULES_FILE} copyValue={getAllRulesFileValue()} showCopyButton={true} />
+            <TextInput
+              style={{ width: '100%' }}
+              value={getAllRulesFileValue()}
+              onChange={(e) => onAllRulesFileChange(e.target.value)}
+              placeholder="Enter rules file URL"
+            />
           </SettingRow>
           </div>
         )}
