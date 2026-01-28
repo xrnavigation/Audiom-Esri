@@ -1,15 +1,17 @@
 import { React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
-import { TextInput, NumericInput, Switch, Label, Button, ButtonGroup, Collapse, Tooltip } from 'jimu-ui'
+import { NumericInput, Switch, Label, Button, ButtonGroup, Collapse, Tooltip } from 'jimu-ui'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 
 import SourceConfigList from './components/SourceConfigList'
 import CopyableLabel from './components/CopyableLabel'
 import CollapsibleHeader from './components/CollapsibleHeader'
+import FieldRenderer from './components/FieldRenderer'
 import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/maputils'
 import { getMapSyncManager, MapSyncConfig } from '../utils/mapSyncManager'
 import { mergeSourcesPreservingUnlocked } from '../utils/sourceConfigUtils'
+import { createLogger } from '../utils/logger'
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
 import { ButtonType, FieldType, FlowType, Colors } from './enums'
 import { Padding } from './paddings'
@@ -17,6 +19,8 @@ import { AudiomConfigKey } from './configKeys'
 import { validateLatitude, validateLongitude, validateZoom, validateUrl, VALIDATION } from './validation/validation'
 
 const { useEffect, useCallback, useState } = React
+
+const logger = createLogger('Setting')
 
 const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
@@ -47,7 +51,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         .set(AudiomConfigKey.Zoom, newMapConfig.zoom)
         .set(AudiomConfigKey.SourceConfigs, mergedSources)
 
-      console.log('Auto-sync settings: Updated config with', mergedSources.length, 'sources')
+      logger.debug('Auto-sync settings: Updated config with', mergedSources.length, 'sources')
 
       props.onSettingChange({
         id: props.id,
@@ -92,10 +96,10 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     })
   }
 
-  const onPropertyChange = (property: string, value: any) => {
+  const onPropertyChange = (property: keyof IAudiomConfig, value: unknown) => {
     props.onSettingChange({
       id: props.id,
-      config: config.set(property, value)
+      config: config.set(property, value as IAudiomConfig[typeof property])
     })
   }
 
@@ -180,91 +184,17 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
   const renderField = (field: FieldConfig, readOnly: boolean = false) => {
     const value = config?.[field.key] ?? field.defaultValue
-
-    const renderFieldContent = () => {
-      switch (field.type) {
-        case FieldType.Text:
-          return (
-            <SettingRow key={field.key} flow={FlowType.Wrap}>
-              <CopyableLabel label={field.label} copyValue={String(value || '')} showCopyButton={field.showCopyButton} />
-              <TextInput
-                style={{ width: '100%' }}
-                value={value || ''}
-                onChange={(e) => onPropertyChange(field.key, e.target.value)}
-                placeholder={field.placeholder}
-                disabled={readOnly}
-                checkValidityOnAccept={field.validateOnAccept ? (text) => field.validateOnAccept(text) : undefined}
-              />
-            </SettingRow>
-          )
-        case FieldType.Password:
-          return (
-            <SettingRow key={field.key} flow={FlowType.Wrap}>
-              <CopyableLabel label={field.label} copyValue={String(value || '')} showCopyButton={field.showCopyButton} />
-              <TextInput
-                style={{ width: '100%' }}
-                type="password"
-                value={value || ''}
-                onChange={(e) => onPropertyChange(field.key, e.target.value)}
-                placeholder={field.placeholder}
-                disabled={readOnly}
-              />
-            </SettingRow>
-          )
-        case FieldType.Number:
-          return (
-            <SettingRow key={field.key} flow={FlowType.Wrap}>
-              <CopyableLabel label={field.label} copyValue={String(value ?? '')} showCopyButton={field.showCopyButton} />
-              <NumericInput
-                style={{ width: '100%' }}
-                value={value}
-                onChange={(val) => {
-                  // Validate on change and only update if valid (or let NumericInput handle min/max)
-                  if (field.validateOnAccept) {
-                    const result = field.validateOnAccept(val)
-                    if (!result.valid) {
-                      console.warn(`Validation failed for ${field.key}:`, result.msg)
-                    }
-                  }
-                  onPropertyChange(field.key, val)
-                }}
-                min={field.min}
-                max={field.max}
-                disabled={readOnly}
-              />
-            </SettingRow>
-          )
-        case FieldType.Switch:
-          return (
-            <SettingRow key={field.key} flow={FlowType.Wrap}>
-              <CopyableLabel label={field.label} copyValue={String(value)} showCopyButton={field.showCopyButton} />
-              <Switch
-                checked={value}
-                onChange={(e) => onPropertyChange(field.key, e.target.checked)}
-                disabled={readOnly}
-              />
-            </SettingRow>
-          )
-        case FieldType.Custom:
-          return (
-            <SettingRow key={field.key} flow={FlowType.Wrap}>
-              <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
-                <CopyableLabel label={field.label} copyValue={''} showCopyButton={false} />
-                {field.key === AudiomConfigKey.StepSize && (
-                  <Label style={{ color: Colors.TextMuted, fontSize: '12px', whiteSpace: 'nowrap', marginLeft: '8px', flex: '1', textAlign: 'right' }}>{getStepSizeDisplayText()}</Label>
-                )}
-              </div>
-              {field.renderCustom?.()}
-            </SettingRow>
-          )
-      }
-    }
+    const labelSuffix = field.key === AudiomConfigKey.StepSize ? getStepSizeDisplayText() : undefined
 
     return (
-      <React.Fragment key={field.key}>
-        {renderFieldContent()}
-        {field.renderAfter?.()}
-      </React.Fragment>
+      <FieldRenderer
+        key={field.key}
+        field={field}
+        value={value}
+        onChange={onPropertyChange}
+        disabled={readOnly}
+        labelSuffix={labelSuffix}
+      />
     )
   }
 

@@ -2,6 +2,9 @@ import { JimuMapView, JimuLayerView, MapViewManager } from 'jimu-arcgis'
 import { getJimuMapViewById, extractMapConfigFromEsriMap } from './maputils'
 import { ISourceConfig } from '../setting/configs'
 import { getLockedSources, getUnlockedSourceIds, excludeSourcesByIds, stripUserControlledProperties } from './sourceConfigUtils'
+import { createLogger } from './logger'
+
+const logger = createLogger('MapSyncManager')
 
 // Auto-sync layers with ESRI map - hidden config for now, always enabled
 export const AUTO_SYNC_LAYERS = true
@@ -41,7 +44,7 @@ export class MapSyncManager {
     const jimuMapView = getJimuMapViewById(mapId, mapViewManager)
 
     if (!jimuMapView || !jimuMapView.view) {
-      console.warn('MapSyncManager: Could not attach - no map view available')
+      logger.warn('Could not attach - no map view available')
       return false
     }
 
@@ -60,17 +63,17 @@ export class MapSyncManager {
 
     // Create bound listener functions
     this.boundOnLayerCreated = (jimuLayerView: JimuLayerView) => {
-      console.log('MapSyncManager: Layer created', jimuLayerView.layer?.title)
+      logger.debug('Layer created', jimuLayerView.layer?.title)
       this.notifyChange()
     }
 
     this.boundOnLayerRemoved = (jimuLayerView: JimuLayerView) => {
-      console.log('MapSyncManager: Layer removed', jimuLayerView.layer?.title)
+      logger.debug('Layer removed', jimuLayerView.layer?.title)
       this.notifyChange()
     }
 
     this.boundOnVisibilityChanged = (jimuLayerViews: JimuLayerView[]) => {
-      console.log('MapSyncManager: Layer visibility changed', jimuLayerViews.map(v => v.layer?.title))
+      logger.debug('Layer visibility changed', jimuLayerViews.map(v => v.layer?.title))
       this.notifyChange()
     }
 
@@ -79,7 +82,7 @@ export class MapSyncManager {
     jimuMapView.addJimuLayerViewRemovedListener(this.boundOnLayerRemoved)
     jimuMapView.addJimuLayerViewsVisibleChangeListener(this.boundOnVisibilityChanged)
 
-    console.log('MapSyncManager: Attached to map', mapId)
+    logger.debug('Attached to map', mapId)
     return true
   }
 
@@ -97,7 +100,7 @@ export class MapSyncManager {
       if (this.boundOnVisibilityChanged) {
         this.jimuMapView.removeJimuLayerViewsVisibleChangeListener(this.boundOnVisibilityChanged)
       }
-      console.log('MapSyncManager: Detached')
+      logger.debug('Detached')
     }
 
     this.jimuMapView = null
@@ -185,12 +188,12 @@ export class MapSyncManager {
     }
     this.lastConfigJson = newJson
 
-    console.log('MapSyncManager: Notifying', this.changeListeners.size, 'listeners of change')
+    logger.debug('Notifying', this.changeListeners.size, 'listeners of change')
     this.changeListeners.forEach(listener => {
       try {
         listener(newConfig)
       } catch (e) {
-        console.error('MapSyncManager: Error in change listener', e)
+        logger.error('Error in change listener', e)
       }
     })
   }
@@ -223,7 +226,7 @@ export class MapSyncManager {
       this.initialized = true
       
       if (hasMismatch) {
-        console.log('MapSyncManager: Initial config mismatch detected on attach')
+        logger.debug('Initial config mismatch detected on attach')
         // Defer notification to next tick to allow listeners to be added
         setTimeout(() => this.notifyChange(), 0)
       } else {

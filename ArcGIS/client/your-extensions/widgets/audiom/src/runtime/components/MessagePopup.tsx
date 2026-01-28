@@ -1,3 +1,5 @@
+import '../../styles/widget.css'
+
 export enum MessageType {
   Warning = 'warning',
   Notification = 'notification',
@@ -22,33 +24,19 @@ interface MessagePopupProps {
   position?: MessagePosition
 }
 
-interface VariantStyle {
-  backgroundColor: string
-  fontColor: string
-  icon: string
-}
-
-const VARIANT_STYLES: Record<MessageType, VariantStyle> = {
-  [MessageType.Warning]: {
-    backgroundColor: 'rgba(255, 193, 7, 0.95)',
-    fontColor: '#000',
-    icon: '⚠️'
-  },
-  [MessageType.Notification]: {
-    backgroundColor: 'rgba(33, 150, 243, 0.95)',
-    fontColor: '#fff',
-    icon: 'ℹ️'
-  },
-  [MessageType.Error]: {
-    backgroundColor: 'rgba(244, 67, 54, 0.95)',
-    fontColor: '#fff',
-    icon: '❌'
-  }
+const VARIANT_ICONS: Record<MessageType, string> = {
+  [MessageType.Warning]: '⚠️',
+  [MessageType.Notification]: 'ℹ️',
+  [MessageType.Error]: '❌'
 }
 
 /**
  * A reusable popup message component with support for different variants.
  * Displays a styled banner at the top or bottom of its container.
+ * 
+ * Accessibility:
+ * - Uses role="alert" for screen reader announcements
+ * - aria-live="polite" for non-intrusive updates
  */
 const MessagePopup = (props: MessagePopupProps) => {
   const { show, message, variant = MessageType.Notification, icon, position = MessagePosition.Top } = props
@@ -57,28 +45,18 @@ const MessagePopup = (props: MessagePopupProps) => {
     return null
   }
 
-  const variantStyle = VARIANT_STYLES[variant]
-  const displayIcon = icon ?? variantStyle.icon
+  const displayIcon = icon ?? VARIANT_ICONS[variant]
+  const positionClass = position === MessagePosition.Top ? 'audiom-message-popup--top' : 'audiom-message-popup--bottom'
+  const variantClass = `audiom-message-popup--${variant}`
 
   return (
-    <div style={{
-      position: 'absolute',
-      ...(position === MessagePosition.Top ? { top: '10px' } : { bottom: '10px' }),
-      left: '10px',
-      right: '10px',
-      backgroundColor: variantStyle.backgroundColor,
-      color: variantStyle.fontColor,
-      padding: '8px 12px',
-      borderRadius: '4px',
-      fontSize: '13px',
-      zIndex: 1000,
-      boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px'
-    }}>
-      <span style={{ fontSize: '16px' }}>{displayIcon}</span>
-      <span>{message}</span>
+    <div 
+      className={`audiom-message-popup ${positionClass} ${variantClass}`}
+      role="alert"
+      aria-live="polite"
+    >
+      <span className="audiom-message-popup__icon" aria-hidden="true">{displayIcon}</span>
+      <span className="audiom-message-popup__message">{message}</span>
     </div>
   )
 }

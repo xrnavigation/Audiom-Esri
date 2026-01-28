@@ -8,6 +8,7 @@ import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs'
 import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation'
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
+import '../styles/widget.css'
 
 const dsManager = DataSourceManager.getInstance()
 const allDataSources = dsManager.getDataSources()
@@ -80,7 +81,7 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   const indoorUrl = indoorConfig.toUrl(sanitizedConfig?.baseUrl || DEFAULT_CONFIG.baseUrl)
 
   return (
-    <div className="jimu-widget" style={{ position: 'relative' }}>
+    <div className="jimu-widget audiom-widget">
       {props.useMapWidgetIds && props.useMapWidgetIds.length === 1 && (
         <JimuMapViewComponent useMapWidgetId={props.useMapWidgetIds?.[0]} onActiveViewChange={activeViewChangeHandler} />
       )}
@@ -89,7 +90,12 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
         message="Map changes detected. Select the Audiom widget to re-synchronize."
         variant={MessageType.Warning}
       />
-      <iframe name="audiom" src={indoorUrl} width="100%" height="100%" title="ESRI Map" style={{ border: '0px' }}></iframe>
+      <iframe 
+        name="audiom" 
+        src={indoorUrl} 
+        className="audiom-widget__iframe"
+        title={props.config.title || 'Audiom Widget'}
+      />
     </div>
   )
 }

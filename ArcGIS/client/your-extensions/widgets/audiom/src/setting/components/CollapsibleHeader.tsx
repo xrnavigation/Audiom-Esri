@@ -1,7 +1,8 @@
 import { React } from 'jimu-core'
 import { DownOutlined } from 'jimu-icons/outlined/directional/down'
 import { RightOutlined } from 'jimu-icons/outlined/directional/right'
-import { IconSize, Colors, HtmlButtonType } from '../enums'
+import { IconSize, HtmlButtonType } from '../enums'
+import '../../styles/widget.css'
 
 /**
  * Collapsible header hierarchy levels.
@@ -44,55 +45,37 @@ interface CollapsibleHeaderProps {
 const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
   const { label, isOpen, onToggle, backgroundColor, actions, contentId, level = CollapsibleHeaderLevel.Section } = props
 
-  // Section headers have minimal left padding, card headers have more padding with background
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    width: '100%',
-    padding: level === CollapsibleHeaderLevel.Section ? '8px 0' : '8px',
-    ...(backgroundColor ? { backgroundColor } : {})
-  }
+  const levelClass = level === CollapsibleHeaderLevel.Section 
+    ? 'audiom-collapsible-header--section' 
+    : 'audiom-collapsible-header--card'
 
-  const toggleButtonStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'flex-start',
-    textAlign: 'left',
-    padding: '0',
-    margin: '0',
-    border: 'none',
-    background: 'transparent',
-    color: 'inherit',
-    font: 'inherit',
-    cursor: 'pointer'
-  }
+  const headerStyle: React.CSSProperties = backgroundColor ? { backgroundColor } : {}
 
   return (
-    <div style={headerStyle} role="heading" aria-level={3}>
+    <div 
+      className={`audiom-collapsible-header ${levelClass}`}
+      style={headerStyle}
+      role="heading" 
+      aria-level={3}
+    >
       <button
         type={HtmlButtonType.Button}
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls={contentId}
-        style={toggleButtonStyle}
-        className="collapsible-header-toggle"
+        aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${label}`}
+        className="audiom-collapsible-header__toggle"
       >
-        <span style={{ marginRight: '8px', display: 'flex', alignItems: 'center' }} aria-hidden="true">
+        <span className="audiom-collapsible-header__icon" aria-hidden="true">
           {isOpen ? <DownOutlined size={IconSize.Small} /> : <RightOutlined size={IconSize.Small} />}
         </span>
-        <span style={{ flex: 1 }}>{label}</span>
+        <span className="audiom-collapsible-header__label">{label}</span>
       </button>
-      {actions}
-      <style>{`
-        .collapsible-header-toggle {
-          outline: none;
-        }
-        .collapsible-header-toggle:focus-visible {
-          outline: 2px solid ${Colors.FocusOutline};
-          outline-offset: 2px;
-        }
-      `}</style>
+      {actions && (
+        <div className="audiom-collapsible-header__actions">
+          {actions}
+        </div>
+      )}
     </div>
   )
 }

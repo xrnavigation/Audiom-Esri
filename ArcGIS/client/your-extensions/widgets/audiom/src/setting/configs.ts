@@ -51,8 +51,7 @@ export interface ISourceConfig {
   locked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual enabled state.
 }
 
-// TODO: Find a way to not use any here
-export interface IAudiomConfig extends Record<string, any> {
+export interface IAudiomConfig {
   apiKey?: string
   baseUrl?: string
   heading?:  1 | 2 | 3 | 4 | 5 | 6;
@@ -68,4 +67,28 @@ export interface IAudiomConfig extends Record<string, any> {
   zoom?: number
   useExistingMap?: boolean
   existingMapId?: string
+  // Jimu ImmutableObject methods - these are added by the framework
+  set?: <K extends keyof IAudiomConfig>(key: K, value: IAudiomConfig[K]) => IAudiomConfig
+}
+
+/**
+ * Type-safe config value accessor with default fallback.
+ * Eliminates repetitive `config?.[key] ?? DEFAULT_CONFIG[key]` patterns.
+ * 
+ * @param config - The current widget configuration
+ * @param key - The configuration key to access
+ * @returns The config value or its default from DEFAULT_CONFIG
+ * 
+ * @example
+ * const zoom = getConfigValue(config, 'zoom') // number
+ * const sources = getConfigValue(config, 'sourceConfigs') // ISourceConfig[]
+ */
+export function getConfigValue<K extends keyof typeof DEFAULT_CONFIG>(
+  config: IAudiomConfig | undefined,
+  key: K
+): (typeof DEFAULT_CONFIG)[K] {
+  if (config && key in config && config[key as keyof IAudiomConfig] !== undefined) {
+    return config[key as keyof IAudiomConfig] as (typeof DEFAULT_CONFIG)[K]
+  }
+  return DEFAULT_CONFIG[key]
 }
