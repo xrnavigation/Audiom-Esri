@@ -5,6 +5,7 @@ import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
 import { InvisibleOutlined } from 'jimu-icons/outlined/application/invisible'
 import { LockOutlined } from 'jimu-icons/outlined/editor/lock'
 import { UnlockOutlined } from 'jimu-icons/outlined/editor/unlock'
+import { TrashOutlined } from 'jimu-icons/outlined/editor/trash'
 import { ExpandAllOutlined } from 'jimu-icons/outlined/directional/expand-all'
 import { CollapseAllOutlined } from 'jimu-icons/outlined/directional/collapse-all'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
@@ -23,7 +24,7 @@ const MAX_DEFAULT_VISIBLE_SOURCES = 3
 // UI Text Constants
 const HEADING_TEXT = 'Source Configurations'
 const SOURCE_PREFIX = 'Source '
-const BUTTON_REMOVE = 'Remove'
+const TOOLTIP_REMOVE = 'Remove source'
 const TOOLTIP_SHOW = 'Show source'
 const TOOLTIP_HIDE = 'Hide source'
 const TOOLTIP_LOCK = 'Lock to sync with map'
@@ -357,14 +358,20 @@ const SourceConfigList = (props: SourceConfigListProps) => {
                       </Tooltip>
                     </>
                   ) : (
-                    <Button
-                      size={ButtonSize.Small}
-                      type={ButtonType.Danger}
-                      onClick={() => onRemoveSourceConfig(index)}
-                      aria-label={`${BUTTON_REMOVE} ${sourceName}`}
-                    >
-                      {BUTTON_REMOVE}
-                    </Button>
+                    <Tooltip title={TOOLTIP_REMOVE}>
+                      <Button
+                        size={ButtonSize.Small}
+                        type={ButtonType.Tertiary}
+                        icon
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onRemoveSourceConfig(index)
+                        }}
+                        aria-label={`${TOOLTIP_REMOVE} ${sourceName}`}
+                      >
+                        <TrashOutlined />
+                      </Button>
+                    </Tooltip>
                   )
                 }
               />

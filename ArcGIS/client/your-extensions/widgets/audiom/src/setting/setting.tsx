@@ -158,7 +158,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
   // Connection fields - set once
   const connectionFields: FieldConfig[] = [
-    { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Text, placeholder: 'Enter API key' },
+    { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Password, placeholder: 'Enter API key' },
     { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl, validateOnAccept: (val) => validateUrl(String(val)) },
     { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL', validateOnAccept: (val) => validateUrl(String(val)) }
   ]
@@ -194,6 +194,20 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
                 placeholder={field.placeholder}
                 disabled={readOnly}
                 checkValidityOnAccept={field.validateOnAccept ? (text) => field.validateOnAccept(text) : undefined}
+              />
+            </SettingRow>
+          )
+        case FieldType.Password:
+          return (
+            <SettingRow key={field.key} flow={FlowType.Wrap}>
+              <CopyableLabel label={field.label} copyValue={String(value || '')} showCopyButton={field.showCopyButton} />
+              <TextInput
+                style={{ width: '100%' }}
+                type="password"
+                value={value || ''}
+                onChange={(e) => onPropertyChange(field.key, e.target.value)}
+                placeholder={field.placeholder}
+                disabled={readOnly}
               />
             </SettingRow>
           )

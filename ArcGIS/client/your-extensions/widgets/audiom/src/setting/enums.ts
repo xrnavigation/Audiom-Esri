@@ -1,5 +1,6 @@
 export enum FieldType {
   Text = 'text',
+  Password = 'password',
   Number = 'number',
   Switch = 'switch',
   Enum = 'enum',
