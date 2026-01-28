@@ -111,6 +111,13 @@ const SourceConfigList = (props: SourceConfigListProps) => {
     onChange(newSourceConfigs)
   }
 
+  // Check if sources have different map types
+  const hasMixedMapTypes = (): boolean => {
+    if (sourceConfigs.length === 0) return false
+    const firstType = sourceConfigs[0]?.mapType ?? MapType.Indoor
+    return sourceConfigs.some(config => (config.mapType ?? MapType.Indoor) !== firstType)
+  }
+
   const onSourceConfigChange = (index: number, property: string, value: any) => {
     const newSourceConfigs = [...sourceConfigs]
     newSourceConfigs[index] = { ...newSourceConfigs[index], [property]: value }
@@ -285,12 +292,15 @@ const SourceConfigList = (props: SourceConfigListProps) => {
             </div>
             <Select
               style={{ width: '100%' }}
-              value={allMapType}
+              value={hasMixedMapTypes() ? '' : allMapType}
               onChange={(e) => onAllMapTypeChange(e.target.value as MapType)}
             >
-              <Option value={MapType.Travel}>{MAP_TYPE_LABEL_TRAVEL}</Option>
-              <Option value={MapType.Heatmap}>{MAP_TYPE_LABEL_HEATMAP}</Option>
+              {hasMixedMapTypes() && (
+                <Option value="" disabled style={{ fontStyle: 'italic' }}>Mixed</Option>
+              )}
               <Option value={MapType.Indoor}>{MAP_TYPE_LABEL_INDOOR}</Option>
+              <Option value={MapType.Heatmap}>{MAP_TYPE_LABEL_HEATMAP}</Option>
+              <Option value={MapType.Travel}>{MAP_TYPE_LABEL_TRAVEL}</Option>
             </Select>
           </SettingRow>
           </div>
