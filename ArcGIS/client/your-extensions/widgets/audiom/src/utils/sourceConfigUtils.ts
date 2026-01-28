@@ -1,4 +1,20 @@
 import { ISourceConfig } from '../setting/configs'
+import { SourceConfigKey } from '../setting/configKeys'
+
+/**
+ * User-controlled properties are preserved during sync and excluded from change detection.
+ * Uses destructuring for clean property removal.
+ */
+export function stripUserControlledProperties(source: ISourceConfig): Partial<ISourceConfig> {
+  const {
+    [SourceConfigKey.MapType]: _mapType,
+    [SourceConfigKey.RulesFileUrl]: _rulesFileUrl,
+    [SourceConfigKey.Enabled]: _enabled,
+    [SourceConfigKey.Locked]: _locked,
+    ...comparable
+  } = source
+  return comparable
+}
 
 /**
  * Filter sources to only include locked sources (sources that sync with the map).
@@ -49,10 +65,12 @@ export function excludeSourcesByIds(sources: ISourceConfig[], excludeIds: Set<st
 }
 
 /**
- * Merge map sources with current config, preserving enabled/locked state for unlocked sources.
+ * Merge map sources with current config, preserving user-configurable properties.
+ * - enabled/locked: preserved only for unlocked sources
+ * - mapType/rulesFileUrl: always preserved from current config (user-editable)
  * @param currentSources - The current widget config sources
  * @param mapSources - Fresh sources from the map
- * @returns Merged sources with unlocked items preserving their state
+ * @returns Merged sources with user properties preserved
  */
 export function mergeSourcesPreservingUnlocked(
   currentSources: ISourceConfig[],
@@ -60,12 +78,34 @@ export function mergeSourcesPreservingUnlocked(
 ): ISourceConfig[] {
   const unlockedMap = buildUnlockedSourcesMap(currentSources)
   
-  return mapSources.map(mapSource => {
-    const unlocked = unlockedMap.get(mapSource.source || '')
-    if (unlocked) {
-      // Preserve the unlocked source's enabled and locked state
-      return { ...mapSource, enabled: unlocked.enabled, locked: unlocked.locked }
+  // Build a map of current sources for preserving user-editable properties
+  const currentSourceMap = new Map<string, ISourceConfig>()
+  currentSources.forEach(s => {
+    if (s.source) {
+      currentSourceMap.set(s.source, s)
     }
-    return mapSource
+  })
+  
+  return mapSources.map(mapSource => {
+    const sourceId = mapSource.source || ''
+    const current = currentSourceMap.get(sourceId)
+    const unlocked = unlockedMap.get(sourceId)
+    
+    // Start with map source as base
+    let merged = { ...mapSource }
+    
+    // Always preserve user-editable properties from current config
+    if (current) {
+      merged.mapType = current.mapType ?? mapSource.mapType
+      merged.rulesFileUrl = current.rulesFileUrl ?? mapSource.rulesFileUrl
+    }
+    
+    // For unlocked sources, also preserve enabled and locked state
+    if (unlocked) {
+      merged.enabled = unlocked.enabled
+      merged.locked = unlocked.locked
+    }
+    
+    return merged
   })
 }

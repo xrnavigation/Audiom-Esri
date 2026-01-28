@@ -1,7 +1,7 @@
 import { JimuMapView, JimuLayerView, MapViewManager } from 'jimu-arcgis'
 import { getJimuMapViewById, extractMapConfigFromEsriMap } from './maputils'
 import { ISourceConfig } from '../setting/configs'
-import { getLockedSources, getUnlockedSourceIds, excludeSourcesByIds } from './sourceConfigUtils'
+import { getLockedSources, getUnlockedSourceIds, excludeSourcesByIds, stripUserControlledProperties } from './sourceConfigUtils'
 
 // Auto-sync layers with ESRI map - hidden config for now, always enabled
 export const AUTO_SYNC_LAYERS = true
@@ -156,12 +156,12 @@ export class MapSyncManager {
     // Get IDs of unlocked sources from current config
     const unlockedIds = getUnlockedSourceIds(currentConfig.sourceConfigs || [])
 
-    // Filter to only compare locked sources
+    // Filter to only compare locked sources, then strip user-controlled properties
     const lockedCurrentSources = getLockedSources(currentConfig.sourceConfigs || [])
     const lockedNewSources = excludeSourcesByIds(newConfig.sourceConfigs || [], unlockedIds)
 
-    const currentJson = JSON.stringify(lockedCurrentSources)
-    const newJson = JSON.stringify(lockedNewSources)
+    const currentJson = JSON.stringify(lockedCurrentSources.map(stripUserControlledProperties))
+    const newJson = JSON.stringify(lockedNewSources.map(stripUserControlledProperties))
 
     return currentJson !== newJson
   }
