@@ -17,7 +17,7 @@ const { useState, useEffect, useMemo } = React
 const styles = {
   container: { width: '100%' },
   count: {
-    color: 'var(--ref-palette-neutral-700, #6b7280)',
+    color: Colors.TextMuted,
     fontSize: 12,
     marginRight: 4
   },

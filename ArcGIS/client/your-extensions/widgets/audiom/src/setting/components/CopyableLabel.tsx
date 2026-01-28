@@ -2,6 +2,7 @@ import { React, css } from 'jimu-core'
 import { Label, Tooltip } from 'jimu-ui'
 import { CopyOutlined } from 'jimu-icons/outlined/editor/copy'
 import { createLogger } from '../../utils/logger'
+import { Colors } from '../enums'
 
 const { useState, useCallback } = React
 const logger = createLogger('CopyableLabel')
@@ -38,10 +39,10 @@ const styles = {
 // Button needs :hover and :focus-visible pseudo-classes
 const copyButtonStyle = css({
   padding: 2,
-  background: 'transparent',
+  background: Colors.Transparent,
   border: 'none',
   cursor: 'pointer',
-  color: 'var(--ref-palette-neutral-700, #6b7280)',
+  color: Colors.TextMuted,
   opacity: 0.6,
   transition: 'opacity 0.15s ease',
   display: 'flex',
@@ -51,7 +52,7 @@ const copyButtonStyle = css({
     opacity: 1
   },
   '&:focus-visible': {
-    outline: '2px solid var(--sys-color-primary-main, #0079c1)',
+    outline: `2px solid ${Colors.FocusOutline}`,
     outlineOffset: 1,
     borderRadius: 2
   }
@@ -91,7 +92,7 @@ const CopyableLabel = (props: CopyableLabelProps) => {
             aria-label={`Copy ${label} value to clipboard`}
             css={copyButtonStyle}
           >
-            <CopyOutlined size={12} color={copied ? '#10b981' : undefined} />
+            <CopyOutlined size={12} color={copied ? Colors.Success : undefined} />
           </button>
         </Tooltip>
       )}

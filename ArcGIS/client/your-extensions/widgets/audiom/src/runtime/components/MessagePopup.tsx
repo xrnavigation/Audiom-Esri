@@ -1,4 +1,5 @@
 import { React } from 'jimu-core'
+import { Colors, AriaLive, AriaRole } from '../../setting/enums'
 
 export enum MessageType {
   Warning = 'warning',
@@ -40,7 +41,7 @@ const styles = {
     borderRadius: 4,
     fontSize: 13,
     zIndex: 1000,
-    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)',
+    boxShadow: Colors.BoxShadow,
     display: 'flex',
     alignItems: 'center',
     gap: 8
@@ -48,16 +49,16 @@ const styles = {
   top: { top: 10 },
   bottom: { bottom: 10 },
   warning: {
-    backgroundColor: 'rgba(255, 193, 7, 0.95)',
-    color: '#000'
+    backgroundColor: Colors.WarningBackground,
+    color: Colors.TextBlack
   },
   notification: {
-    backgroundColor: 'rgba(33, 150, 243, 0.95)',
-    color: '#fff'
+    backgroundColor: Colors.InfoBackground,
+    color: Colors.TextWhite
   },
   error: {
-    backgroundColor: 'rgba(244, 67, 54, 0.95)',
-    color: '#fff'
+    backgroundColor: Colors.ErrorBackground,
+    color: Colors.TextWhite
   },
   icon: {
     fontSize: 16,
@@ -94,8 +95,8 @@ const MessagePopup = (props: MessagePopupProps) => {
   return (
     <div 
       style={{ ...styles.base, ...positionStyle, ...variantStyle }}
-      role="alert"
-      aria-live="polite"
+      role={AriaRole.Alert}
+      aria-live={AriaLive.Polite}
     >
       <span style={styles.icon} aria-hidden="true">{displayIcon}</span>
       <span style={styles.message}>{message}</span>

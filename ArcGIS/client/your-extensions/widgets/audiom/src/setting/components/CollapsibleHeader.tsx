@@ -1,7 +1,7 @@
 import { React, css } from 'jimu-core'
 import { DownOutlined } from 'jimu-icons/outlined/directional/down'
 import { RightOutlined } from 'jimu-icons/outlined/directional/right'
-import { IconSize, HtmlButtonType } from '../enums'
+import { IconSize, HtmlButtonType, Colors, AriaRole } from '../enums'
 
 /**
  * Collapsible header hierarchy levels.
@@ -66,12 +66,12 @@ const toggleButtonStyle = css({
   padding: 0,
   margin: 0,
   border: 'none',
-  background: 'transparent',
+  background: Colors.Transparent,
   color: 'inherit',
   font: 'inherit',
   cursor: 'pointer',
   '&:focus-visible': {
-    outline: '2px solid var(--sys-color-primary-main, #0079c1)',
+    outline: `2px solid ${Colors.FocusOutline}`,
     outlineOffset: 2,
     borderRadius: 2
   }
@@ -97,7 +97,7 @@ const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
   return (
     <div 
       style={containerStyle}
-      role="heading" 
+      role={AriaRole.Heading} 
       aria-level={3}
     >
       <button
