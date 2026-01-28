@@ -8,6 +8,9 @@ import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs'
 import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation'
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('Widget')
 
 // Typed styles with full key/value validation
 const styles = {
@@ -59,7 +62,6 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
 
     // Listen for changes
     const onMapChange = () => {
-      // Check if there are actual changes compared to current config
       if (mapSyncManager.hasChanges(sanitizedConfig.existingMapId, sanitizedConfig)) {
         setHasChanges(true)
       }
