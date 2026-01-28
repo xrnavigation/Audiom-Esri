@@ -16,7 +16,8 @@ export enum SourceConfigKey {
   SourceUrl = 'sourceUrl',
   RulesFileUrl = 'rulesFileUrl',
   MapType = 'mapType',
-  Enabled = 'enabled'
+  Enabled = 'enabled',
+  Locked = 'locked'
 }
 
 export enum AudiomConfigKey {

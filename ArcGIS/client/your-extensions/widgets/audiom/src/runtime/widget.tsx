@@ -1,6 +1,7 @@
 import { DataSourceManager, type AllWidgetProps } from 'jimu-core'
 import { audiomConfigToEmbedConfig } from '../utils/maputils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
+import { getLockedSources } from '../utils/sourceConfigUtils'
 import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis'
 import { useState, useEffect } from 'react'
 import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs'
@@ -40,8 +41,9 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
     // Attach to the map and pass current config to detect initial mismatches
     mapSyncManager.attach(sanitizedConfig.existingMapId, sanitizedConfig)
 
-    // Store the initial synced config
-    const initialJson = JSON.stringify(sanitizedConfig.sourceConfigs || [])
+    // Store the initial synced config (only locked sources for comparison)
+    const lockedSources = getLockedSources(sanitizedConfig.sourceConfigs || [])
+    const initialJson = JSON.stringify(lockedSources)
     setLastSyncedConfigJson(initialJson)
 
     // Listen for changes
@@ -60,8 +62,10 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   }, [sanitizedConfig?.useExistingMap, sanitizedConfig?.existingMapId, sanitizedConfig, mapSyncManager])
 
   // Clear changes indicator when config updates (means settings panel synced)
+  // Only compare locked sources - unlocked sources are manually controlled
   useEffect(() => {
-    const currentJson = JSON.stringify(sanitizedConfig?.sourceConfigs || [])
+    const lockedSources = getLockedSources(sanitizedConfig?.sourceConfigs || [])
+    const currentJson = JSON.stringify(lockedSources)
     if (currentJson !== lastSyncedConfigJson && lastSyncedConfigJson !== '') {
       // Config changed, meaning settings panel likely synced it
       setHasChanges(false)

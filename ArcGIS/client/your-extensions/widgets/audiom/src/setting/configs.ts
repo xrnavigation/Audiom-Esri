@@ -37,6 +37,8 @@ export interface FieldConfig {
   validateOnAccept?: (value: string | number) => ValidityResult
   /** Optional callback to render additional content after this field */
   renderAfter?: () => React.ReactElement
+  /** Optional callback to render custom field content (used with FieldType.Custom) */
+  renderCustom?: () => React.ReactElement
 }
 
 export interface ISourceConfig {
@@ -46,6 +48,7 @@ export interface ISourceConfig {
   rulesFileUrl?: string
   mapType?: MapType
   enabled?: boolean
+  locked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual enabled state.
 }
 
 // TODO: Find a way to not use any here

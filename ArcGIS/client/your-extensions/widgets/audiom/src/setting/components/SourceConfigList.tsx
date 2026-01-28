@@ -1,26 +1,36 @@
 import { React } from 'jimu-core'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
-import { TextInput, NumericInput, Switch, Label, Select, Option, Collapse, Button } from 'jimu-ui'
+import { TextInput, NumericInput, Switch, Select, Option, Card, Collapse, Button, Tooltip } from 'jimu-ui'
+import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
+import { InvisibleOutlined } from 'jimu-icons/outlined/application/invisible'
+import { LockOutlined } from 'jimu-icons/outlined/editor/lock'
+import { UnlockOutlined } from 'jimu-icons/outlined/editor/unlock'
+import { TrashOutlined } from 'jimu-icons/outlined/editor/trash'
+import { ExpandAllOutlined } from 'jimu-icons/outlined/directional/expand-all'
+import { CollapseAllOutlined } from 'jimu-icons/outlined/directional/collapse-all'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
 import { FieldConfig, ISourceConfig } from '../configs'
-import { ButtonSize, ButtonType, FieldType, FlowType } from '../enums'
+import { ButtonSize, ButtonType, FieldType, FlowType, Colors } from '../enums'
+import { Padding } from '../paddings'
 import { SourceConfigKey } from '../configKeys'
 import CopyableLabel from './CopyableLabel'
 import { validateUrl } from '../validation/validation'
+import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 
-const { useState } = React
+const { useState, useEffect, useMemo } = React
+
+const MAX_DEFAULT_VISIBLE_SOURCES = 3
 
 // UI Text Constants
-const ARROW_DOWN = '▼'
-const ARROW_RIGHT = '▶'
 const HEADING_TEXT = 'Source Configurations'
-const ACTION_COLLAPSE = 'Collapse'
-const ACTION_EXPAND = 'Expand'
-const SECTION_LABEL = 'Source Configurations section'
 const SOURCE_PREFIX = 'Source '
-const BUTTON_REMOVE = 'Remove'
-const BUTTON_ENABLE = 'Enable'
-const BUTTON_DISABLE = 'Disable'
+const TOOLTIP_REMOVE = 'Remove source'
+const TOOLTIP_SHOW = 'Show source'
+const TOOLTIP_HIDE = 'Hide source'
+const TOOLTIP_LOCK = 'Lock to sync with map'
+const TOOLTIP_UNLOCK = 'Unlock to manually control visibility'
+const TOOLTIP_EXPAND_ALL = 'Expand all sources'
+const TOOLTIP_COLLAPSE_ALL = 'Collapse all sources'
 const BUTTON_ADD = 'Add Source Configuration'
 
 // Field Configuration Constants
@@ -29,6 +39,7 @@ const FIELD_LABEL_SOURCE_URL = 'Source URL'
 const FIELD_LABEL_RULES_URL = 'Rules File URL'
 const FIELD_LABEL_SOURCE = 'Source'
 const FIELD_LABEL_MAP_TYPE = 'Map Type'
+const FIELD_LABEL_ALL_MAP_TYPE = 'Map Type (All)'
 
 const PLACEHOLDER_NAME = 'Enter source display name'
 const PLACEHOLDER_SOURCE_URL = 'Enter map source URL'
@@ -47,14 +58,65 @@ interface SourceConfigListProps {
 
 const SourceConfigList = (props: SourceConfigListProps) => {
   const { sourceConfigs, onChange, readOnly = false } = props
-  const [sourceConfigsOpen, setSourceConfigsOpen] = useState(true)
-  const [expandedSources, setExpandedSources] = useState<{ [key: number]: boolean }>({})
+  
+  // Auto-collapse Source Configurations if 3 or more sources
+  const shouldAutoCollapse = useMemo(() => sourceConfigs.length >= MAX_DEFAULT_VISIBLE_SOURCES, [sourceConfigs.length])
+  const [sourceConfigsOpen, setSourceConfigsOpen] = useState(!shouldAutoCollapse)
+  // Independent state for the "Map Type (All)" selector - not derived from sources
+  const [allMapType, setAllMapType] = useState<MapType>(MapType.Indoor)
+  const [expandedSources, setExpandedSources] = useState<{ [key: number]: boolean }>(() => {
+    // Initialize: expand all if less than 3 sources
+    const initial: { [key: number]: boolean } = {}
+    sourceConfigs.forEach((_, index) => {
+      initial[index] = !shouldAutoCollapse
+    })
+    return initial
+  })
+
+  // Update sourceConfigsOpen when source count crosses threshold
+  useEffect(() => {
+    if (sourceConfigs.length < 3) {
+      setSourceConfigsOpen(true)
+    }
+  }, [sourceConfigs.length])
 
   const toggleSourceExpanded = (index: number) => {
     setExpandedSources(prev => ({
       ...prev,
       [index]: prev[index] !== undefined ? !prev[index] : false
     }))
+  }
+
+  const expandAllSources = () => {
+    const allExpanded: { [key: number]: boolean } = {}
+    sourceConfigs.forEach((_, index) => {
+      allExpanded[index] = true
+    })
+    setExpandedSources(allExpanded)
+  }
+
+  const collapseAllSources = () => {
+    const allCollapsed: { [key: number]: boolean } = {}
+    sourceConfigs.forEach((_, index) => {
+      allCollapsed[index] = false
+    })
+    setExpandedSources(allCollapsed)
+  }
+
+  const onAllMapTypeChange = (mapType: MapType) => {
+    setAllMapType(mapType)
+    const newSourceConfigs = sourceConfigs.map(config => ({
+      ...config,
+      mapType
+    }))
+    onChange(newSourceConfigs)
+  }
+
+  // Check if sources have different map types
+  const hasMixedMapTypes = (): boolean => {
+    if (sourceConfigs.length === 0) return false
+    const firstType = sourceConfigs[0]?.mapType ?? MapType.Indoor
+    return sourceConfigs.some(config => (config.mapType ?? MapType.Indoor) !== firstType)
   }
 
   const onSourceConfigChange = (index: number, property: string, value: any) => {
@@ -78,7 +140,20 @@ const SourceConfigList = (props: SourceConfigListProps) => {
   const onToggleSourceEnabled = (index: number) => {
     const newSourceConfigs = [...sourceConfigs]
     const currentEnabled = newSourceConfigs[index].enabled ?? true
-    newSourceConfigs[index] = { ...newSourceConfigs[index], enabled: !currentEnabled }
+    // Auto-unlock when manually toggling visibility
+    newSourceConfigs[index] = { 
+      ...newSourceConfigs[index], 
+      enabled: !currentEnabled,
+      locked: false 
+    }
+    onChange(newSourceConfigs)
+  }
+
+  const onToggleLocked = (index: number) => {
+    const newSourceConfigs = [...sourceConfigs]
+    const currentLocked = newSourceConfigs[index].locked ?? true
+    newSourceConfigs[index] = { ...newSourceConfigs[index], locked: !currentLocked }
+    // If re-locking, the sync manager will restore the enabled state on next sync
     onChange(newSourceConfigs)
   }
 
@@ -170,64 +245,143 @@ const SourceConfigList = (props: SourceConfigListProps) => {
   }
 
   return (
-    <>
-      <SettingRow>
-        <Button
-          size={ButtonSize.Small}
-          type={ButtonType.Tertiary}
-          onClick={() => setSourceConfigsOpen(!sourceConfigsOpen)}
-          aria-expanded={sourceConfigsOpen}
-          aria-controls="source-configs-panel"
-          aria-label={`${sourceConfigsOpen ? ACTION_COLLAPSE : ACTION_EXPAND} ${SECTION_LABEL}`}
-        >
-          <span aria-hidden="true">{sourceConfigsOpen ? ARROW_DOWN : ARROW_RIGHT}</span> {HEADING_TEXT}
-        </Button>
-      </SettingRow>
-      <Collapse
+    <div>
+      {/* Source Configurations header with source count */}
+      <CollapsibleHeader
+        label={HEADING_TEXT}
         isOpen={sourceConfigsOpen}
-        role="region"
-      >
+        onToggle={() => setSourceConfigsOpen(!sourceConfigsOpen)}
+        actions={
+          sourceConfigs.length > 0 ? (
+            <span style={{ color: Colors.TextMuted, fontSize: '12px', marginRight: '4px' }}>
+              {sourceConfigs.length} {sourceConfigs.length === 1 ? 'source' : 'sources'}
+            </span>
+          ) : undefined
+        }
+      />
+      <Collapse isOpen={sourceConfigsOpen}>
+        {/* Map Type (All) field with expand/collapse all buttons */}
+        {sourceConfigs.length > 0 && (
+          <div style={{ paddingLeft: Padding.SectionContent, paddingBottom: Padding.FieldGroupBottom }}>
+          <SettingRow flow={FlowType.Wrap}>
+            <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+              <CopyableLabel label={FIELD_LABEL_ALL_MAP_TYPE} copyValue={''} showCopyButton={false} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Tooltip title={TOOLTIP_EXPAND_ALL}>
+                  <Button
+                    size={ButtonSize.Small}
+                    type={ButtonType.Tertiary}
+                    icon
+                    onClick={expandAllSources}
+                    aria-label={TOOLTIP_EXPAND_ALL}
+                  >
+                    <ExpandAllOutlined />
+                  </Button>
+                </Tooltip>
+                <Tooltip title={TOOLTIP_COLLAPSE_ALL}>
+                  <Button
+                    size={ButtonSize.Small}
+                    type={ButtonType.Tertiary}
+                    icon
+                    onClick={collapseAllSources}
+                    aria-label={TOOLTIP_COLLAPSE_ALL}
+                  >
+                    <CollapseAllOutlined />
+                  </Button>
+                </Tooltip>
+              </div>
+            </div>
+            <Select
+              style={{ width: '100%' }}
+              value={hasMixedMapTypes() ? '' : allMapType}
+              onChange={(e) => onAllMapTypeChange(e.target.value as MapType)}
+            >
+              {hasMixedMapTypes() && (
+                <Option value="" disabled style={{ fontStyle: 'italic' }}>Mixed</Option>
+              )}
+              <Option value={MapType.Indoor}>{MAP_TYPE_LABEL_INDOOR}</Option>
+              <Option value={MapType.Heatmap}>{MAP_TYPE_LABEL_HEATMAP}</Option>
+              <Option value={MapType.Travel}>{MAP_TYPE_LABEL_TRAVEL}</Option>
+            </Select>
+          </SettingRow>
+          </div>
+        )}
         {sourceConfigs.map((sourceConfig, index) => {
           const isExpanded = expandedSources[index] !== undefined ? expandedSources[index] : true
           const sourceName = sourceConfig?.name && sourceConfig.name.trim() ? sourceConfig.name : `${SOURCE_PREFIX}${index + 1}`
+          const isEnabled = sourceConfig.enabled !== false
+
           return (
-            <div key={index} style={{ marginBottom: '16px', padding: '12px', border: '1px solid #ccc', borderRadius: '4px' }}>
-              <SettingRow flow={FlowType.Wrap}>
-                <Button
-                  size={ButtonSize.Small}
-                  type={ButtonType.Tertiary}
-                  onClick={() => toggleSourceExpanded(index)}
-                  aria-expanded={isExpanded}
-                  aria-label={`${isExpanded ? ACTION_COLLAPSE : ACTION_EXPAND} ${sourceName}`}
-                  style={{ padding: '4px 8px' }}
-                >
-                  <span aria-hidden="true">{isExpanded ? ARROW_DOWN : ARROW_RIGHT}</span>
-                </Button>
-                <Label style={{ flex: 1, fontWeight: 'bold', marginLeft: '8px' }}>{sourceName}</Label>
-                {readOnly ? (
-                  <Button
-                    size={ButtonSize.Small}
-                    type={sourceConfig.enabled === false ? ButtonType.Primary : ButtonType.Secondary}
-                    onClick={() => onToggleSourceEnabled(index)}
-                    aria-label={`${sourceConfig.enabled === false ? BUTTON_ENABLE : BUTTON_DISABLE} ${sourceName}`}
-                  >
-                    {sourceConfig.enabled === false ? BUTTON_ENABLE : BUTTON_DISABLE}
-                  </Button>
-                ) : (
-                  <Button
-                    size={ButtonSize.Small}
-                    type={ButtonType.Danger}
-                    onClick={() => onRemoveSourceConfig(index)}
-                    aria-label={`${BUTTON_REMOVE} ${sourceName}`}
-                  >
-                    {BUTTON_REMOVE}
-                  </Button>
-                )}
-              </SettingRow>
+            <Card
+              key={index}
+              style={{ marginBottom: '12px', border: '0px' }}
+            >
+              {/* Source header with expand/collapse and action buttons */}
+              <CollapsibleHeader
+                label={sourceName}
+                isOpen={isExpanded}
+                onToggle={() => toggleSourceExpanded(index)}
+                backgroundColor={Colors.HeaderBackground}
+                level={CollapsibleHeaderLevel.Card}
+                actions={
+                  readOnly ? (
+                    <>
+                      <Tooltip title={(sourceConfig.locked ?? true) ? TOOLTIP_UNLOCK : TOOLTIP_LOCK}>
+                        <Button
+                          size={ButtonSize.Small}
+                          type={ButtonType.Tertiary}
+                          icon
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onToggleLocked(index)
+                          }}
+                          aria-label={(sourceConfig.locked ?? true) ? TOOLTIP_UNLOCK : TOOLTIP_LOCK}
+                          style={{ marginLeft: '4px' }}
+                        >
+                          {(sourceConfig.locked ?? true) ? <LockOutlined /> : <UnlockOutlined />}
+                        </Button>
+                      </Tooltip>
+                      <Tooltip title={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}>
+                        <Button
+                          size={ButtonSize.Small}
+                          type={ButtonType.Tertiary}
+                          icon
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onToggleSourceEnabled(index)
+                          }}
+                          aria-label={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}
+                          style={{ marginLeft: '4px' }}
+                        >
+                          {isEnabled ? <VisibleOutlined /> : <InvisibleOutlined />}
+                        </Button>
+                      </Tooltip>
+                    </>
+                  ) : (
+                    <Tooltip title={TOOLTIP_REMOVE}>
+                      <Button
+                        size={ButtonSize.Small}
+                        type={ButtonType.Tertiary}
+                        icon
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onRemoveSourceConfig(index)
+                        }}
+                        aria-label={`${TOOLTIP_REMOVE} ${sourceName}`}
+                      >
+                        <TrashOutlined />
+                      </Button>
+                    </Tooltip>
+                  )
+                }
+              />
+              {/* Smooth collapse animation */}
               <Collapse isOpen={isExpanded}>
-                {sourceConfigFields.map((field) => renderSourceField(field, index))}
+                <div style={{ padding: '12px' }}>
+                  {sourceConfigFields.map((field) => renderSourceField(field, index))}
+                </div>
               </Collapse>
-            </div>
+            </Card>
           )
         })}
         {!readOnly && (
@@ -242,7 +396,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
           </SettingRow>
         )}
       </Collapse>
-    </>
+    </div>
   )
 }
 

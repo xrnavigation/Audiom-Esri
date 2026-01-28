@@ -1,46 +1,53 @@
 import { React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
-import { TextInput, NumericInput, Switch, Label, Button, ButtonGroup } from 'jimu-ui'
+import { TextInput, NumericInput, Switch, Label, Button, ButtonGroup, Collapse, Tooltip } from 'jimu-ui'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 
 import SourceConfigList from './components/SourceConfigList'
 import CopyableLabel from './components/CopyableLabel'
+import CollapsibleHeader from './components/CollapsibleHeader'
 import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/maputils'
-import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
+import { getMapSyncManager, MapSyncConfig } from '../utils/mapSyncManager'
+import { mergeSourcesPreservingUnlocked } from '../utils/sourceConfigUtils'
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
-import { ButtonType, FieldType, FlowType } from './enums'
+import { ButtonType, FieldType, FlowType, Colors } from './enums'
+import { Padding } from './paddings'
 import { AudiomConfigKey } from './configKeys'
-import { validateLatitude, validateLongitude, validateZoom, validateStepSize, validateUrl, VALIDATION } from './validation/validation'
+import { validateLatitude, validateLongitude, validateZoom, validateUrl, VALIDATION } from './validation/validation'
 
-const { useEffect, useCallback } = React
+const { useEffect, useCallback, useState } = React
 
 const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
   const mapSyncManager = getMapSyncManager()
+  const [mapSettingsOpen, setMapSettingsOpen] = useState(true)
 
   // Callback to apply synced config from MapSyncManager
   const applyConfigFromMap = useCallback((newMapConfig: MapSyncConfig) => {
-    // Check if anything actually changed to avoid infinite loops
-    const currentSourcesJson = JSON.stringify(config.sourceConfigs || [])
-    const newSourcesJson = JSON.stringify(newMapConfig.sourceConfigs || [])
+    const currentSources = config.sourceConfigs || []
+    const mapSources = newMapConfig.sourceConfigs || []
+    
+    // Merge sources, preserving enabled/locked state for manually unlocked items
+    const mergedSources = mergeSourcesPreservingUnlocked(currentSources, mapSources)
+    
+    const currentSourcesJson = JSON.stringify(currentSources)
+    const mergedSourcesJson = JSON.stringify(mergedSources)
+    
     const needsUpdate = 
       config.centerLatitude !== newMapConfig.centerLatitude ||
       config.centerLongitude !== newMapConfig.centerLongitude ||
       config.zoom !== newMapConfig.zoom ||
-      currentSourcesJson !== newSourcesJson
+      currentSourcesJson !== mergedSourcesJson
 
     if (needsUpdate) {
       let newConfig = config
         .set(AudiomConfigKey.CenterLatitude, newMapConfig.centerLatitude)
         .set(AudiomConfigKey.CenterLongitude, newMapConfig.centerLongitude)
         .set(AudiomConfigKey.Zoom, newMapConfig.zoom)
+        .set(AudiomConfigKey.SourceConfigs, mergedSources)
 
-      if (newMapConfig.sourceConfigs) {
-        newConfig = newConfig.set(AudiomConfigKey.SourceConfigs, newMapConfig.sourceConfigs)
-      }
-
-      console.log('Auto-sync settings: Updated config with', newMapConfig.sourceConfigs?.length || 0, 'sources')
+      console.log('Auto-sync settings: Updated config with', mergedSources.length, 'sources')
 
       props.onSettingChange({
         id: props.id,
@@ -110,40 +117,59 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
   const renderStepSizeUnitSelector = () => {
     const currentUnit = config?.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit
+    const currentStepSize = config?.stepSize ?? DEFAULT_CONFIG.stepSize
     const stepSizeUnits = [
-      { value: StepSizeUnit.Meters, label: 'm' },
-      { value: StepSizeUnit.Kilometers, label: 'km' },
-      { value: StepSizeUnit.Feet, label: 'ft' },
-      { value: StepSizeUnit.Miles, label: 'mi' }
+      { value: StepSizeUnit.Meters, label: StepSizeUnit.Meters, tooltip: 'Meters' },
+      { value: StepSizeUnit.Kilometers, label: StepSizeUnit.Kilometers, tooltip: 'Kilometers' },
+      { value: StepSizeUnit.Feet, label: StepSizeUnit.Feet, tooltip: 'Feet' },
+      { value: StepSizeUnit.Miles, label: StepSizeUnit.Miles, tooltip: 'Miles' }
     ]
     return (
-      <SettingRow flow={FlowType.Wrap}>
-        <Label style={{ width: '100%' }}>Step Size Unit</Label>
-        <ButtonGroup style={{ width: '100%' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px', alignItems: 'center', width: '100%' }}>
+        <NumericInput
+          style={{ width: '100%' }}
+          value={currentStepSize}
+          onChange={(val) => onPropertyChange(AudiomConfigKey.StepSize, val)}
+          min={0.1}
+        />
+        <ButtonGroup>
           {stepSizeUnits.map((unit) => (
-            <Button
-              key={unit.value}
-              active={currentUnit === unit.value}
-              onClick={() => onPropertyChange(AudiomConfigKey.StepSizeUnit, unit.value)}
-              style={{ flex: 1 }}
-            >
-              {unit.label}
-            </Button>
+            <Tooltip key={unit.value} title={unit.tooltip}>
+              <Button
+                active={currentUnit === unit.value}
+                onClick={() => onPropertyChange(AudiomConfigKey.StepSizeUnit, unit.value)}
+                style={{ minWidth: '36px' }}
+              >
+                {unit.label}
+              </Button>
+            </Tooltip>
           ))}
         </ButtonGroup>
-      </SettingRow>
+      </div>
     )
   }
 
-  const alwaysPresentFields: FieldConfig[] = [
-    { key: AudiomConfigKey.Title, label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title' },
-    { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Text, placeholder: 'Enter API key' },
+  // Get current step size display text for the header
+  const getStepSizeDisplayText = () => {
+    const currentUnit = config?.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit
+    const currentStepSize = config?.stepSize ?? DEFAULT_CONFIG.stepSize
+    return `${currentStepSize} ${currentUnit}`
+  }
+
+  // Connection fields - set once
+  const connectionFields: FieldConfig[] = [
+    { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Password, placeholder: 'Enter API key' },
     { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl, validateOnAccept: (val) => validateUrl(String(val)) },
-    { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Number, min: 0.1, defaultValue: DEFAULT_CONFIG.stepSize, showCopyButton: false, validateOnAccept: (val) => validateStepSize(val), renderAfter: renderStepSizeUnitSelector },
+    { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL', validateOnAccept: (val) => validateUrl(String(val)) }
+  ]
+
+  // Display fields - appearance & behavior
+  const displayFields: FieldConfig[] = [
+    { key: AudiomConfigKey.Title, label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title' },
+    { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Custom, showCopyButton: false, renderCustom: renderStepSizeUnitSelector },
     { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
-    { key: AudiomConfigKey.Heading, label: 'Heading', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
-    { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL', validateOnAccept: (val) => validateUrl(String(val)) }
+    { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false }
   ]
 
   const urlModeFields: FieldConfig[] = [
@@ -168,6 +194,20 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
                 placeholder={field.placeholder}
                 disabled={readOnly}
                 checkValidityOnAccept={field.validateOnAccept ? (text) => field.validateOnAccept(text) : undefined}
+              />
+            </SettingRow>
+          )
+        case FieldType.Password:
+          return (
+            <SettingRow key={field.key} flow={FlowType.Wrap}>
+              <CopyableLabel label={field.label} copyValue={String(value || '')} showCopyButton={field.showCopyButton} />
+              <TextInput
+                style={{ width: '100%' }}
+                type="password"
+                value={value || ''}
+                onChange={(e) => onPropertyChange(field.key, e.target.value)}
+                placeholder={field.placeholder}
+                disabled={readOnly}
               />
             </SettingRow>
           )
@@ -205,6 +245,18 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
               />
             </SettingRow>
           )
+        case FieldType.Custom:
+          return (
+            <SettingRow key={field.key} flow={FlowType.Wrap}>
+              <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+                <CopyableLabel label={field.label} copyValue={''} showCopyButton={false} />
+                {field.key === AudiomConfigKey.StepSize && (
+                  <Label style={{ color: Colors.TextMuted, fontSize: '12px', whiteSpace: 'nowrap', marginLeft: '8px', flex: '1', textAlign: 'right' }}>{getStepSizeDisplayText()}</Label>
+                )}
+              </div>
+              {field.renderCustom?.()}
+            </SettingRow>
+          )
       }
     }
 
@@ -218,7 +270,11 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
   return (
     <div className="widget-setting-demo">
-      <SettingSection title="Map Source">
+      <SettingSection title="Connection">
+        {connectionFields.map((field) => renderField(field, false))}
+      </SettingSection>
+
+      <SettingSection title="Map Configuration">
         <SettingRow flow={FlowType.Wrap}>
           <CopyableLabel label="Use Existing Map Widget" copyValue={String(config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap)} showCopyButton={false} />
           <Switch
@@ -234,7 +290,16 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
           </SettingRow>
         ) : null}
 
-        {urlModeFields.map((field) => renderField(field, config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap))}
+        <CollapsibleHeader
+          label="Map Settings"
+          isOpen={mapSettingsOpen}
+          onToggle={() => setMapSettingsOpen(!mapSettingsOpen)}
+        />
+        <Collapse isOpen={mapSettingsOpen}>
+          <div style={{ paddingLeft: Padding.SectionContent }}>
+            {urlModeFields.map((field) => renderField(field, config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap))}
+          </div>
+        </Collapse>
 
         <SourceConfigList
           sourceConfigs={config?.sourceConfigs || []}
@@ -243,8 +308,15 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         />
       </SettingSection>
 
-      <SettingSection title="Configuration">
-        {alwaysPresentFields.map((field) => renderField(field, false))}
+      <SettingSection title="Display">
+        {displayFields.map((field) => {
+          // Only show Heading Size if Show Heading is true
+          if (field.key === AudiomConfigKey.Heading) {
+            const showHeading = config?.showHeading ?? DEFAULT_CONFIG.showHeading
+            if (!showHeading) return null
+          }
+          return renderField(field, false)
+        })}
         <SettingRow flow={FlowType.Wrap}>
           <Button
             type={ButtonType.Primary}
@@ -256,7 +328,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
           </Button>
         </SettingRow>
         <SettingRow flow={FlowType.Wrap}>
-          <Label style={{ width: '100%', color: '#6b7280', fontSize: '12px' }}>
+          <Label style={{ width: '100%', color: Colors.TextMuted, fontSize: '12px' }}>
             {(!isAudiomConfigValid(config))
               ? 'API Key is required to preview in Audiom.'
               : 'Opens the current configuration in a new tab.'}
