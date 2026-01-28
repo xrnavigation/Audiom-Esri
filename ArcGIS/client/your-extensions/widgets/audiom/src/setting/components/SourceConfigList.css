@@ -1,0 +1,26 @@
+/**
+ * SourceConfigList Component Styles
+ */
+
+.audiom-source-config-list {
+  width: 100%;
+}
+
+.audiom-source-config-list__header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.audiom-source-config-list__count {
+  color: var(--ref-palette-neutral-700, #6b7280);
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+.audiom-source-config-list__map-type-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

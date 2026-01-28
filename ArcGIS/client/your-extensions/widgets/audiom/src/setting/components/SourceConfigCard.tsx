@@ -12,6 +12,7 @@ import { SourceConfigKey } from '../configKeys'
 import { validateUrl } from '../validation/validation'
 import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 import FieldRenderer from './FieldRenderer'
+import './SourceConfigCard.css'
 
 // UI Text Constants
 const SOURCE_PREFIX = 'Source '

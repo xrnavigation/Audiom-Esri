@@ -2,7 +2,7 @@ import { React } from 'jimu-core'
 import { Label, Tooltip } from 'jimu-ui'
 import { CopyOutlined } from 'jimu-icons/outlined/editor/copy'
 import { createLogger } from '../../utils/logger'
-import '../../styles/widget.css'
+import './CopyableLabel.css'
 
 const { useState, useCallback } = React
 const logger = createLogger('CopyableLabel')

@@ -1,0 +1,49 @@
+/**
+ * MessagePopup Component Styles
+ */
+
+.audiom-message-popup {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  z-index: 1000;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.audiom-message-popup--top {
+  top: 10px;
+}
+
+.audiom-message-popup--bottom {
+  bottom: 10px;
+}
+
+.audiom-message-popup--warning {
+  background-color: rgba(255, 193, 7, 0.95);
+  color: #000;
+}
+
+.audiom-message-popup--notification {
+  background-color: rgba(33, 150, 243, 0.95);
+  color: #fff;
+}
+
+.audiom-message-popup--error {
+  background-color: rgba(244, 67, 54, 0.95);
+  color: #fff;
+}
+
+.audiom-message-popup__icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.audiom-message-popup__message {
+  flex: 1;
+}

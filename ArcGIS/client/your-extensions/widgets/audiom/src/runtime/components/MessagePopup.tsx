@@ -1,4 +1,4 @@
-import '../../styles/widget.css'
+import './MessagePopup.css'
 
 export enum MessageType {
   Warning = 'warning',

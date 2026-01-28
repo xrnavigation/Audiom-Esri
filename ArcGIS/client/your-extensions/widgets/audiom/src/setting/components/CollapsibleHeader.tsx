@@ -2,7 +2,7 @@ import { React } from 'jimu-core'
 import { DownOutlined } from 'jimu-icons/outlined/directional/down'
 import { RightOutlined } from 'jimu-icons/outlined/directional/right'
 import { IconSize, HtmlButtonType } from '../enums'
-import '../../styles/widget.css'
+import './CollapsibleHeader.css'
 
 /**
  * Collapsible header hierarchy levels.

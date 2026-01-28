@@ -10,7 +10,7 @@ import { Padding } from '../paddings'
 import CopyableLabel from './CopyableLabel'
 import CollapsibleHeader from './CollapsibleHeader'
 import SourceConfigCard from './SourceConfigCard'
-import '../../styles/widget.css'
+import './SourceConfigList.css'
 
 const { useState, useEffect, useMemo } = React
 

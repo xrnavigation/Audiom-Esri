@@ -1,4 +1,4 @@
-import { DataSourceManager, type AllWidgetProps } from 'jimu-core'
+import { type AllWidgetProps } from 'jimu-core'
 import { audiomConfigToEmbedConfig } from '../utils/maputils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { getLockedSources } from '../utils/sourceConfigUtils'
@@ -8,10 +8,7 @@ import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs'
 import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation'
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
-import '../styles/widget.css'
-
-const dsManager = DataSourceManager.getInstance()
-const allDataSources = dsManager.getDataSources()
+import './widget.css'
 
 const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   const [jimuMapView, setJimuMapView] = useState<JimuMapView>()
