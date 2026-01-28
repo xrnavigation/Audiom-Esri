@@ -2,8 +2,10 @@ import type { ValidityResult } from 'jimu-ui'
 import { React } from 'jimu-core'
 import { DEFAULT_CONFIG, IAudiomConfig } from '../configs'
 import { isNullish, isNullishOrWhiteSpace, validateAndClamp, validateAndReset, parseStepSize } from './validationUtils'
+import { createLogger } from '../../utils/logger'
 
 const { useEffect, useRef } = React
+const logger = createLogger('Validation')
 
 // Validation constants
 export const VALIDATION = {
@@ -258,7 +260,7 @@ export function useLogWarnings(warnings: string[], prefix: string = '[Audiom Con
     const warningsKey = warnings.join(',')
     if (warnings.length > 0 && warningsKey !== lastWarningsRef.current) {
       lastWarningsRef.current = warningsKey
-      console.warn(`${prefix} Validation warnings:`, warnings)
+      logger.warn(`${prefix} Validation warnings:`, warnings)
     }
   }, [warnings, prefix])
 }

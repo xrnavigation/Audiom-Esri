@@ -1,7 +1,7 @@
-import { React } from 'jimu-core'
+import { React, css } from 'jimu-core'
 import { DownOutlined } from 'jimu-icons/outlined/directional/down'
 import { RightOutlined } from 'jimu-icons/outlined/directional/right'
-import { IconSize, Colors, HtmlButtonType } from '../enums'
+import { IconSize, HtmlButtonType, Colors, AriaRole } from '../enums'
 
 /**
  * Collapsible header hierarchy levels.
@@ -30,6 +30,53 @@ interface CollapsibleHeaderProps {
   level?: CollapsibleHeaderLevel
 }
 
+// Typed styles - simple properties with full key/value validation
+const styles = {
+  base: {
+    display: 'flex',
+    alignItems: 'center',
+    width: '100%'
+  },
+  section: { padding: '8px 0' },
+  card: { padding: 8 },
+  icon: {
+    marginRight: 8,
+    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center'
+  },
+  label: {
+    fontWeight: 500,
+    flex: 1
+  },
+  actions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4
+  }
+} as const satisfies Record<string, React.CSSProperties>
+
+// Button needs :focus-visible pseudo-class, so use css() with typed object
+const toggleButtonStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  flex: 1,
+  justifyContent: 'flex-start',
+  textAlign: 'left',
+  padding: 0,
+  margin: 0,
+  border: 'none',
+  background: Colors.Transparent,
+  color: 'inherit',
+  font: 'inherit',
+  cursor: 'pointer',
+  '&:focus-visible': {
+    outline: `2px solid ${Colors.FocusOutline}`,
+    outlineOffset: 2,
+    borderRadius: 2
+  }
+})
+
 /**
  * A reusable collapsible header component following WCAG 2.1 accessibility guidelines.
  * Uses a native button for the expand/collapse toggle with proper ARIA attributes.
@@ -44,55 +91,33 @@ interface CollapsibleHeaderProps {
 const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
   const { label, isOpen, onToggle, backgroundColor, actions, contentId, level = CollapsibleHeaderLevel.Section } = props
 
-  // Section headers have minimal left padding, card headers have more padding with background
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    width: '100%',
-    padding: level === CollapsibleHeaderLevel.Section ? '8px 0' : '8px',
-    ...(backgroundColor ? { backgroundColor } : {})
-  }
-
-  const toggleButtonStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'flex-start',
-    textAlign: 'left',
-    padding: '0',
-    margin: '0',
-    border: 'none',
-    background: 'transparent',
-    color: 'inherit',
-    font: 'inherit',
-    cursor: 'pointer'
-  }
+  const levelStyle = level === CollapsibleHeaderLevel.Section ? styles.section : styles.card
+  const containerStyle: React.CSSProperties = { ...styles.base, ...levelStyle, ...(backgroundColor ? { backgroundColor } : {}) }
 
   return (
-    <div style={headerStyle} role="heading" aria-level={3}>
+    <div 
+      style={containerStyle}
+      role={AriaRole.Heading} 
+      aria-level={3}
+    >
       <button
         type={HtmlButtonType.Button}
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls={contentId}
-        style={toggleButtonStyle}
-        className="collapsible-header-toggle"
+        aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${label}`}
+        css={toggleButtonStyle}
       >
-        <span style={{ marginRight: '8px', display: 'flex', alignItems: 'center' }} aria-hidden="true">
+        <span style={styles.icon} aria-hidden="true">
           {isOpen ? <DownOutlined size={IconSize.Small} /> : <RightOutlined size={IconSize.Small} />}
         </span>
-        <span style={{ flex: 1 }}>{label}</span>
+        <span style={styles.label}>{label}</span>
       </button>
-      {actions}
-      <style>{`
-        .collapsible-header-toggle {
-          outline: none;
-        }
-        .collapsible-header-toggle:focus-visible {
-          outline: 2px solid ${Colors.FocusOutline};
-          outline-offset: 2px;
-        }
-      `}</style>
+      {actions && (
+        <div style={styles.actions}>
+          {actions}
+        </div>
+      )}
     </div>
   )
 }

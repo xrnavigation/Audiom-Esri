@@ -2,14 +2,16 @@ import { ISourceConfig } from '../setting/configs'
 import { SourceConfigKey } from '../setting/configKeys'
 
 /**
- * User-controlled properties are preserved during sync and excluded from change detection.
- * Uses destructuring for clean property removal.
+ * Strip properties that shouldn't be compared for change detection on locked sources.
+ * Only used on locked sources (unlocked sources are excluded from comparison entirely).
+ * - mapType/rulesFileUrl: user-editable, preserved during sync
+ * - locked: metadata, not relevant to change detection
+ * - enabled: KEPT for locked sources to detect visibility changes from the map
  */
 export function stripUserControlledProperties(source: ISourceConfig): Partial<ISourceConfig> {
   const {
     [SourceConfigKey.MapType]: _mapType,
     [SourceConfigKey.RulesFileUrl]: _rulesFileUrl,
-    [SourceConfigKey.Enabled]: _enabled,
     [SourceConfigKey.Locked]: _locked,
     ...comparable
   } = source

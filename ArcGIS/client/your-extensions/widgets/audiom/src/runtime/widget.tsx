@@ -1,4 +1,4 @@
-import { DataSourceManager, type AllWidgetProps } from 'jimu-core'
+import { type AllWidgetProps, React, ReactRedux, AppMode, type IMState } from 'jimu-core'
 import { audiomConfigToEmbedConfig } from '../utils/maputils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { getLockedSources } from '../utils/sourceConfigUtils'
@@ -8,15 +8,34 @@ import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs'
 import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation'
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
+import { createLogger } from '../utils/logger'
 
-const dsManager = DataSourceManager.getInstance()
-const allDataSources = dsManager.getDataSources()
+const logger = createLogger('Widget')
+
+// Typed styles with full key/value validation
+const styles = {
+  container: {
+    position: 'relative',
+    width: '100%',
+    height: '100%'
+  },
+  iframe: {
+    border: 0,
+    width: '100%',
+    height: '100%'
+  }
+} as const satisfies Record<string, React.CSSProperties>
 
 const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   const [jimuMapView, setJimuMapView] = useState<JimuMapView>()
   const [hasChanges, setHasChanges] = useState(false)
   const [lastSyncedConfigJson, setLastSyncedConfigJson] = useState<string>('')
   const mapSyncManager = getMapSyncManager()
+  
+  // Check if Live View is enabled (appMode === Run means live view is active)
+  const isLiveView = ReactRedux.useSelector((state: IMState) => 
+    state?.appRuntimeInfo?.appMode === AppMode.Run
+  )
   
   // Sanitize config on every render (pure function, always reflects current config)
   const { config: sanitizedConfig, warnings } = sanitizeConfig(props.config)
@@ -48,7 +67,6 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
 
     // Listen for changes
     const onMapChange = () => {
-      // Check if there are actual changes compared to current config
       if (mapSyncManager.hasChanges(sanitizedConfig.existingMapId, sanitizedConfig)) {
         setHasChanges(true)
       }
@@ -80,16 +98,21 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   const indoorUrl = indoorConfig.toUrl(sanitizedConfig?.baseUrl || DEFAULT_CONFIG.baseUrl)
 
   return (
-    <div className="jimu-widget" style={{ position: 'relative' }}>
+    <div className="jimu-widget" style={styles.container}>
       {props.useMapWidgetIds && props.useMapWidgetIds.length === 1 && (
         <JimuMapViewComponent useMapWidgetId={props.useMapWidgetIds?.[0]} onActiveViewChange={activeViewChangeHandler} />
       )}
       <MessagePopup 
-        show={hasChanges && JimuConfig.getInstance().isInBuilder()} 
+        show={hasChanges && JimuConfig.getInstance().isInBuilder() && !isLiveView} 
         message="Map changes detected. Select the Audiom widget to re-synchronize."
         variant={MessageType.Warning}
       />
-      <iframe name="audiom" src={indoorUrl} width="100%" height="100%" title="ESRI Map" style={{ border: '0px' }}></iframe>
+      <iframe 
+        name="audiom" 
+        src={indoorUrl} 
+        style={styles.iframe}
+        title={props.config.title || 'Audiom Widget'}
+      />
     </div>
   )
 }

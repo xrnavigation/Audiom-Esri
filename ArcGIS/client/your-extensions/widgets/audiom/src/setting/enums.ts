@@ -32,26 +32,56 @@ export enum IconSize {
   Large = 'l'
 }
 
-/**
- * HTML button type attribute values.
- */
 export enum HtmlButtonType {
   Button = 'button',
   Submit = 'submit',
   Reset = 'reset'
 }
 
+// ARIA Accessibility
+
 /**
- * Theme colors used throughout the widget.
+ * @see https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/aria-live
+ */
+export enum AriaLive {
+  Polite = 'polite',
+  Assertive = 'assertive',
+  Off = 'off'
+}
+
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles
+ */
+export enum AriaRole {
+  /** Auto sets aria-live="assertive" */
+  Alert = 'alert',
+  Heading = 'heading',
+  Button = 'button',
+  Status = 'status',
+  Group = 'group',
+  Region = 'region'
+}
+
+// Theme Colors
+
+/**
  * Uses CSS custom properties where available for theme consistency.
  */
 export enum Colors {
-  /** Card/panel header background */
   HeaderBackground = 'rgb(88, 88, 88)',
-  /** Primary accent color (ArcGIS blue) */
+  Transparent = 'transparent',
+  
   PrimaryMain = 'var(--sys-color-primary-main, #0079c1)',
-  /** Focus outline for keyboard navigation */
   FocusOutline = 'var(--sys-color-primary-main, #0079c1)',
-  /** Muted text color for hints and secondary information */
-  TextMuted = '#6b7280'
+  
+  TextMuted = 'var(--ref-palette-neutral-700, #6b7280)',
+  TextBlack = '#000',
+  TextWhite = '#fff',
+  
+  Success = '#10b981',
+  WarningBackground = 'rgba(255, 193, 7, 0.95)',
+  InfoBackground = 'rgba(33, 150, 243, 0.95)',
+  ErrorBackground = 'rgba(244, 67, 54, 0.95)',
+  
+  BoxShadow = '0 2px 6px rgba(0, 0, 0, 0.2)'
 }

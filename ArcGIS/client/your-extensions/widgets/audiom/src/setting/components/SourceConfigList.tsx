@@ -1,51 +1,47 @@
 import { React } from 'jimu-core'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
-import { TextInput, NumericInput, Switch, Select, Option, Card, Collapse, Button, Tooltip } from 'jimu-ui'
-import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
-import { InvisibleOutlined } from 'jimu-icons/outlined/application/invisible'
-import { LockOutlined } from 'jimu-icons/outlined/editor/lock'
-import { UnlockOutlined } from 'jimu-icons/outlined/editor/unlock'
-import { TrashOutlined } from 'jimu-icons/outlined/editor/trash'
+import { Select, Option, Collapse, Button, Tooltip } from 'jimu-ui'
 import { ExpandAllOutlined } from 'jimu-icons/outlined/directional/expand-all'
 import { CollapseAllOutlined } from 'jimu-icons/outlined/directional/collapse-all'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
-import { FieldConfig, ISourceConfig } from '../configs'
-import { ButtonSize, ButtonType, FieldType, FlowType, Colors } from '../enums'
+import { ISourceConfig } from '../configs'
+import { ButtonSize, ButtonType, FlowType, Colors } from '../enums'
 import { Padding } from '../paddings'
-import { SourceConfigKey } from '../configKeys'
 import CopyableLabel from './CopyableLabel'
-import { validateUrl } from '../validation/validation'
-import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
+import CollapsibleHeader from './CollapsibleHeader'
+import SourceConfigCard from './SourceConfigCard'
 
 const { useState, useEffect, useMemo } = React
+
+// Typed styles with full key/value validation
+const styles = {
+  container: { width: '100%' },
+  count: {
+    color: Colors.TextMuted,
+    fontSize: 12,
+    marginRight: 4
+  },
+  mapTypeRow: {
+    display: 'flex',
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'space-between'
+  },
+  buttonGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4
+  }
+} as const satisfies Record<string, React.CSSProperties>
 
 const MAX_DEFAULT_VISIBLE_SOURCES = 3
 
 // UI Text Constants
 const HEADING_TEXT = 'Source Configurations'
-const SOURCE_PREFIX = 'Source '
-const TOOLTIP_REMOVE = 'Remove source'
-const TOOLTIP_SHOW = 'Show source'
-const TOOLTIP_HIDE = 'Hide source'
-const TOOLTIP_LOCK = 'Lock to sync with map'
-const TOOLTIP_UNLOCK = 'Unlock to manually control visibility'
 const TOOLTIP_EXPAND_ALL = 'Expand all sources'
 const TOOLTIP_COLLAPSE_ALL = 'Collapse all sources'
 const BUTTON_ADD = 'Add Source Configuration'
-
-// Field Configuration Constants
-const FIELD_LABEL_NAME = 'Name'
-const FIELD_LABEL_SOURCE_URL = 'Source URL'
-const FIELD_LABEL_RULES_URL = 'Rules File URL'
-const FIELD_LABEL_SOURCE = 'Source'
-const FIELD_LABEL_MAP_TYPE = 'Map Type'
 const FIELD_LABEL_ALL_MAP_TYPE = 'Map Type (All)'
-
-const PLACEHOLDER_NAME = 'Enter source display name'
-const PLACEHOLDER_SOURCE_URL = 'Enter map source URL'
-const PLACEHOLDER_RULES_URL = 'Enter rules file URL'
-const PLACEHOLDER_SOURCE = 'Enter source identifier (e.g., units)'
-
 const MAP_TYPE_LABEL_TRAVEL = 'Travel'
 const MAP_TYPE_LABEL_HEATMAP = 'Heatmap'
 const MAP_TYPE_LABEL_INDOOR = 'Indoor'
@@ -56,6 +52,20 @@ interface SourceConfigListProps {
   readOnly?: boolean
 }
 
+/**
+ * A list component for managing multiple source configurations.
+ * Uses SourceConfigCard for individual sources.
+ * 
+ * Features:
+ * - Collapsible list with source count
+ * - Bulk map type change (applies to all sources)
+ * - Expand/collapse all sources
+ * - Add new sources (in manual mode)
+ * 
+ * Accessibility:
+ * - All action buttons have aria-labels
+ * - Keyboard accessible navigation
+ */
 const SourceConfigList = (props: SourceConfigListProps) => {
   const { sourceConfigs, onChange, readOnly = false } = props
   
@@ -157,95 +167,8 @@ const SourceConfigList = (props: SourceConfigListProps) => {
     onChange(newSourceConfigs)
   }
 
-  const sourceConfigFields: FieldConfig[] = [
-    { key: SourceConfigKey.Name, label: FIELD_LABEL_NAME, type: FieldType.Text, placeholder: PLACEHOLDER_NAME },
-    { key: SourceConfigKey.SourceUrl, label: FIELD_LABEL_SOURCE_URL, type: FieldType.Text, placeholder: PLACEHOLDER_SOURCE_URL, validateOnAccept: (val) => validateUrl(String(val)) },
-    { key: SourceConfigKey.RulesFileUrl, label: FIELD_LABEL_RULES_URL, type: FieldType.Text, placeholder: PLACEHOLDER_RULES_URL, validateOnAccept: (val) => validateUrl(String(val)) },
-    { key: SourceConfigKey.Source, label: FIELD_LABEL_SOURCE, type: FieldType.Text, placeholder: PLACEHOLDER_SOURCE },
-    {
-      key: SourceConfigKey.MapType,
-      label: FIELD_LABEL_MAP_TYPE,
-      type: FieldType.Enum,
-      enumOptions: [
-        { label: MAP_TYPE_LABEL_TRAVEL, value: MapType.Travel },
-        { label: MAP_TYPE_LABEL_HEATMAP, value: MapType.Heatmap },
-        { label: MAP_TYPE_LABEL_INDOOR, value: MapType.Indoor }
-      ],
-      defaultValue: MapType.Indoor,
-      showCopyButton: false
-    }
-  ]
-
-  const renderSourceField = (field: FieldConfig, index: number) => {
-    const sourceConfig = sourceConfigs[index] || {}
-    const value = sourceConfig[field.key] ?? field.defaultValue
-    
-    // MapType and RulesFileUrl remain editable even when readOnly is true
-    const isFieldDisabled = readOnly && field.key !== SourceConfigKey.MapType && field.key !== SourceConfigKey.RulesFileUrl
-
-    switch (field.type) {
-      case FieldType.Text:
-        return (
-          <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <CopyableLabel label={field.label} copyValue={String(value || '')} showCopyButton={field.showCopyButton} />
-            <TextInput
-              style={{ width: '100%' }}
-              value={value || ''}
-              onChange={(e) => onSourceConfigChange(index, field.key, e.target.value)}
-              placeholder={field.placeholder}
-              disabled={isFieldDisabled}
-              checkValidityOnAccept={field.validateOnAccept ? (text) => field.validateOnAccept(text) : undefined}
-            />
-          </SettingRow>
-        )
-      case FieldType.Number:
-        return (
-          <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <CopyableLabel label={field.label} copyValue={String(value ?? '')} showCopyButton={field.showCopyButton} />
-            <NumericInput
-              style={{ width: '100%' }}
-              value={value}
-              onChange={(val) => onSourceConfigChange(index, field.key, val)}
-              min={field.min}
-              max={field.max}
-              disabled={isFieldDisabled}
-            />
-          </SettingRow>
-        )
-      case FieldType.Switch:
-        return (
-          <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <CopyableLabel label={field.label} copyValue={String(value)} showCopyButton={field.showCopyButton} />
-            <Switch
-              checked={value}
-              onChange={(e) => onSourceConfigChange(index, field.key, e.target.checked)}
-              disabled={isFieldDisabled}
-            />
-          </SettingRow>
-        )
-      case FieldType.Enum:
-        return (
-          <SettingRow key={field.key} flow={FlowType.Wrap}>
-            <CopyableLabel label={field.label} copyValue={String(value || field.defaultValue || '')} showCopyButton={field.showCopyButton} />
-            <Select
-              style={{ width: '100%' }}
-              value={value || field.defaultValue}
-              onChange={(e) => onSourceConfigChange(index, field.key, e.target.value)}
-              disabled={isFieldDisabled}
-            >
-              {field.enumOptions?.map((option) => (
-                <Option key={option.value} value={option.value}>
-                  {option.label}
-                </Option>
-              ))}
-            </Select>
-          </SettingRow>
-        )
-    }
-  }
-
   return (
-    <div>
+    <div style={styles.container}>
       {/* Source Configurations header with source count */}
       <CollapsibleHeader
         label={HEADING_TEXT}
@@ -253,7 +176,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
         onToggle={() => setSourceConfigsOpen(!sourceConfigsOpen)}
         actions={
           sourceConfigs.length > 0 ? (
-            <span style={{ color: Colors.TextMuted, fontSize: '12px', marginRight: '4px' }}>
+            <span style={styles.count}>
               {sourceConfigs.length} {sourceConfigs.length === 1 ? 'source' : 'sources'}
             </span>
           ) : undefined
@@ -264,9 +187,9 @@ const SourceConfigList = (props: SourceConfigListProps) => {
         {sourceConfigs.length > 0 && (
           <div style={{ paddingLeft: Padding.SectionContent, paddingBottom: Padding.FieldGroupBottom }}>
           <SettingRow flow={FlowType.Wrap}>
-            <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+            <div style={styles.mapTypeRow}>
               <CopyableLabel label={FIELD_LABEL_ALL_MAP_TYPE} copyValue={''} showCopyButton={false} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={styles.buttonGroup}>
                 <Tooltip title={TOOLTIP_EXPAND_ALL}>
                   <Button
                     size={ButtonSize.Small}
@@ -308,80 +231,20 @@ const SourceConfigList = (props: SourceConfigListProps) => {
         )}
         {sourceConfigs.map((sourceConfig, index) => {
           const isExpanded = expandedSources[index] !== undefined ? expandedSources[index] : true
-          const sourceName = sourceConfig?.name && sourceConfig.name.trim() ? sourceConfig.name : `${SOURCE_PREFIX}${index + 1}`
-          const isEnabled = sourceConfig.enabled !== false
 
           return (
-            <Card
+            <SourceConfigCard
               key={index}
-              style={{ marginBottom: '12px', border: '0px' }}
-            >
-              {/* Source header with expand/collapse and action buttons */}
-              <CollapsibleHeader
-                label={sourceName}
-                isOpen={isExpanded}
-                onToggle={() => toggleSourceExpanded(index)}
-                backgroundColor={Colors.HeaderBackground}
-                level={CollapsibleHeaderLevel.Card}
-                actions={
-                  readOnly ? (
-                    <>
-                      <Tooltip title={(sourceConfig.locked ?? true) ? TOOLTIP_UNLOCK : TOOLTIP_LOCK}>
-                        <Button
-                          size={ButtonSize.Small}
-                          type={ButtonType.Tertiary}
-                          icon
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onToggleLocked(index)
-                          }}
-                          aria-label={(sourceConfig.locked ?? true) ? TOOLTIP_UNLOCK : TOOLTIP_LOCK}
-                          style={{ marginLeft: '4px' }}
-                        >
-                          {(sourceConfig.locked ?? true) ? <LockOutlined /> : <UnlockOutlined />}
-                        </Button>
-                      </Tooltip>
-                      <Tooltip title={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}>
-                        <Button
-                          size={ButtonSize.Small}
-                          type={ButtonType.Tertiary}
-                          icon
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onToggleSourceEnabled(index)
-                          }}
-                          aria-label={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}
-                          style={{ marginLeft: '4px' }}
-                        >
-                          {isEnabled ? <VisibleOutlined /> : <InvisibleOutlined />}
-                        </Button>
-                      </Tooltip>
-                    </>
-                  ) : (
-                    <Tooltip title={TOOLTIP_REMOVE}>
-                      <Button
-                        size={ButtonSize.Small}
-                        type={ButtonType.Tertiary}
-                        icon
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onRemoveSourceConfig(index)
-                        }}
-                        aria-label={`${TOOLTIP_REMOVE} ${sourceName}`}
-                      >
-                        <TrashOutlined />
-                      </Button>
-                    </Tooltip>
-                  )
-                }
-              />
-              {/* Smooth collapse animation */}
-              <Collapse isOpen={isExpanded}>
-                <div style={{ padding: '12px' }}>
-                  {sourceConfigFields.map((field) => renderSourceField(field, index))}
-                </div>
-              </Collapse>
-            </Card>
+              sourceConfig={sourceConfig}
+              index={index}
+              isExpanded={isExpanded}
+              onToggleExpanded={() => toggleSourceExpanded(index)}
+              onFieldChange={(property, value) => onSourceConfigChange(index, property, value)}
+              onRemove={() => onRemoveSourceConfig(index)}
+              onToggleEnabled={() => onToggleSourceEnabled(index)}
+              onToggleLocked={() => onToggleLocked(index)}
+              readOnly={readOnly}
+            />
           )
         })}
         {!readOnly && (

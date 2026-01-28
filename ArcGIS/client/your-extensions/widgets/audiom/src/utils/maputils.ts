@@ -9,6 +9,9 @@ import MapImageLayer from 'esri/layers/MapImageLayer';
 import { LayerTypes } from "../../../../shared/constants/LayerTypes";
 import { DEFAULT_CONFIG, IAudiomConfig } from "../setting/configs";
 import { isConfigValid } from "../setting/validation/validation";
+import { createLogger } from './logger';
+
+const logger = createLogger('MapUtils');
 
 // Constants
 const DEFAULT_FEATURE_LAYER_NAME = 'Feature Layer';
@@ -35,7 +38,7 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
   const mapViewManager = MapViewManager.getInstance();
   const sources: AudiomSource[] = [];
 
-  console.log('audiomConfigToEmbedConfig - useExistingMap:', config.useExistingMap);
+  logger.debug('audiomConfigToEmbedConfig - useExistingMap:', config.useExistingMap);
 
   if (config.useExistingMap) {
     const jimuMapView = jmv;
@@ -94,17 +97,17 @@ export function getSourcesFromConfig(config: IAudiomConfig): AudiomSource[] {
 
 export function getJimuMapViewById(mapId: string, mapViewManager?: MapViewManager): JimuMapView | undefined {
   if (!mapViewManager) {
-    console.warn('MapViewManager not provided');
+    logger.warn('MapViewManager not provided');
     return undefined;
   }
 
   const jimuMapViews = mapViewManager.getJimuMapViewGroup(mapId)?.jimuMapViews;
   if (!jimuMapViews || Object.keys(jimuMapViews).length === 0) {
-    console.warn(`${LOG_NO_MAP_VIEW} for map ID: ${mapId}`);
+    logger.warn(`${LOG_NO_MAP_VIEW} for map ID: ${mapId}`);
     return undefined;
   }
 
-  console.log(`Found ${Object.keys(jimuMapViews).length} JimuMapViews for map ID: ${mapId}`);
+  logger.debug(`Found ${Object.keys(jimuMapViews).length} JimuMapViews for map ID: ${mapId}`);
 
   // Get the first available JimuMapView from the group
   return Object.values(jimuMapViews)[0];
@@ -112,7 +115,7 @@ export function getJimuMapViewById(mapId: string, mapViewManager?: MapViewManage
 
 export function getSourcesFromEsriMap(jimuMapView: JimuMapView | undefined): AudiomSource[] {
   if (!jimuMapView || !jimuMapView.view) {
-    console.warn(LOG_NO_MAP_VIEW);
+    logger.warn(LOG_NO_MAP_VIEW);
     return [];
   }
 
@@ -124,7 +127,7 @@ export function getSourcesFromEsriMap(jimuMapView: JimuMapView | undefined): Aud
     sources.push(...layerSources);
   });
 
-  console.log(`${LOG_EXTRACTED_SOURCES} ${sources.length} sources from map`);
+  logger.debug(`${LOG_EXTRACTED_SOURCES} ${sources.length} sources from map`);
   return sources;
 }
 
@@ -184,7 +187,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
 }
 
 function processLayer(layer: __esri.Layer): AudiomSource[] {
-  console.log(`${LOG_PROCESSING_LAYER} ${layer.title} (type: ${layer.type})`);
+  logger.debug(`${LOG_PROCESSING_LAYER} ${layer.title} (type: ${layer.type})`);
 
   let source: AudiomSource | null = null;
 
@@ -221,7 +224,7 @@ function processFeatureLayer(layer: FeatureLayer | null): AudiomSource | null {
     mapType: MapType.Indoor
   });
 
-  console.log(`${LOG_FOUND_FEATURE_LAYER} ${layer.title} - ${layer.url}`);
+  logger.debug(`${LOG_FOUND_FEATURE_LAYER} ${layer.title} - ${layer.url}`);
   return source;
 }
 
@@ -235,7 +238,7 @@ function processCSVLayer(layer: CSVLayer | null): AudiomSource | null {
     layer.title || DEFAULT_CSV_LAYER_NAME
   );
 
-  console.log(`${LOG_FOUND_CSV_LAYER} ${layer.title} - ${layer.url}`);
+  logger.debug(`${LOG_FOUND_CSV_LAYER} ${layer.title} - ${layer.url}`);
   return source;
 }
 
@@ -249,7 +252,7 @@ function processGeoJSONLayer(layer: GeoJSONLayer | null): AudiomSource | null {
     layer.title || DEFAULT_GEOJSON_LAYER_NAME
   );
   
-  console.log(`${LOG_FOUND_GEOJSON_LAYER} ${layer.title} - ${layer.url}`);
+  logger.debug(`${LOG_FOUND_GEOJSON_LAYER} ${layer.title} - ${layer.url}`);
   return source;
 }
 
@@ -273,7 +276,7 @@ function processMapImageLayer(layer: MapImageLayer | null): AudiomSource[] {
     });
 
     sources.push(source);
-    console.log(`${LOG_FOUND_SUBLAYER} ${sublayer.title} - ${sublayer.url}`);
+    logger.debug(`${LOG_FOUND_SUBLAYER} ${sublayer.title} - ${sublayer.url}`);
   });
 
   return sources;
