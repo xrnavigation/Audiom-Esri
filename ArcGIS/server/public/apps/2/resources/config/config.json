@@ -780,7 +780,7 @@
       "content": {
         "0": {
           "type": "WIDGET",
-          "widgetId": "widget_111",
+          "widgetId": "widget_115",
           "bbox": {
             "left": "0.0%",
             "right": "0.0%",
@@ -791,11 +791,15 @@
           },
           "setting": {
             "autoProps": {
-              "right": false,
               "left": true,
+              "right": false,
               "top": true,
-              "bottom": false
-            }
+              "bottom": false,
+              "width": "STRETCH",
+              "height": "STRETCH"
+            },
+            "vCenter": false,
+            "hCenter": false
           }
         }
       },
@@ -1087,31 +1091,11 @@
           "canNavigation": true,
           "canLayers": true
         },
-        "isUseCustomMapState": true,
-        "initialMapState": {
-          "viewPoint": {
-            "rotation": 0,
-            "scale": 564.248588,
-            "targetGeometry": {
-              "spatialReference": {
-                "wkid": 102100
-              },
-              "x": -13046027.649285203,
-              "y": 4036428.5686013363
-            }
-          },
-          "extent": {
-            "spatialReference": {
-              "wkid": 102100
-            },
-            "xmin": -13046134.24310977,
-            "ymin": 4036362.358011426,
-            "xmax": -13045921.055460636,
-            "ymax": 4036494.7791912467
-          },
-          "rotation": 0,
-          "viewType": "2d"
-        }
+        "isUseCustomMapState": false,
+        "initialMapState": null,
+        "initialMapDataSourceID": "dataSource_1",
+        "scaleRange": null,
+        "customLODs": null
       },
       "id": "widget_92",
       "style": {
@@ -1198,7 +1182,14 @@
             }
           }
         }
-      }
+      },
+      "useDataSources": [
+        {
+          "dataSourceId": "dataSource_1",
+          "mainDataSourceId": "dataSource_1"
+        }
+      ],
+      "a11yLabel": "ESRI Building (ESRI Map)"
     },
     "widget_106": {
       "uri": "widgets/layout/fixed/",
@@ -1286,18 +1277,6 @@
         }
       }
     },
-    "widget_111": {
-      "uri": "widgets/audiom-basic/",
-      "version": "1.19.0",
-      "label": "Audiom Basic",
-      "config": {
-        "exampleConfigProperty": "test"
-      },
-      "id": "widget_111",
-      "useMapWidgetIds": [
-        "widget_92"
-      ]
-    },
     "widget_113": {
       "uri": "widgets/common/navigator/",
       "version": "1.19.0",
@@ -1335,7 +1314,8 @@
           }
         }
       },
-      "id": "widget_113"
+      "id": "widget_113",
+      "a11yLabel": "Tab Selector"
     },
     "widget_114": {
       "uri": "widgets/common/embed/",
@@ -1353,6 +1333,67 @@
       "useDataSourcesEnabled": false,
       "useDataSources": [],
       "a11yLabel": "ESRI Building Demo Video"
+    },
+    "widget_115": {
+      "uri": "widgets/audiom/",
+      "version": "1.0.0",
+      "label": "Audiom",
+      "config": {
+        "existingMapId": "widget_92",
+        "apiKey": "wO35blaGsjJREGuXehqWU",
+        "useExistingMap": true,
+        "centerLatitude": 34.05669873354544,
+        "centerLongitude": -117.19468783901752,
+        "zoom": 21,
+        "sourceConfigs": [
+          {
+            "name": "Sites",
+            "source": "19c06d1cbae-layer-3",
+            "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/4",
+            "mapType": "indoor",
+            "enabled": false,
+            "rulesFileUrl": "/rules/esri-indoor.json"
+          },
+          {
+            "name": "Facilities",
+            "source": "19c06d1cbaf-layer-4",
+            "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/3",
+            "mapType": "indoor",
+            "enabled": false,
+            "rulesFileUrl": "/rules/esri-indoor.json"
+          },
+          {
+            "name": "Levels",
+            "source": "19c06d1cbaf-layer-5",
+            "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/2",
+            "mapType": "indoor",
+            "enabled": true,
+            "rulesFileUrl": "/rules/esri-indoor.json"
+          },
+          {
+            "name": "Units",
+            "source": "19c06d1cbaf-layer-6",
+            "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
+            "mapType": "indoor",
+            "enabled": true,
+            "rulesFileUrl": "/rules/esri-indoor.json"
+          },
+          {
+            "name": "Details",
+            "source": "19c06d1cbb0-layer-7",
+            "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/0",
+            "mapType": "indoor",
+            "enabled": false,
+            "rulesFileUrl": "/rules/esri-indoor.json"
+          }
+        ],
+        "title": "ESRI Building"
+      },
+      "id": "widget_115",
+      "useMapWidgetIds": [
+        "widget_92"
+      ],
+      "a11yLabel": "Esri Building (Audiom)"
     }
   },
   "exbVersion": "1.19.0",
@@ -1420,7 +1461,8 @@
         "view_3",
         "view_1"
       ],
-      "autoPlay": false
+      "autoPlay": false,
+      "a11yLabel": "Tab Content"
     }
   },
   "dialogs": {
@@ -1550,10 +1592,18 @@
     "portalUrl": "https://xrnavigation.maps.arcgis.com",
     "enableA11yForWidgetSettings": true
   },
-  "timestamp": 1768508136691,
+  "timestamp": 1769648261823,
   "sharedThemeVariables": null,
   "mainLocale": "en",
-  "dataSources": {},
+  "dataSources": {
+    "dataSource_1": {
+      "id": "dataSource_1",
+      "type": "WEB_MAP",
+      "sourceLabel": "Esri Building",
+      "itemId": "5c51c0d1b66b4c488f3b1a43e0a27a31",
+      "portalUrl": "https://xrnavigation.maps.arcgis.com"
+    }
+  },
   "permission": {
     "restrictions": []
   }
