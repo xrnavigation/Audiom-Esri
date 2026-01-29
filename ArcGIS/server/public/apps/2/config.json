@@ -1365,7 +1365,8 @@
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/2",
             "mapType": "indoor",
             "enabled": true,
-            "rulesFileUrl": "/rules/esri-indoor.json"
+            "rulesFileUrl": "/rules/esri-indoor.json",
+            "locked": true
           },
           {
             "name": "Units",
@@ -1373,7 +1374,8 @@
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
             "mapType": "indoor",
             "enabled": true,
-            "rulesFileUrl": "/rules/esri-indoor.json"
+            "rulesFileUrl": "/rules/esri-indoor.json",
+            "locked": true
           },
           {
             "name": "Details",
@@ -1584,12 +1586,12 @@
       }
     }
   },
-  "publishTimestamp": 1769653672193,
+  "publishTimestamp": 1769657204017,
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com",
     "enableA11yForWidgetSettings": true
   },
-  "timestamp": 1769653669975,
+  "timestamp": 1769657203799,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {
