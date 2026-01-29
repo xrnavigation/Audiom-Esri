@@ -1,7 +1,9 @@
 import { React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
-import { NumericInput, Switch, Label, Button, ButtonGroup, Collapse, Tooltip } from 'jimu-ui'
+import { NumericInput, Switch, Label, Button, ButtonGroup, Collapse, Tooltip, TextInput } from 'jimu-ui'
+import { LockOutlined } from 'jimu-icons/outlined/editor/lock'
+import { UnlockOutlined } from 'jimu-icons/outlined/editor/unlock'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 
 import SourceConfigList from './components/SourceConfigList'
@@ -26,6 +28,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
   const mapSyncManager = getMapSyncManager()
   const [mapSettingsOpen, setMapSettingsOpen] = useState(true)
+  const [mapTitle, setMapTitle] = useState<string | undefined>(undefined)
 
   // Callback to apply synced config from MapSyncManager
   const applyConfigFromMap = useCallback((newMapConfig: MapSyncConfig) => {
@@ -38,11 +41,19 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     const currentSourcesJson = JSON.stringify(currentSources)
     const mergedSourcesJson = JSON.stringify(mergedSources)
     
+    // Track the map title for display/sync purposes
+    setMapTitle(newMapConfig.title)
+    
+    // Check if title needs to be updated (only if locked)
+    const titleLocked = config.titleLocked ?? DEFAULT_CONFIG.titleLocked
+    const titleNeedsUpdate = titleLocked && config.title !== newMapConfig.title
+    
     const needsUpdate = 
       config.centerLatitude !== newMapConfig.centerLatitude ||
       config.centerLongitude !== newMapConfig.centerLongitude ||
       config.zoom !== newMapConfig.zoom ||
-      currentSourcesJson !== mergedSourcesJson
+      currentSourcesJson !== mergedSourcesJson ||
+      titleNeedsUpdate
 
     if (needsUpdate) {
       let newConfig = config
@@ -50,6 +61,11 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         .set(AudiomConfigKey.CenterLongitude, newMapConfig.centerLongitude)
         .set(AudiomConfigKey.Zoom, newMapConfig.zoom)
         .set(AudiomConfigKey.SourceConfigs, mergedSources)
+      
+      // Only sync title if locked
+      if (titleLocked && newMapConfig.title !== undefined) {
+        newConfig = newConfig.set(AudiomConfigKey.Title, newMapConfig.title)
+      }
 
       logger.debug('Auto-sync settings: Updated config with', mergedSources.length, 'sources')
 
@@ -161,6 +177,74 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     return `${currentStepSize} ${currentUnit}`
   }
 
+  // Handle title lock/unlock toggle
+  const onTitleLockToggle = () => {
+    const currentLocked = config?.titleLocked ?? DEFAULT_CONFIG.titleLocked
+    let newConfig = config.set(AudiomConfigKey.TitleLocked, !currentLocked)
+    
+    // If relocking, reset title to map title
+    if (!currentLocked && mapTitle !== undefined) {
+      newConfig = newConfig.set(AudiomConfigKey.Title, mapTitle)
+    }
+    
+    props.onSettingChange({
+      id: props.id,
+      config: newConfig
+    })
+  }
+
+  // Render the custom title field with lock/unlock button when synced to a map
+  const renderTitleField = () => {
+    const useExistingMap = config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap
+    const titleLocked = config?.titleLocked ?? DEFAULT_CONFIG.titleLocked
+    const currentTitle = config?.title ?? ''
+    
+    // If not synced to a map, render as a regular text input
+    if (!useExistingMap) {
+      return (
+        <SettingRow flow={FlowType.Wrap}>
+          <CopyableLabel label="Title" copyValue={currentTitle} />
+          <TextInput
+            style={{ width: '100%' }}
+            value={currentTitle}
+            onChange={(e) => onPropertyChange(AudiomConfigKey.Title, e.target.value)}
+            placeholder="Enter widget title"
+            aria-label="Title"
+          />
+        </SettingRow>
+      )
+    }
+    
+    // If synced to a map, show lock/unlock button next to the copy icon in the label row
+    return (
+      <SettingRow flow={FlowType.Wrap}>
+        <div style={{ display: 'flex', alignItems: 'center', width: '100%', marginBottom: 4 }}>
+          <Label style={{ flex: 1, marginBottom: 0 }}>Title</Label>
+          <Tooltip title={titleLocked ? 'Unlock to edit title manually' : 'Lock to sync with map title'}>
+            <Button
+              type="tertiary"
+              size="sm"
+              onClick={onTitleLockToggle}
+              aria-label={titleLocked ? 'Unlock title' : 'Lock title'}
+              style={{ padding: '2px', minWidth: 'auto', background: 'transparent', border: 'none' }}
+            >
+              {titleLocked ? <LockOutlined size={12} /> : <UnlockOutlined size={12} />}
+            </Button>
+          </Tooltip>
+          <CopyableLabel label="" copyValue={currentTitle} style={{ width: 'auto', marginBottom: 0 }} />
+        </div>
+        <TextInput
+          style={{ width: '100%' }}
+          value={currentTitle}
+          onChange={(e) => onPropertyChange(AudiomConfigKey.Title, e.target.value)}
+          placeholder="Enter widget title"
+          disabled={titleLocked}
+          aria-label="Title"
+        />
+      </SettingRow>
+    )
+  }
+
   // Connection fields - set once
   const connectionFields: FieldConfig[] = [
     { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Password, placeholder: 'Enter API key' },
@@ -168,9 +252,8 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL', validateOnAccept: (val) => validateUrl(String(val)) }
   ]
 
-  // Display fields - appearance & behavior
+  // Display fields - appearance & behavior (Title is rendered separately with lock/unlock)
   const displayFields: FieldConfig[] = [
-    { key: AudiomConfigKey.Title, label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title' },
     { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Custom, showCopyButton: false, renderCustom: renderStepSizeUnitSelector },
     { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
@@ -240,6 +323,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       </SettingSection>
 
       <SettingSection title="Display">
+        {renderTitleField()}
         {displayFields.map((field) => {
           // Only show Heading Size if Show Heading is true
           if (field.key === AudiomConfigKey.Heading) {

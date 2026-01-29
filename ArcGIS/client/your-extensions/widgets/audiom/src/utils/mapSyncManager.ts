@@ -10,6 +10,7 @@ const logger = createLogger('MapSyncManager')
 export const AUTO_SYNC_LAYERS = true
 
 export interface MapSyncConfig {
+  title?: string
   centerLatitude?: number
   centerLongitude?: number
   zoom?: number
@@ -112,7 +113,7 @@ export class MapSyncManager {
   }
 
   /**
-   * Get the current map configuration (center, zoom, sources with visibility).
+   * Get the current map configuration (center, zoom, title, sources with visibility).
    */
   getCurrentConfig(mapId: string): MapSyncConfig | null {
     const mapViewManager = MapViewManager.getInstance()
@@ -123,6 +124,7 @@ export class MapSyncManager {
     }
 
     return {
+      title: extracted.title,
       centerLatitude: extracted.centerLatitude,
       centerLongitude: extracted.centerLongitude,
       zoom: extracted.zoom,

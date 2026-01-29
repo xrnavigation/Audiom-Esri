@@ -181,6 +181,7 @@ export function sanitizeSourceConfigsForDiff<T extends { rulesFileUrl?: string }
 }
 
 export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapViewManager): {
+  title?: string;
   centerLatitude?: number;
   centerLongitude?: number;
   zoom?: number;
@@ -202,6 +203,11 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
   const view = jimuMapView.view;
   const center = view.center;
   const zoom = view.zoom;
+  
+  // Extract title from the map's portal item if available
+  // Use type assertion since portalItem might not be in the type definition but exists at runtime
+  const map = view.map as unknown as { portalItem?: { title?: string }; title?: string };
+  const mapTitle = map?.portalItem?.title || map?.title || undefined;
   
   // Extract sources from the map, respecting layer visibility
   // Use allLayers and filter out basemap layers
@@ -234,6 +240,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
   });
 
   return {
+    title: mapTitle,
     centerLatitude: center.latitude,
     centerLongitude: center.longitude,
     zoom: zoom,

@@ -20,6 +20,7 @@ export const DEFAULT_CONFIG = {
   centerLatitude: 0,
   centerLongitude: 0,
   sourceConfigs: [] as ISourceConfig[],
+  titleLocked: true,
 } as const satisfies Partial<IAudiomConfig>
 
 export interface FieldConfig {
@@ -56,6 +57,7 @@ export interface IAudiomConfig {
   baseUrl?: string
   heading?:  1 | 2 | 3 | 4 | 5 | 6;
   title?: string
+  titleLocked?: boolean  // When locked (default), syncs with map title. When unlocked, uses manual title.
   stepSize?: number
   stepSizeUnit?: StepSizeUnit
   showVisualMap?: boolean
