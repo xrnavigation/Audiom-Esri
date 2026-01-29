@@ -1383,7 +1383,8 @@
             "enabled": false,
             "rulesFileUrl": "/rules/esri-indoor.json"
           }
-        ]
+        ],
+        "title": "ESRI Building"
       },
       "id": "widget_115",
       "useMapWidgetIds": [
@@ -1583,12 +1584,12 @@
       }
     }
   },
-  "publishTimestamp": 1769648159680,
+  "publishTimestamp": 1769653672193,
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com",
     "enableA11yForWidgetSettings": true
   },
-  "timestamp": 1769648158912,
+  "timestamp": 1769653669975,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {

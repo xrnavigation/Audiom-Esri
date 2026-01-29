@@ -1351,7 +1351,8 @@
             "sourceUrl": "https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/ACS_Population_by_Race_and_Hispanic_Origin_Boundaries/FeatureServer/2&19c0747361e-layer-7.where=State='Hawaii'",
             "mapType": "heatmap",
             "enabled": true,
-            "rulesFileUrl": "/rules/census.json"
+            "rulesFileUrl": "/rules/census.json",
+            "locked": false
           }
         ],
         "title": "Hawaii Census",
@@ -1559,7 +1560,7 @@
     "portalUrl": "https://xrnavigation.maps.arcgis.com",
     "enableA11yForWidgetSettings": true
   },
-  "timestamp": 1769653048302,
+  "timestamp": 1769654050175,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {
