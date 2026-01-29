@@ -97,10 +97,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     // Use default value when useExistingMap is undefined
     const useExistingMap = config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap
     
-    console.log('[Setting] Sync effect running - useExistingMap:', useExistingMap, 'effectiveMapId:', effectiveMapId, 'useMapWidgetIds:', props.useMapWidgetIds)
-    
     if (!useExistingMap || !effectiveMapId) {
-      console.log('[Setting] Sync effect - early return, detaching. useExistingMap:', useExistingMap, 'effectiveMapId:', effectiveMapId)
       mapSyncManager.detach()
       return
     }
@@ -111,8 +108,6 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     const tryAttachAndSync = () => {
       // Attach to the map and pass current config to detect initial mismatches
       const attached = mapSyncManager.attach(effectiveMapId, config)
-      console.log('[Setting] tryAttachAndSync - attached:', attached, 'mapId:', effectiveMapId)
-      logger.debug('tryAttachAndSync - attached:', attached)
       if (!attached) {
         return false
       }
@@ -133,16 +128,14 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
     // If not attached, retry every 500ms until successful or cleaned up
     if (!attachedImmediately) {
-      logger.debug('Map view not ready, will retry...')
       retryInterval = setInterval(() => {
         if (isCleanedUp) {
           if (retryInterval) clearInterval(retryInterval)
           return
         }
         const attached = tryAttachAndSync()
-        if (attached) {
-          logger.debug('Successfully attached to map view after retry')
-          if (retryInterval) clearInterval(retryInterval)
+        if (attached && retryInterval) {
+          clearInterval(retryInterval)
         }
       }, 500)
     }
