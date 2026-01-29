@@ -780,21 +780,23 @@
       "content": {
         "0": {
           "type": "WIDGET",
-          "widgetId": "widget_114",
+          "widgetId": "widget_116",
           "bbox": {
             "left": "0.0%",
             "right": "0.0%",
-            "top": "0.1%",
+            "top": "0.0%",
             "bottom": "0.0%",
             "width": "100.0%",
-            "height": "99.9%"
+            "height": "100.0%"
           },
           "setting": {
             "autoProps": {
               "left": true,
               "right": false,
               "top": true,
-              "bottom": false
+              "bottom": false,
+              "width": "STRETCH",
+              "height": "STRETCH"
             },
             "vCenter": false,
             "hCenter": false
@@ -1089,31 +1091,11 @@
           "canNavigation": true,
           "canLayers": true
         },
-        "isUseCustomMapState": true,
-        "initialMapState": {
-          "viewPoint": {
-            "rotation": 0,
-            "scale": 288895.277144,
-            "targetGeometry": {
-              "spatialReference": {
-                "wkid": 102100
-              },
-              "x": -17761958.243403077,
-              "y": 2516896.4402531865
-            }
-          },
-          "extent": {
-            "spatialReference": {
-              "wkid": 102100
-            },
-            "xmin": -17816534.28159862,
-            "ymin": 2483187.710779469,
-            "xmax": -17707382.205207534,
-            "ymax": 2550605.169726904
-          },
-          "rotation": 0,
-          "viewType": "2d"
-        }
+        "isUseCustomMapState": false,
+        "initialMapState": null,
+        "initialMapDataSourceID": "dataSource_1",
+        "scaleRange": null,
+        "customLODs": null
       },
       "id": "widget_92",
       "style": {
@@ -1200,7 +1182,14 @@
             }
           }
         }
-      }
+      },
+      "useDataSources": [
+        {
+          "dataSourceId": "dataSource_1",
+          "mainDataSourceId": "dataSource_1"
+        }
+      ],
+      "a11yLabel": "Hawaii Census (ESRI Map)"
     },
     "widget_106": {
       "uri": "widgets/layout/fixed/",
@@ -1325,19 +1314,8 @@
           }
         }
       },
-      "id": "widget_113"
-    },
-    "widget_114": {
-      "uri": "widgets/audiom-census/",
-      "version": "1.19.0",
-      "label": "Audiom Census",
-      "config": {
-        "exampleConfigProperty": "test"
-      },
-      "id": "widget_114",
-      "useMapWidgetIds": [
-        "widget_92"
-      ]
+      "id": "widget_113",
+      "a11yLabel": "Tab Selector"
     },
     "widget_115": {
       "uri": "widgets/common/embed/",
@@ -1354,6 +1332,37 @@
       "id": "widget_115",
       "useDataSources": [],
       "a11yLabel": "Hawaii Census Demo Video"
+    },
+    "widget_116": {
+      "uri": "widgets/audiom/",
+      "version": "1.0.0",
+      "label": "Audiom",
+      "config": {
+        "existingMapId": "widget_92",
+        "apiKey": "wO35blaGsjJREGuXehqWU",
+        "useExistingMap": false,
+        "centerLatitude": 22.054494266122198,
+        "centerLongitude": -159.54878133046316,
+        "zoom": 10,
+        "sourceConfigs": [
+          {
+            "name": "Tract",
+            "source": "19c0747361e-layer-7",
+            "sourceUrl": "https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/ACS_Population_by_Race_and_Hispanic_Origin_Boundaries/FeatureServer/2&19c0747361e-layer-7.where=State='Hawaii'",
+            "mapType": "heatmap",
+            "enabled": true,
+            "rulesFileUrl": "/rules/census.json",
+            "locked": false
+          }
+        ],
+        "title": "Hawaii Census",
+        "stepSizeUnit": "mi"
+      },
+      "id": "widget_116",
+      "useMapWidgetIds": [
+        "widget_92"
+      ],
+      "a11yLabel": "Hawaii Census (Audiom)"
     }
   },
   "exbVersion": "1.19.0",
@@ -1420,7 +1429,8 @@
         "view_4",
         "view_3",
         "view_1"
-      ]
+      ],
+      "a11yLabel": "Tab Content"
     }
   },
   "dialogs": {
@@ -1550,10 +1560,18 @@
     "portalUrl": "https://xrnavigation.maps.arcgis.com",
     "enableA11yForWidgetSettings": true
   },
-  "timestamp": 1768508265379,
+  "timestamp": 1769655808093,
   "sharedThemeVariables": null,
   "mainLocale": "en",
-  "dataSources": {},
+  "dataSources": {
+    "dataSource_1": {
+      "id": "dataSource_1",
+      "type": "WEB_MAP",
+      "sourceLabel": "Hawaii Census",
+      "itemId": "109e2657d2a14e31875bbd10517fd1ba",
+      "portalUrl": "https://xrnavigation.maps.arcgis.com"
+    }
+  },
   "permission": {
     "restrictions": []
   }

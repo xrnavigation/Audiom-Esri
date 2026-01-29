@@ -6,10 +6,10 @@ import FeatureLayer from 'esri/layers/FeatureLayer';
 import CSVLayer from 'esri/layers/CSVLayer';
 import GeoJSONLayer from 'esri/layers/GeoJSONLayer';
 import MapImageLayer from 'esri/layers/MapImageLayer';
-import { LayerTypes } from "../../../../shared/constants/LayerTypes";
 import { DEFAULT_CONFIG, IAudiomConfig } from "../setting/configs";
 import { isConfigValid } from "../setting/validation/validation";
 import { createLogger } from './logger';
+import { LayerType, isExcludedLayerType } from './mapEnums';
 
 const logger = createLogger('MapUtils');
 
@@ -42,18 +42,26 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
 
   if (config.useExistingMap) {
     const jimuMapView = jmv;
-    const mapSources = getSourcesFromEsriMap(jimuMapView);
+    // Get sources from map and merge in rules from config
+    const mapSources = getSourcesFromEsriMap(jimuMapView, config);
 
-    // Filter sources based on enabled status from config
-    const enabledSources = mapSources.filter(mapSource => {
-      const sourceConfig = config.sourceConfigs?.find(sc => 
-        sc.sourceUrl === mapSource.url || sc.source === mapSource.source
-      );
-      // If source is in config, respect its enabled status; otherwise include it (default enabled)
-      return sourceConfig ? sourceConfig.enabled !== false : true;
-    });
+    // If map view is not available or returns no sources, fall back to config sources
+    if (mapSources.length === 0) {
+      logger.debug('No sources from map view, falling back to config sources');
+      const configSources = getSourcesFromConfig(config);
+      sources.push(...configSources);
+    } else {
+      // Filter sources based on enabled status from config
+      const enabledSources = mapSources.filter(mapSource => {
+        const sourceConfig = config.sourceConfigs?.find(sc => 
+          sc.sourceUrl === mapSource.url || sc.source === mapSource.source
+        );
+        // If source is in config, respect its enabled status; otherwise include it (default enabled)
+        return sourceConfig ? sourceConfig.enabled !== false : true;
+      });
 
-    sources.push(...enabledSources);
+      sources.push(...enabledSources);
+    }
   } else {
     const configSources = getSourcesFromConfig(config);
     sources.push(...configSources);
@@ -113,7 +121,21 @@ export function getJimuMapViewById(mapId: string, mapViewManager?: MapViewManage
   return Object.values(jimuMapViews)[0];
 }
 
-export function getSourcesFromEsriMap(jimuMapView: JimuMapView | undefined): AudiomSource[] {
+/**
+ * Filters out basemap and tile layers from a map's allLayers collection.
+ * Returns only operational layers that can be used as data sources.
+ */
+function getOperationalLayers(map: __esri.Map): __esri.Collection<__esri.Layer> {
+  return map.allLayers.filter(layer => 
+    !isExcludedLayerType(layer.type) &&
+    !map.basemap?.baseLayers?.includes(layer)
+  );
+}
+
+export function getSourcesFromEsriMap(
+  jimuMapView: JimuMapView | undefined,
+  config?: IAudiomConfig
+): AudiomSource[] {
   if (!jimuMapView || !jimuMapView.view) {
     logger.warn(LOG_NO_MAP_VIEW);
     return [];
@@ -122,13 +144,40 @@ export function getSourcesFromEsriMap(jimuMapView: JimuMapView | undefined): Aud
   const sources: AudiomSource[] = [];
   const map = jimuMapView.view.map;
 
-  map.layers.forEach((layer) => {
+  // Use allLayers to include sublayers; filter out basemap/tile layers
+  // map.layers only contains top-level operational layers and may be empty
+  // if accessed before the WebMap is fully loaded
+  const operationalLayers = getOperationalLayers(map);
+
+  logger.debug(`map.layers: ${map.layers.length}, map.allLayers: ${map.allLayers.length}, filtered: ${operationalLayers.length}`);
+
+  operationalLayers.forEach((layer) => {
     const layerSources = processLayer(layer);
     sources.push(...layerSources);
   });
 
+  // Merge rules from config if provided
+  if (config) {
+    sources.forEach(source => {
+      const sourceConfig = config.sourceConfigs?.find(sc => 
+        sc.sourceUrl === source.url || sc.source === source.source
+      );
+      if (sourceConfig?.rulesFileUrl) {
+        source.rules = sourceConfig.rulesFileUrl;
+      }
+    });
+  }
+
   logger.debug(`${LOG_EXTRACTED_SOURCES} ${sources.length} sources from map`);
   return sources;
+}
+
+/**
+ * Removes rules file URLs from source configs for diff comparison.
+ * Rules files should not trigger a map change detection.
+ */
+export function sanitizeSourceConfigsForDiff<T extends { rulesFileUrl?: string }>(sourceConfigs: T[]): T[] {
+  return sourceConfigs.map(sc => ({ ...sc, rulesFileUrl: undefined }));
 }
 
 export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapViewManager): {
@@ -155,6 +204,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
   const zoom = view.zoom;
   
   // Extract sources from the map, respecting layer visibility
+  // Use allLayers and filter out basemap layers
   const sourceConfigs: Array<{
     name?: string;
     source?: string;
@@ -164,17 +214,22 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     enabled?: boolean;
   }> = [];
 
-  view.map.layers.forEach((layer) => {
-    const layerSources = processLayer(layer);
-    layerSources.forEach(source => {
-      sourceConfigs.push({
-        name: source.name,
-        source: source.source,
-        sourceUrl: source.url,
-        mapType: source.mapType,
-        rulesFileUrl: source.rules,
-        enabled: layer.visible // Respect layer visibility
-      });
+  // Get sources from map (without config, so no rules merged)
+  const layerSources = getSourcesFromEsriMap(jimuMapView);
+  
+  layerSources.forEach(source => {
+    // Find the corresponding layer to get visibility
+    const layer = view.map.allLayers.find(l => 
+      l.id === source.source || l.id === source.source.split('_')[0]
+    );
+    
+    sourceConfigs.push({
+      name: source.name,
+      source: source.source,
+      sourceUrl: source.url,
+      mapType: source.mapType,
+      // Don't include rulesFileUrl - it's not from the map and shouldn't affect diff
+      enabled: layer?.visible ?? true
     });
   });
 
@@ -192,19 +247,19 @@ function processLayer(layer: __esri.Layer): AudiomSource[] {
   let source: AudiomSource | null = null;
 
   switch (layer.type) {
-    case LayerTypes.FEATURE:
+    case LayerType.FEATURE:
       source = processFeatureLayer(layer as FeatureLayer);
       return source ? [source] : [];
 
-    case LayerTypes.CSV:
+    case LayerType.CSV:
       source = processCSVLayer(layer as CSVLayer);
       return source ? [source] : [];
 
-    case LayerTypes.GEOJSON:
+    case LayerType.GEOJSON:
       source = processGeoJSONLayer(layer as GeoJSONLayer);
       return source ? [source] : [];
 
-    case LayerTypes.MAP_IMAGE:
+    case LayerType.MAP_IMAGE:
       return processMapImageLayer(layer as MapImageLayer);
 
     default:

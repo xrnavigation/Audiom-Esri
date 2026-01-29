@@ -44,6 +44,7 @@ const BUTTON_ADD = 'Add Source Configuration'
 const FIELD_LABEL_ALL_MAP_TYPE = 'Map Type (All)'
 const FIELD_LABEL_ALL_RULES_FILE = 'Rules File (All)'
 const MIXED_VALUE_PLACEHOLDER = '-'
+const EMPTY_STATE_MESSAGE = 'No sources could be extracted from the ESRI map.'
 
 interface SourceConfigListProps {
   sourceConfigs: ISourceConfig[]
@@ -196,14 +197,18 @@ const SourceConfigList = (props: SourceConfigListProps) => {
         isOpen={sourceConfigsOpen}
         onToggle={() => setSourceConfigsOpen(!sourceConfigsOpen)}
         actions={
-          sourceConfigs.length > 0 ? (
-            <span style={styles.count}>
-              {sourceConfigs.length} {sourceConfigs.length === 1 ? 'source' : 'sources'}
-            </span>
-          ) : undefined
+          <span style={styles.count}>
+            {sourceConfigs.length} {sourceConfigs.length === 1 ? 'source' : 'sources'}
+          </span>
         }
       />
       <Collapse isOpen={sourceConfigsOpen}>
+        {/* Empty state message when no sources */}
+        {sourceConfigs.length === 0 && readOnly && (
+          <div style={{ textAlign: 'center', padding: '16px', color: Colors.TextMuted }}>
+            {EMPTY_STATE_MESSAGE}
+          </div>
+        )}
         {/* Map Type (All) field with expand/collapse all buttons */}
         {sourceConfigs.length > 0 && (
           <div style={{ paddingLeft: Padding.SectionContent, paddingBottom: Padding.FieldGroupBottom }}>

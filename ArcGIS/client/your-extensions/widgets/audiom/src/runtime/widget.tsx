@@ -94,8 +94,8 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
     }
   }, [sanitizedConfig?.sourceConfigs, lastSyncedConfigJson])
 
-  const indoorConfig = audiomConfigToEmbedConfig(sanitizedConfig as IAudiomConfig, jimuMapView)
-  const indoorUrl = indoorConfig.toUrl(sanitizedConfig?.baseUrl || DEFAULT_CONFIG.baseUrl)
+  const mapConfig = audiomConfigToEmbedConfig(props.config, jimuMapView)
+  const embedUrl = mapConfig.toUrl(props.config?.baseUrl || DEFAULT_CONFIG.baseUrl)
 
   return (
     <div className="jimu-widget" style={styles.container}>
@@ -109,7 +109,7 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
       />
       <iframe 
         name="audiom" 
-        src={indoorUrl} 
+        src={embedUrl} 
         style={styles.iframe}
         title={props.config.title || 'Audiom Widget'}
       />

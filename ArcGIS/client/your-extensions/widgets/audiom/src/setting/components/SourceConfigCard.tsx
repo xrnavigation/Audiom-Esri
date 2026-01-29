@@ -176,20 +176,37 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
     }
 
     return (
-      <Tooltip title={TOOLTIP_REMOVE}>
-        <Button
-          size={ButtonSize.Small}
-          type={ButtonType.Tertiary}
-          icon
-          onClick={(e: React.MouseEvent) => {
-            e.stopPropagation()
-            onRemove()
-          }}
-          aria-label={`${TOOLTIP_REMOVE} ${sourceName}`}
-        >
-          <TrashOutlined />
-        </Button>
-      </Tooltip>
+      <>
+        <Tooltip title={TOOLTIP_REMOVE}>
+          <Button
+            size={ButtonSize.Small}
+            type={ButtonType.Tertiary}
+            icon
+            onClick={(e: React.MouseEvent) => {
+              e.stopPropagation()
+              onRemove()
+            }}
+            aria-label={`${TOOLTIP_REMOVE} ${sourceName}`}
+          >
+            <TrashOutlined />
+          </Button>
+        </Tooltip>
+        <Tooltip title={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}>
+          <Button
+            size={ButtonSize.Small}
+            type={ButtonType.Tertiary}
+            icon
+            onClick={(e: React.MouseEvent) => {
+              e.stopPropagation()
+              onToggleEnabled()
+            }}
+            aria-label={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}
+            style={{ marginLeft: '4px' }}
+          >
+            {isEnabled ? <VisibleOutlined /> : <InvisibleOutlined />}
+          </Button>
+        </Tooltip>
+      </>
     )
   }
 
