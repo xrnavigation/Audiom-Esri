@@ -76,33 +76,84 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     }
   }, [config, props])
 
+  // Get the effective map ID - prefer useMapWidgetIds from props, fall back to config
+  const effectiveMapId = props.useMapWidgetIds?.[0] || config?.existingMapId || ''
+
+  // Auto-sync existingMapId from props.useMapWidgetIds when it changes
+  // This handles the case when the widget is first added and useMapWidgetIds gets populated
+  useEffect(() => {
+    const mapIdFromProps = props.useMapWidgetIds?.[0]
+    if (mapIdFromProps && config?.existingMapId !== mapIdFromProps) {
+      logger.debug('Auto-syncing existingMapId from useMapWidgetIds:', mapIdFromProps)
+      props.onSettingChange({
+        id: props.id,
+        config: config.set(AudiomConfigKey.ExistingMapId, mapIdFromProps)
+      })
+    }
+  }, [props.useMapWidgetIds, config?.existingMapId, props, config])
+
   // Initialize MapSyncManager and listen for changes
   useEffect(() => {
-    if (!config?.useExistingMap || !config?.existingMapId) {
+    // Use default value when useExistingMap is undefined
+    const useExistingMap = config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap
+    
+    console.log('[Setting] Sync effect running - useExistingMap:', useExistingMap, 'effectiveMapId:', effectiveMapId, 'useMapWidgetIds:', props.useMapWidgetIds)
+    
+    if (!useExistingMap || !effectiveMapId) {
+      console.log('[Setting] Sync effect - early return, detaching. useExistingMap:', useExistingMap, 'effectiveMapId:', effectiveMapId)
       mapSyncManager.detach()
       return
     }
 
-    // Attach to the map and pass current config to detect initial mismatches
-    const attached = mapSyncManager.attach(config.existingMapId, config)
-    if (!attached) {
-      return
+    let retryInterval: ReturnType<typeof setInterval> | null = null
+    let isCleanedUp = false
+
+    const tryAttachAndSync = () => {
+      // Attach to the map and pass current config to detect initial mismatches
+      const attached = mapSyncManager.attach(effectiveMapId, config)
+      console.log('[Setting] tryAttachAndSync - attached:', attached, 'mapId:', effectiveMapId)
+      logger.debug('tryAttachAndSync - attached:', attached)
+      if (!attached) {
+        return false
+      }
+
+      // Do initial sync
+      const initialConfig = mapSyncManager.getCurrentConfig(effectiveMapId)
+      if (initialConfig) {
+        applyConfigFromMap(initialConfig)
+      }
+
+      // Listen for changes
+      mapSyncManager.addChangeListener(applyConfigFromMap)
+      return true
     }
 
-    // Do initial sync
-    const initialConfig = mapSyncManager.getCurrentConfig(config.existingMapId)
-    if (initialConfig) {
-      applyConfigFromMap(initialConfig)
-    }
+    // Try to attach immediately
+    const attachedImmediately = tryAttachAndSync()
 
-    // Listen for changes
-    mapSyncManager.addChangeListener(applyConfigFromMap)
+    // If not attached, retry every 500ms until successful or cleaned up
+    if (!attachedImmediately) {
+      logger.debug('Map view not ready, will retry...')
+      retryInterval = setInterval(() => {
+        if (isCleanedUp) {
+          if (retryInterval) clearInterval(retryInterval)
+          return
+        }
+        const attached = tryAttachAndSync()
+        if (attached) {
+          logger.debug('Successfully attached to map view after retry')
+          if (retryInterval) clearInterval(retryInterval)
+        }
+      }, 500)
+    }
 
     // Cleanup
     return () => {
+      isCleanedUp = true
+      if (retryInterval) clearInterval(retryInterval)
       mapSyncManager.removeChangeListener(applyConfigFromMap)
     }
-  }, [config?.useExistingMap, config?.existingMapId, applyConfigFromMap, mapSyncManager])
+  }, [config?.useExistingMap, effectiveMapId, applyConfigFromMap, mapSyncManager, config])
 
   const onMapWidgetSelected = (useMapWidgetIds: string[]) => {
     props.onSettingChange({
