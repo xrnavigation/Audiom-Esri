@@ -95,7 +95,7 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   }, [sanitizedConfig?.sourceConfigs, lastSyncedConfigJson])
 
   const mapConfig = audiomConfigToEmbedConfig(props.config, jimuMapView)
-  const embedUrl = mapConfig.toUrl(sanitizedConfig?.baseUrl || DEFAULT_CONFIG.baseUrl)
+  const embedUrl = mapConfig.toUrl(props.config?.baseUrl || DEFAULT_CONFIG.baseUrl)
 
   return (
     <div className="jimu-widget" style={styles.container}>

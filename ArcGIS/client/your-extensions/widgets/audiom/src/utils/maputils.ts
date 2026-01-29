@@ -127,8 +127,7 @@ function getOperationalLayers(map: __esri.Map): __esri.Collection<__esri.Layer> 
 
 export function getSourcesFromEsriMap(
   jimuMapView: JimuMapView | undefined,
-  config?: IAudiomConfig,
-  excludeRulesForDiff?: boolean
+  config?: IAudiomConfig
 ): AudiomSource[] {
   if (!jimuMapView || !jimuMapView.view) {
     logger.warn(LOG_NO_MAP_VIEW);
@@ -150,8 +149,8 @@ export function getSourcesFromEsriMap(
     sources.push(...layerSources);
   });
 
-  // Merge rules from config if provided and not excluding for diff
-  if (config && !excludeRulesForDiff) {
+  // Merge rules from config if provided
+  if (config) {
     sources.forEach(source => {
       const sourceConfig = config.sourceConfigs?.find(sc => 
         sc.sourceUrl === source.url || sc.source === source.source
@@ -162,15 +161,16 @@ export function getSourcesFromEsriMap(
     });
   }
 
-  // Strip rules if this is for diffing purposes
-  if (excludeRulesForDiff) {
-    sources.forEach(source => {
-      source.rules = undefined;
-    });
-  }
-
   logger.debug(`${LOG_EXTRACTED_SOURCES} ${sources.length} sources from map`);
   return sources;
+}
+
+/**
+ * Removes rules file URLs from source configs for diff comparison.
+ * Rules files should not trigger a map change detection.
+ */
+export function sanitizeSourceConfigsForDiff<T extends { rulesFileUrl?: string }>(sourceConfigs: T[]): T[] {
+  return sourceConfigs.map(sc => ({ ...sc, rulesFileUrl: undefined }));
 }
 
 export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapViewManager): {
@@ -207,8 +207,8 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     enabled?: boolean;
   }> = [];
 
-  // Get sources without rules for diff comparison
-  const layerSources = getSourcesFromEsriMap(jimuMapView, undefined, true);
+  // Get sources from map (without config, so no rules merged)
+  const layerSources = getSourcesFromEsriMap(jimuMapView);
   
   layerSources.forEach(source => {
     // Find the corresponding layer to get visibility
@@ -221,7 +221,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
       source: source.source,
       sourceUrl: source.url,
       mapType: source.mapType,
-      rulesFileUrl: undefined, // Exclude rules from diff
+      // Don't include rulesFileUrl - it's not from the map and shouldn't affect diff
       enabled: layer?.visible ?? true
     });
   });
