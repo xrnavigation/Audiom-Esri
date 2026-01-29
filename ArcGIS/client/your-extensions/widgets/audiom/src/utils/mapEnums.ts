@@ -15,7 +15,7 @@ export enum LayerType {
   // Feature/Data Layers
   FEATURE = 'feature',
   CSV = 'csv',
-  GEOJSON = 'geo-json',
+  GEOJSON = 'geojson',
   GEO_RSS = 'geo-rss',
   KML = 'kml',
   WFS = 'wfs',

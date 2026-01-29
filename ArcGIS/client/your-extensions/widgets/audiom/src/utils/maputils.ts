@@ -42,33 +42,17 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
 
   if (config.useExistingMap) {
     const jimuMapView = jmv;
-    const mapSources = getSourcesFromEsriMap(jimuMapView);
+    // Get sources from map and merge in rules from config
+    const mapSources = getSourcesFromEsriMap(jimuMapView, config);
 
-    // Filter sources based on enabled status from config and merge in rules file URLs
-    const enabledSources = mapSources
-      .map(mapSource => {
-        const sourceConfig = config.sourceConfigs?.find(sc => 
-          sc.sourceUrl === mapSource.url || sc.source === mapSource.source
-        );
-        // Merge rules file URL from config into the map source
-        if (sourceConfig?.rulesFileUrl) {
-          return AudiomSource.fromEsri({
-            name: mapSource.name,
-            source: mapSource.source,
-            url: mapSource.url,
-            mapType: mapSource.mapType,
-            rules: sourceConfig.rulesFileUrl
-          });
-        }
-        return mapSource;
-      })
-      .filter(mapSource => {
-        const sourceConfig = config.sourceConfigs?.find(sc => 
-          sc.sourceUrl === mapSource.url || sc.source === mapSource.source
-        );
-        // If source is in config, respect its enabled status; otherwise include it (default enabled)
-        return sourceConfig ? sourceConfig.enabled !== false : true;
-      });
+    // Filter sources based on enabled status from config
+    const enabledSources = mapSources.filter(mapSource => {
+      const sourceConfig = config.sourceConfigs?.find(sc => 
+        sc.sourceUrl === mapSource.url || sc.source === mapSource.source
+      );
+      // If source is in config, respect its enabled status; otherwise include it (default enabled)
+      return sourceConfig ? sourceConfig.enabled !== false : true;
+    });
 
     sources.push(...enabledSources);
   } else {
@@ -141,7 +125,11 @@ function getOperationalLayers(map: __esri.Map): __esri.Collection<__esri.Layer> 
   );
 }
 
-export function getSourcesFromEsriMap(jimuMapView: JimuMapView | undefined): AudiomSource[] {
+export function getSourcesFromEsriMap(
+  jimuMapView: JimuMapView | undefined,
+  config?: IAudiomConfig,
+  excludeRulesForDiff?: boolean
+): AudiomSource[] {
   if (!jimuMapView || !jimuMapView.view) {
     logger.warn(LOG_NO_MAP_VIEW);
     return [];
@@ -161,6 +149,25 @@ export function getSourcesFromEsriMap(jimuMapView: JimuMapView | undefined): Aud
     const layerSources = processLayer(layer);
     sources.push(...layerSources);
   });
+
+  // Merge rules from config if provided and not excluding for diff
+  if (config && !excludeRulesForDiff) {
+    sources.forEach(source => {
+      const sourceConfig = config.sourceConfigs?.find(sc => 
+        sc.sourceUrl === source.url || sc.source === source.source
+      );
+      if (sourceConfig?.rulesFileUrl) {
+        source.rules = sourceConfig.rulesFileUrl;
+      }
+    });
+  }
+
+  // Strip rules if this is for diffing purposes
+  if (excludeRulesForDiff) {
+    sources.forEach(source => {
+      source.rules = undefined;
+    });
+  }
 
   logger.debug(`${LOG_EXTRACTED_SOURCES} ${sources.length} sources from map`);
   return sources;
@@ -200,19 +207,22 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     enabled?: boolean;
   }> = [];
 
-  const operationalLayers = getOperationalLayers(view.map);
-
-  operationalLayers.forEach((layer) => {
-    const layerSources = processLayer(layer);
-    layerSources.forEach(source => {
-      sourceConfigs.push({
-        name: source.name,
-        source: source.source,
-        sourceUrl: source.url,
-        mapType: source.mapType,
-        rulesFileUrl: source.rules,
-        enabled: layer.visible // Respect layer visibility
-      });
+  // Get sources without rules for diff comparison
+  const layerSources = getSourcesFromEsriMap(jimuMapView, undefined, true);
+  
+  layerSources.forEach(source => {
+    // Find the corresponding layer to get visibility
+    const layer = view.map.allLayers.find(l => 
+      l.id === source.source || l.id === source.source.split('_')[0]
+    );
+    
+    sourceConfigs.push({
+      name: source.name,
+      source: source.source,
+      sourceUrl: source.url,
+      mapType: source.mapType,
+      rulesFileUrl: undefined, // Exclude rules from diff
+      enabled: layer?.visible ?? true
     });
   });
 
