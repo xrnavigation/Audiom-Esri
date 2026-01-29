@@ -45,16 +45,23 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
     // Get sources from map and merge in rules from config
     const mapSources = getSourcesFromEsriMap(jimuMapView, config);
 
-    // Filter sources based on enabled status from config
-    const enabledSources = mapSources.filter(mapSource => {
-      const sourceConfig = config.sourceConfigs?.find(sc => 
-        sc.sourceUrl === mapSource.url || sc.source === mapSource.source
-      );
-      // If source is in config, respect its enabled status; otherwise include it (default enabled)
-      return sourceConfig ? sourceConfig.enabled !== false : true;
-    });
+    // If map view is not available or returns no sources, fall back to config sources
+    if (mapSources.length === 0) {
+      logger.debug('No sources from map view, falling back to config sources');
+      const configSources = getSourcesFromConfig(config);
+      sources.push(...configSources);
+    } else {
+      // Filter sources based on enabled status from config
+      const enabledSources = mapSources.filter(mapSource => {
+        const sourceConfig = config.sourceConfigs?.find(sc => 
+          sc.sourceUrl === mapSource.url || sc.source === mapSource.source
+        );
+        // If source is in config, respect its enabled status; otherwise include it (default enabled)
+        return sourceConfig ? sourceConfig.enabled !== false : true;
+      });
 
-    sources.push(...enabledSources);
+      sources.push(...enabledSources);
+    }
   } else {
     const configSources = getSourcesFromConfig(config);
     sources.push(...configSources);

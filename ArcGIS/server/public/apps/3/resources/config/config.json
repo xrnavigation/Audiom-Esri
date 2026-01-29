@@ -1343,7 +1343,7 @@
         "useExistingMap": false,
         "centerLatitude": 22.054494266122198,
         "centerLongitude": -159.54878133046316,
-        "zoom": 11,
+        "zoom": 10,
         "sourceConfigs": [
           {
             "name": "Tract",
@@ -1560,7 +1560,7 @@
     "portalUrl": "https://xrnavigation.maps.arcgis.com",
     "enableA11yForWidgetSettings": true
   },
-  "timestamp": 1769654050175,
+  "timestamp": 1769655808093,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {

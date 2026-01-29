@@ -2,7 +2,7 @@
   "created": 1764811324055,
   "description": "",
   "id": "2",
-  "modified": 1769653672196,
+  "modified": 1769656999265,
   "owner": "scionofdesign@gmail.com",
   "tags": [
     "indoor",
@@ -16,9 +16,9 @@
     "EXB Experience",
     "Ready To Use",
     "JavaScript",
-    "status: Published",
+    "status: Changed",
     "version:1.19.0",
-    "modified: 1769653670020",
+    "modified: 1769656999263",
     "publishVersion:1.19.0"
   ],
   "portalUrl": "https://xrnavigation.maps.arcgis.com",
