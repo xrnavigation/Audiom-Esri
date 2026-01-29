@@ -31,6 +31,9 @@
         "webpack://exb-client/*": "${webRoot}/*"
       },
       "userDataDir": true,
+      "presentation": {
+        "hidden": true
+      }
     },
     {
       "type": "msedge",
@@ -42,16 +45,19 @@
         "webpack://exb-client/*": "${webRoot}/*"
       },
       "userDataDir": true,
+      "presentation": {
+        "hidden": true
+      }
     }
   ],
   "compounds": [
     {
-      "name": "Full Debug (Edge)",
+      "name": "Start Debugging (Edge)",
       "configurations": ["Start Server", "Start Client", "Debug in Edge"],
       "stopAll": true
     },
     {
-      "name": "Full Debug (Chrome)",
+      "name": "Start Debugging (Chrome)",
       "configurations": ["Start Server", "Start Client", "Debug in Chrome"],
       "stopAll": true
     }
