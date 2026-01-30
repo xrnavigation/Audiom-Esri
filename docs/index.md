@@ -1,5 +1,7 @@
 # 🗺️ Audiom Maps - ESRI Experience Builder
 
+<video src="./Audiom - Widget Demo.mp4" width="900" controls></video>
+
 This page provides a list of different maps made using the Audiom widget for ESRI Experience Builder.
 
 - [Map of the ESRI Building](./samples/esri-building/)
