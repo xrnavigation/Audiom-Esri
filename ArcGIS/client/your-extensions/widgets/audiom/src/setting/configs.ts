@@ -21,6 +21,9 @@ export const DEFAULT_CONFIG = {
   centerLongitude: 0,
   sourceConfigs: [] as ISourceConfig[],
   titleLocked: true,
+  centerLatitudeLocked: true,
+  centerLongitudeLocked: true,
+  zoomLocked: true,
 } as const satisfies Partial<IAudiomConfig>
 
 export interface FieldConfig {
@@ -65,8 +68,11 @@ export interface IAudiomConfig {
   soundpackUrl?: string
   sourceConfigs?: ISourceConfig[]
   centerLatitude?: number
+  centerLatitudeLocked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual value.
   centerLongitude?: number
+  centerLongitudeLocked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual value.
   zoom?: number
+  zoomLocked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual value.
   useExistingMap?: boolean
   existingMapId?: string
   // Jimu ImmutableObject methods - these are added by the framework

@@ -33,8 +33,11 @@ export enum AudiomConfigKey {
   SoundpackUrl = 'soundpackUrl',
   SourceConfigs = 'sourceConfigs',
   CenterLatitude = 'centerLatitude',
+  CenterLatitudeLocked = 'centerLatitudeLocked',
   CenterLongitude = 'centerLongitude',
+  CenterLongitudeLocked = 'centerLongitudeLocked',
   Zoom = 'zoom',
+  ZoomLocked = 'zoomLocked',
   UseExistingMap = 'useExistingMap',
   ExistingMapId = 'existingMapId'
 }
