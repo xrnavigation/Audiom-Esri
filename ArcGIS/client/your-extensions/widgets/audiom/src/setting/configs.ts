@@ -3,6 +3,7 @@ import type { React } from 'jimu-core'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import { FieldType } from './enums'
+import type { LockableFieldName } from './configKeys'
 
 /**
  * Centralized default configuration values for the Audiom widget.
@@ -43,6 +44,10 @@ export interface FieldConfig {
   renderAfter?: () => React.ReactElement
   /** Optional callback to render custom field content (used with FieldType.Custom) */
   renderCustom?: () => React.ReactElement
+  /** If true, this field supports lock/unlock for map sync */
+  lockable?: boolean
+  /** The LockableFieldName for this field (required if lockable is true) */
+  lockableFieldName?: LockableFieldName
 }
 
 export interface ISourceConfig {

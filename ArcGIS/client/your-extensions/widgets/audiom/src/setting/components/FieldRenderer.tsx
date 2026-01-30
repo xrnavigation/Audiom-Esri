@@ -4,6 +4,7 @@ import { TextInput, NumericInput, Switch, Select, Option, Label } from 'jimu-ui'
 import { FieldConfig } from '../configs'
 import { FieldType, FlowType, Colors } from '../enums'
 import CopyableLabel from './CopyableLabel'
+import LockableField, { LockableFieldType } from './LockableField'
 
 interface FieldRendererProps {
   /** The field configuration defining type, label, validation, etc. */
@@ -16,6 +17,12 @@ interface FieldRendererProps {
   disabled?: boolean
   /** Optional suffix text to display after the label (e.g., current value preview) */
   labelSuffix?: string
+  /** Whether the field is locked (for lockable fields) */
+  locked?: boolean
+  /** Whether to show the lock button (for lockable fields) */
+  showLockButton?: boolean
+  /** Callback when lock toggle is clicked (for lockable fields) */
+  onLockToggle?: () => void
 }
 
 /**
@@ -36,10 +43,32 @@ interface FieldRendererProps {
  * - Validation feedback on blur/accept
  */
 const FieldRenderer = (props: FieldRendererProps) => {
-  const { field, value, onChange, disabled = false, labelSuffix } = props
+  const { field, value, onChange, disabled = false, labelSuffix, locked, showLockButton, onLockToggle } = props
 
   const handleChange = (newValue: unknown) => {
     onChange(field.key, newValue)
+  }
+
+  // If field is lockable and has lockable config, render LockableField
+  if (field.lockable && field.lockableFieldName !== undefined) {
+    const lockableType = field.type === FieldType.Number ? LockableFieldType.Number : LockableFieldType.Text
+    return (
+      <React.Fragment key={field.key}>
+        <LockableField
+          label={field.label}
+          value={field.type === FieldType.Number ? (value as number) : String(value ?? '')}
+          locked={locked ?? false}
+          showLockButton={showLockButton ?? false}
+          onLockToggle={onLockToggle ?? (() => {})}
+          onChange={handleChange}
+          type={lockableType}
+          min={field.min}
+          max={field.max}
+          placeholder={field.placeholder}
+        />
+        {field.renderAfter?.()}
+      </React.Fragment>
+    )
   }
 
   const renderLabel = () => {

@@ -1,6 +1,6 @@
 import { React } from 'jimu-core'
 import { MapSyncConfig } from '../../utils/mapSyncManager'
-import { IAudiomConfig } from '../configs'
+import { DEFAULT_CONFIG, IAudiomConfig } from '../configs'
 import { AudiomConfigKey, LockableFieldName } from '../configKeys'
 
 const { useState, useCallback } = React
@@ -20,32 +20,33 @@ export interface LockableFieldConfig {
 }
 
 /**
- * Map of lockable field configurations
+ * Map of lockable field configurations.
+ * Default values are sourced from DEFAULT_CONFIG for consistency.
  */
 export const LOCKABLE_FIELDS: Record<LockableFieldName, LockableFieldConfig> = {
   [LockableFieldName.Title]: {
     valueKey: AudiomConfigKey.Title,
     lockedKey: AudiomConfigKey.TitleLocked,
-    defaultLocked: true,
+    defaultLocked: DEFAULT_CONFIG.titleLocked,
     defaultValue: ''
   },
   [LockableFieldName.CenterLatitude]: {
     valueKey: AudiomConfigKey.CenterLatitude,
     lockedKey: AudiomConfigKey.CenterLatitudeLocked,
-    defaultLocked: true,
-    defaultValue: 0
+    defaultLocked: DEFAULT_CONFIG.centerLatitudeLocked,
+    defaultValue: DEFAULT_CONFIG.centerLatitude
   },
   [LockableFieldName.CenterLongitude]: {
     valueKey: AudiomConfigKey.CenterLongitude,
     lockedKey: AudiomConfigKey.CenterLongitudeLocked,
-    defaultLocked: true,
-    defaultValue: 0
+    defaultLocked: DEFAULT_CONFIG.centerLongitudeLocked,
+    defaultValue: DEFAULT_CONFIG.centerLongitude
   },
   [LockableFieldName.Zoom]: {
     valueKey: AudiomConfigKey.Zoom,
     lockedKey: AudiomConfigKey.ZoomLocked,
-    defaultLocked: true,
-    defaultValue: 10
+    defaultLocked: DEFAULT_CONFIG.zoomLocked,
+    defaultValue: DEFAULT_CONFIG.zoom
   }
 }
 
@@ -139,6 +140,37 @@ export function useMapSyncState(
     return currentValue !== mapValue
   }, [isFieldLocked, getFieldValue])
 
+  /**
+   * Sync all locked fields from map config to widget config.
+   * Returns updated config with all locked fields synced.
+   */
+  const syncLockedFieldsToConfig = useCallback((
+    currentConfig: IAudiomConfig,
+    mapConfig: MapSyncConfig
+  ): IAudiomConfig => {
+    let newConfig = currentConfig
+
+    // Map of field names to their corresponding MapSyncConfig values
+    const fieldValueMap: Record<LockableFieldName, string | number | undefined> = {
+      [LockableFieldName.Title]: mapConfig.title,
+      [LockableFieldName.CenterLatitude]: mapConfig.centerLatitude,
+      [LockableFieldName.CenterLongitude]: mapConfig.centerLongitude,
+      [LockableFieldName.Zoom]: mapConfig.zoom
+    }
+
+    // Iterate over all lockable fields and sync if locked
+    for (const fieldName of Object.values(LockableFieldName)) {
+      const fieldConfig = LOCKABLE_FIELDS[fieldName]
+      const mapValue = fieldValueMap[fieldName]
+      
+      if (isFieldLocked(fieldName) && mapValue !== undefined) {
+        newConfig = newConfig.set(fieldConfig.valueKey as keyof IAudiomConfig, mapValue as any)
+      }
+    }
+
+    return newConfig
+  }, [isFieldLocked])
+
   return {
     mapValues,
     updateMapValues,
@@ -146,6 +178,7 @@ export function useMapSyncState(
     getFieldValue,
     getMapValue,
     createLockToggleHandler,
-    fieldNeedsUpdate
+    fieldNeedsUpdate,
+    syncLockedFieldsToConfig
   }
 }
