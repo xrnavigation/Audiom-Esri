@@ -10,6 +10,7 @@ import { DEFAULT_CONFIG, IAudiomConfig } from "../setting/configs";
 import { isConfigValid } from "../setting/validation/validation";
 import { createLogger } from './logger';
 import { LayerType, isExcludedLayerType } from './mapEnums';
+import { getMapTitle } from './esriTypes';
 
 const logger = createLogger('MapUtils');
 
@@ -205,9 +206,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
   const zoom = view.zoom;
   
   // Extract title from the map's portal item if available
-  // Use type assertion since portalItem might not be in the type definition but exists at runtime
-  const map = view.map as unknown as { portalItem?: { title?: string }; title?: string };
-  const mapTitle = map?.portalItem?.title || map?.title || undefined;
+  const mapTitle = getMapTitle(view.map);
   
   // Extract sources from the map, respecting layer visibility
   // Use allLayers and filter out basemap layers

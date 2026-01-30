@@ -243,18 +243,9 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     { key: AudiomConfigKey.Zoom, label: 'Zoom Level', type: FieldType.Number, min: VALIDATION.ZOOM_MIN, max: VALIDATION.ZOOM_MAX, defaultValue: DEFAULT_CONFIG.zoom, lockable: true, lockableFieldName: LockableFieldName.Zoom }
   ]
 
-  // Title field - lockable when using existing map
-  const titleField: FieldConfig = { 
-    key: AudiomConfigKey.Title, 
-    label: 'Title', 
-    type: FieldType.Text, 
-    placeholder: 'Enter widget title',
-    lockable: true, 
-    lockableFieldName: LockableFieldName.Title 
-  }
-
-  // Display fields - appearance & behavior (Title is rendered separately with lock/unlock)
+  // Display fields - appearance & behavior
   const displayFields: FieldConfig[] = [
+    { key: AudiomConfigKey.Title, label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title', lockable: true, lockableFieldName: LockableFieldName.Title },
     { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Custom, showCopyButton: false, renderCustom: renderStepSizeUnitSelector },
     { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
@@ -328,7 +319,6 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       </SettingSection>
 
       <SettingSection title="Display">
-        {renderField(titleField, false)}
         {displayFields.map((field) => {
           // Only show Heading Size if Show Heading is true
           if (field.key === AudiomConfigKey.Heading) {
