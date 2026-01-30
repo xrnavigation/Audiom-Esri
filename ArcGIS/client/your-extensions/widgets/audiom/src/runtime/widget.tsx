@@ -1,5 +1,5 @@
 import { type AllWidgetProps, React, ReactRedux, AppMode, type IMState } from 'jimu-core'
-import { audiomConfigToEmbedConfig } from '../utils/maputils'
+import { audiomConfigToEmbedConfig } from '../utils/mapUtils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { getLockedSources } from '../utils/sourceConfigUtils'
 import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis'

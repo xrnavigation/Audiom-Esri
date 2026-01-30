@@ -25,6 +25,7 @@ export enum AudiomConfigKey {
   BaseUrl = 'baseUrl',
   Heading = 'heading',
   Title = 'title',
+  TitleLocked = 'titleLocked',
   StepSize = 'stepSize',
   StepSizeUnit = 'stepSizeUnit',
   ShowVisualMap = 'showVisualMap',
@@ -32,8 +33,19 @@ export enum AudiomConfigKey {
   SoundpackUrl = 'soundpackUrl',
   SourceConfigs = 'sourceConfigs',
   CenterLatitude = 'centerLatitude',
+  CenterLatitudeLocked = 'centerLatitudeLocked',
   CenterLongitude = 'centerLongitude',
+  CenterLongitudeLocked = 'centerLongitudeLocked',
   Zoom = 'zoom',
+  ZoomLocked = 'zoomLocked',
   UseExistingMap = 'useExistingMap',
   ExistingMapId = 'existingMapId'
+}
+
+/** Names of lockable fields that can sync with the map */
+export enum LockableFieldName {
+  Title = 'title',
+  CenterLatitude = 'centerLatitude',
+  CenterLongitude = 'centerLongitude',
+  Zoom = 'zoom'
 }

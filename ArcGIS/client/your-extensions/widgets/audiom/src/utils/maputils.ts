@@ -10,6 +10,7 @@ import { DEFAULT_CONFIG, IAudiomConfig } from "../setting/configs";
 import { isConfigValid } from "../setting/validation/validation";
 import { createLogger } from './logger';
 import { LayerType, isExcludedLayerType } from './mapEnums';
+import { getMapTitle } from './esriTypes';
 
 const logger = createLogger('MapUtils');
 
@@ -181,6 +182,7 @@ export function sanitizeSourceConfigsForDiff<T extends { rulesFileUrl?: string }
 }
 
 export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapViewManager): {
+  title?: string;
   centerLatitude?: number;
   centerLongitude?: number;
   zoom?: number;
@@ -202,6 +204,9 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
   const view = jimuMapView.view;
   const center = view.center;
   const zoom = view.zoom;
+  
+  // Extract title from the map's portal item if available
+  const mapTitle = getMapTitle(view.map);
   
   // Extract sources from the map, respecting layer visibility
   // Use allLayers and filter out basemap layers
@@ -234,6 +239,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
   });
 
   return {
+    title: mapTitle,
     centerLatitude: center.latitude,
     centerLongitude: center.longitude,
     zoom: zoom,

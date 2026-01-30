@@ -3,6 +3,7 @@ import type { React } from 'jimu-core'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import { FieldType } from './enums'
+import type { LockableFieldName } from './configKeys'
 
 /**
  * Centralized default configuration values for the Audiom widget.
@@ -20,6 +21,10 @@ export const DEFAULT_CONFIG = {
   centerLatitude: 0,
   centerLongitude: 0,
   sourceConfigs: [] as ISourceConfig[],
+  titleLocked: true,
+  centerLatitudeLocked: true,
+  centerLongitudeLocked: true,
+  zoomLocked: true,
 } as const satisfies Partial<IAudiomConfig>
 
 export interface FieldConfig {
@@ -39,6 +44,10 @@ export interface FieldConfig {
   renderAfter?: () => React.ReactElement
   /** Optional callback to render custom field content (used with FieldType.Custom) */
   renderCustom?: () => React.ReactElement
+  /** If true, this field supports lock/unlock for map sync */
+  lockable?: boolean
+  /** The LockableFieldName for this field (required if lockable is true) */
+  lockableFieldName?: LockableFieldName
 }
 
 export interface ISourceConfig {
@@ -56,6 +65,7 @@ export interface IAudiomConfig {
   baseUrl?: string
   heading?:  1 | 2 | 3 | 4 | 5 | 6;
   title?: string
+  titleLocked?: boolean  // When locked (default), syncs with map title. When unlocked, uses manual title.
   stepSize?: number
   stepSizeUnit?: StepSizeUnit
   showVisualMap?: boolean
@@ -63,8 +73,11 @@ export interface IAudiomConfig {
   soundpackUrl?: string
   sourceConfigs?: ISourceConfig[]
   centerLatitude?: number
+  centerLatitudeLocked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual value.
   centerLongitude?: number
+  centerLongitudeLocked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual value.
   zoom?: number
+  zoomLocked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual value.
   useExistingMap?: boolean
   existingMapId?: string
   // Jimu ImmutableObject methods - these are added by the framework
