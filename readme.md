@@ -138,3 +138,18 @@ volumes:
   - ./ArcGIS/server/public:/ArcGIS/server/public
 ```
 
+## Publishing Widgets
+
+### Building Widgets for Distribution
+
+1. Navigate to the client directory:
+   ```bash
+   cd ArcGIS/client
+   ```
+
+2. Build your widget(s) for production:
+   ```bash
+   npm run build:prod
+   ```
+
+   This command compiles your widgets in the `your-extensions` folder and outputs production-ready files to `dist/`.
