@@ -1,15 +1,15 @@
 import { React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
-import { NumericInput, Switch, Label, Button, ButtonGroup, Collapse, Tooltip, TextInput } from 'jimu-ui'
-import { LockOutlined } from 'jimu-icons/outlined/editor/lock'
-import { UnlockOutlined } from 'jimu-icons/outlined/editor/unlock'
+import { NumericInput, Switch, Button, ButtonGroup, Collapse, Tooltip, Label } from 'jimu-ui'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 
 import SourceConfigList from './components/SourceConfigList'
 import CopyableLabel from './components/CopyableLabel'
 import CollapsibleHeader from './components/CollapsibleHeader'
 import FieldRenderer from './components/FieldRenderer'
+import LockableField, { LockableFieldType } from './components/LockableField'
+import { useMapSyncState } from './hooks/useMapSyncState'
 import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/maputils'
 import { getMapSyncManager, MapSyncConfig } from '../utils/mapSyncManager'
 import { mergeSourcesPreservingUnlocked } from '../utils/sourceConfigUtils'
@@ -17,8 +17,8 @@ import { createLogger } from '../utils/logger'
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
 import { ButtonType, FieldType, FlowType, Colors } from './enums'
 import { Padding } from './paddings'
-import { AudiomConfigKey } from './configKeys'
-import { validateLatitude, validateLongitude, validateZoom, validateUrl, VALIDATION } from './validation/validation'
+import { AudiomConfigKey, LockableFieldName } from './configKeys'
+import { validateUrl, VALIDATION } from './validation/validation'
 
 const { useEffect, useCallback, useState } = React
 
@@ -28,10 +28,23 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
   const mapSyncManager = getMapSyncManager()
   const [mapSettingsOpen, setMapSettingsOpen] = useState(true)
-  const [mapTitle, setMapTitle] = useState<string | undefined>(undefined)
-  const [mapLatitude, setMapLatitude] = useState<number | undefined>(undefined)
-  const [mapLongitude, setMapLongitude] = useState<number | undefined>(undefined)
-  const [mapZoom, setMapZoom] = useState<number | undefined>(undefined)
+
+  // Helper to update config
+  const updateConfig = useCallback((newConfig: IAudiomConfig) => {
+    props.onSettingChange({
+      id: props.id,
+      config: newConfig
+    })
+  }, [props])
+
+  // Use the map sync state hook for lockable fields
+  const {
+    mapValues,
+    updateMapValues,
+    isFieldLocked,
+    createLockToggleHandler,
+    fieldNeedsUpdate
+  } = useMapSyncState(config, updateConfig)
 
   // Callback to apply synced config from MapSyncManager
   const applyConfigFromMap = useCallback((newMapConfig: MapSyncConfig) => {
@@ -45,54 +58,38 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     const mergedSourcesJson = JSON.stringify(mergedSources)
     
     // Track the map values for display/sync purposes
-    setMapTitle(newMapConfig.title)
-    setMapLatitude(newMapConfig.centerLatitude)
-    setMapLongitude(newMapConfig.centerLongitude)
-    setMapZoom(newMapConfig.zoom)
+    updateMapValues(newMapConfig)
     
     // Check which fields need to be updated (only if locked)
-    const titleLocked = config.titleLocked ?? DEFAULT_CONFIG.titleLocked
-    const latLocked = config.centerLatitudeLocked ?? DEFAULT_CONFIG.centerLatitudeLocked
-    const lngLocked = config.centerLongitudeLocked ?? DEFAULT_CONFIG.centerLongitudeLocked
-    const zoomLocked = config.zoomLocked ?? DEFAULT_CONFIG.zoomLocked
-    
-    const titleNeedsUpdate = titleLocked && config.title !== newMapConfig.title
-    const latNeedsUpdate = latLocked && config.centerLatitude !== newMapConfig.centerLatitude
-    const lngNeedsUpdate = lngLocked && config.centerLongitude !== newMapConfig.centerLongitude
-    const zoomNeedsUpdate = zoomLocked && config.zoom !== newMapConfig.zoom
-    
     const needsUpdate = 
-      latNeedsUpdate ||
-      lngNeedsUpdate ||
-      zoomNeedsUpdate ||
-      currentSourcesJson !== mergedSourcesJson ||
-      titleNeedsUpdate
+      fieldNeedsUpdate(LockableFieldName.CenterLatitude, newMapConfig.centerLatitude) ||
+      fieldNeedsUpdate(LockableFieldName.CenterLongitude, newMapConfig.centerLongitude) ||
+      fieldNeedsUpdate(LockableFieldName.Zoom, newMapConfig.zoom) ||
+      fieldNeedsUpdate(LockableFieldName.Title, newMapConfig.title) ||
+      currentSourcesJson !== mergedSourcesJson
 
     if (needsUpdate) {
       let newConfig = config.set(AudiomConfigKey.SourceConfigs, mergedSources)
       
       // Only sync each field if locked
-      if (latLocked && newMapConfig.centerLatitude !== undefined) {
+      if (isFieldLocked(LockableFieldName.CenterLatitude) && newMapConfig.centerLatitude !== undefined) {
         newConfig = newConfig.set(AudiomConfigKey.CenterLatitude, newMapConfig.centerLatitude)
       }
-      if (lngLocked && newMapConfig.centerLongitude !== undefined) {
+      if (isFieldLocked(LockableFieldName.CenterLongitude) && newMapConfig.centerLongitude !== undefined) {
         newConfig = newConfig.set(AudiomConfigKey.CenterLongitude, newMapConfig.centerLongitude)
       }
-      if (zoomLocked && newMapConfig.zoom !== undefined) {
+      if (isFieldLocked(LockableFieldName.Zoom) && newMapConfig.zoom !== undefined) {
         newConfig = newConfig.set(AudiomConfigKey.Zoom, newMapConfig.zoom)
       }
-      if (titleLocked && newMapConfig.title !== undefined) {
+      if (isFieldLocked(LockableFieldName.Title) && newMapConfig.title !== undefined) {
         newConfig = newConfig.set(AudiomConfigKey.Title, newMapConfig.title)
       }
 
       logger.debug('Auto-sync settings: Updated config with', mergedSources.length, 'sources')
 
-      props.onSettingChange({
-        id: props.id,
-        config: newConfig
-      })
+      updateConfig(newConfig)
     }
-  }, [config, props])
+  }, [config, updateConfig, updateMapValues, fieldNeedsUpdate, isFieldLocked])
 
   // Get the effective map ID - prefer useMapWidgetIds from props, fall back to config
   const effectiveMapId = props.useMapWidgetIds?.[0] || config?.existingMapId || ''
@@ -240,223 +237,74 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   }
 
   // Handle title lock/unlock toggle
-  const onTitleLockToggle = () => {
-    const currentLocked = config?.titleLocked ?? DEFAULT_CONFIG.titleLocked
-    let newConfig = config.set(AudiomConfigKey.TitleLocked, !currentLocked)
-    
-    // If relocking, reset title to map title
-    if (!currentLocked && mapTitle !== undefined) {
-      newConfig = newConfig.set(AudiomConfigKey.Title, mapTitle)
-    }
-    
-    props.onSettingChange({
-      id: props.id,
-      config: newConfig
-    })
-  }
-
-  // Handle latitude lock/unlock toggle
-  const onLatitudeLockToggle = () => {
-    const currentLocked = config?.centerLatitudeLocked ?? DEFAULT_CONFIG.centerLatitudeLocked
-    let newConfig = config.set(AudiomConfigKey.CenterLatitudeLocked, !currentLocked)
-    
-    // If relocking, reset to map value
-    if (!currentLocked && mapLatitude !== undefined) {
-      newConfig = newConfig.set(AudiomConfigKey.CenterLatitude, mapLatitude)
-    }
-    
-    props.onSettingChange({
-      id: props.id,
-      config: newConfig
-    })
-  }
-
-  // Handle longitude lock/unlock toggle
-  const onLongitudeLockToggle = () => {
-    const currentLocked = config?.centerLongitudeLocked ?? DEFAULT_CONFIG.centerLongitudeLocked
-    let newConfig = config.set(AudiomConfigKey.CenterLongitudeLocked, !currentLocked)
-    
-    // If relocking, reset to map value
-    if (!currentLocked && mapLongitude !== undefined) {
-      newConfig = newConfig.set(AudiomConfigKey.CenterLongitude, mapLongitude)
-    }
-    
-    props.onSettingChange({
-      id: props.id,
-      config: newConfig
-    })
-  }
-
-  // Handle zoom lock/unlock toggle
-  const onZoomLockToggle = () => {
-    const currentLocked = config?.zoomLocked ?? DEFAULT_CONFIG.zoomLocked
-    let newConfig = config.set(AudiomConfigKey.ZoomLocked, !currentLocked)
-    
-    // If relocking, reset to map value
-    if (!currentLocked && mapZoom !== undefined) {
-      newConfig = newConfig.set(AudiomConfigKey.Zoom, mapZoom)
-    }
-    
-    props.onSettingChange({
-      id: props.id,
-      config: newConfig
-    })
-  }
+  // Create lock toggle handlers using the hook
+  const onTitleLockToggle = createLockToggleHandler(LockableFieldName.Title)
+  const onLatitudeLockToggle = createLockToggleHandler(LockableFieldName.CenterLatitude)
+  const onLongitudeLockToggle = createLockToggleHandler(LockableFieldName.CenterLongitude)
+  const onZoomLockToggle = createLockToggleHandler(LockableFieldName.Zoom)
 
   // Render the custom title field with lock/unlock button when synced to a map
   const renderTitleField = () => {
     const useExistingMap = config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap
-    const titleLocked = config?.titleLocked ?? DEFAULT_CONFIG.titleLocked
     const currentTitle = config?.title ?? ''
     
-    // If not synced to a map, render as a regular text input
-    if (!useExistingMap) {
-      return (
-        <SettingRow flow={FlowType.Wrap}>
-          <CopyableLabel label="Title" copyValue={currentTitle} />
-          <TextInput
-            style={{ width: '100%' }}
-            value={currentTitle}
-            onChange={(e) => onPropertyChange(AudiomConfigKey.Title, e.target.value)}
-            placeholder="Enter widget title"
-            aria-label="Title"
-          />
-        </SettingRow>
-      )
-    }
-    
-    // If synced to a map, show lock/unlock button next to the copy icon in the label row
     return (
-      <SettingRow flow={FlowType.Wrap}>
-        <div style={{ display: 'flex', alignItems: 'center', width: '100%', marginBottom: 4 }}>
-          <Label style={{ flex: 1, marginBottom: 0 }}>Title</Label>
-          <Tooltip title={titleLocked ? 'Unlock to edit title manually' : 'Lock to sync with map title'}>
-            <Button
-              type="tertiary"
-              size="sm"
-              onClick={onTitleLockToggle}
-              aria-label={titleLocked ? 'Unlock title' : 'Lock title'}
-              style={{ padding: '2px', minWidth: 'auto', background: 'transparent', border: 'none' }}
-            >
-              {titleLocked ? <LockOutlined size={12} /> : <UnlockOutlined size={12} />}
-            </Button>
-          </Tooltip>
-          <CopyableLabel label="" copyValue={currentTitle} style={{ width: 'auto', marginBottom: 0 }} />
-        </div>
-        <TextInput
-          style={{ width: '100%' }}
-          value={currentTitle}
-          onChange={(e) => onPropertyChange(AudiomConfigKey.Title, e.target.value)}
-          placeholder="Enter widget title"
-          disabled={titleLocked}
-          aria-label="Title"
-        />
-      </SettingRow>
+      <LockableField
+        label="Title"
+        value={currentTitle}
+        locked={isFieldLocked(LockableFieldName.Title)}
+        showLockButton={useExistingMap}
+        onLockToggle={onTitleLockToggle}
+        onChange={(val) => onPropertyChange(AudiomConfigKey.Title, val)}
+        type={LockableFieldType.Text}
+        placeholder="Enter widget title"
+      />
     )
   }
 
   // Render map settings fields with lock/unlock buttons when synced to a map
   const renderMapSettingsFields = () => {
     const useExistingMap = config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap
-    const latLocked = config?.centerLatitudeLocked ?? DEFAULT_CONFIG.centerLatitudeLocked
-    const lngLocked = config?.centerLongitudeLocked ?? DEFAULT_CONFIG.centerLongitudeLocked
-    const zoomLocked = config?.zoomLocked ?? DEFAULT_CONFIG.zoomLocked
     
     const currentLat = config?.centerLatitude ?? DEFAULT_CONFIG.centerLatitude
     const currentLng = config?.centerLongitude ?? DEFAULT_CONFIG.centerLongitude
     const currentZoom = config?.zoom ?? DEFAULT_CONFIG.zoom
 
-    // Helper to render a lockable numeric field
-    const renderLockableNumericField = (
-      label: string,
-      value: number,
-      locked: boolean,
-      onLockToggle: () => void,
-      onChange: (val: number) => void,
-      configKey: AudiomConfigKey,
-      min?: number,
-      max?: number
-    ) => {
-      // If not synced to a map, render as a regular input (always editable)
-      if (!useExistingMap) {
-        return (
-          <SettingRow flow={FlowType.Wrap} key={configKey}>
-            <CopyableLabel label={label} copyValue={String(value)} />
-            <NumericInput
-              style={{ width: '100%' }}
-              value={value}
-              onChange={onChange}
-              min={min}
-              max={max}
-              aria-label={label}
-            />
-          </SettingRow>
-        )
-      }
-
-      // If synced to a map, show lock/unlock button
-      return (
-        <SettingRow flow={FlowType.Wrap} key={configKey}>
-          <div style={{ display: 'flex', alignItems: 'center', width: '100%', marginBottom: 4 }}>
-            <Label style={{ flex: 1, marginBottom: 0 }}>{label}</Label>
-            <Tooltip title={locked ? `Unlock to edit ${label.toLowerCase()} manually` : `Lock to sync with map`}>
-              <Button
-                type="tertiary"
-                size="sm"
-                onClick={onLockToggle}
-                aria-label={locked ? `Unlock ${label.toLowerCase()}` : `Lock ${label.toLowerCase()}`}
-                style={{ padding: '2px', minWidth: 'auto', background: 'transparent', border: 'none' }}
-              >
-                {locked ? <LockOutlined size={12} /> : <UnlockOutlined size={12} />}
-              </Button>
-            </Tooltip>
-            <CopyableLabel label="" copyValue={String(value)} style={{ width: 'auto', marginBottom: 0 }} />
-          </div>
-          <NumericInput
-            style={{ width: '100%' }}
-            value={value}
-            onChange={onChange}
-            min={min}
-            max={max}
-            disabled={locked}
-            aria-label={label}
-          />
-        </SettingRow>
-      )
-    }
-
     return (
       <>
-        {renderLockableNumericField(
-          'Center Latitude',
-          currentLat,
-          latLocked,
-          onLatitudeLockToggle,
-          (val) => onPropertyChange(AudiomConfigKey.CenterLatitude, val),
-          AudiomConfigKey.CenterLatitude,
-          VALIDATION.LATITUDE_MIN,
-          VALIDATION.LATITUDE_MAX
-        )}
-        {renderLockableNumericField(
-          'Center Longitude',
-          currentLng,
-          lngLocked,
-          onLongitudeLockToggle,
-          (val) => onPropertyChange(AudiomConfigKey.CenterLongitude, val),
-          AudiomConfigKey.CenterLongitude,
-          VALIDATION.LONGITUDE_MIN,
-          VALIDATION.LONGITUDE_MAX
-        )}
-        {renderLockableNumericField(
-          'Zoom Level',
-          currentZoom,
-          zoomLocked,
-          onZoomLockToggle,
-          (val) => onPropertyChange(AudiomConfigKey.Zoom, val),
-          AudiomConfigKey.Zoom,
-          VALIDATION.ZOOM_MIN,
-          VALIDATION.ZOOM_MAX
-        )}
+        <LockableField
+          label="Center Latitude"
+          value={currentLat}
+          locked={isFieldLocked(LockableFieldName.CenterLatitude)}
+          showLockButton={useExistingMap}
+          onLockToggle={onLatitudeLockToggle}
+          onChange={(val) => onPropertyChange(AudiomConfigKey.CenterLatitude, val)}
+          type={LockableFieldType.Number}
+          min={VALIDATION.LATITUDE_MIN}
+          max={VALIDATION.LATITUDE_MAX}
+        />
+        <LockableField
+          label="Center Longitude"
+          value={currentLng}
+          locked={isFieldLocked(LockableFieldName.CenterLongitude)}
+          showLockButton={useExistingMap}
+          onLockToggle={onLongitudeLockToggle}
+          onChange={(val) => onPropertyChange(AudiomConfigKey.CenterLongitude, val)}
+          type={LockableFieldType.Number}
+          min={VALIDATION.LONGITUDE_MIN}
+          max={VALIDATION.LONGITUDE_MAX}
+        />
+        <LockableField
+          label="Zoom Level"
+          value={currentZoom}
+          locked={isFieldLocked(LockableFieldName.Zoom)}
+          showLockButton={useExistingMap}
+          onLockToggle={onZoomLockToggle}
+          onChange={(val) => onPropertyChange(AudiomConfigKey.Zoom, val)}
+          type={LockableFieldType.Number}
+          min={VALIDATION.ZOOM_MIN}
+          max={VALIDATION.ZOOM_MAX}
+        />
       </>
     )
   }

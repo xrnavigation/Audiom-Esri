@@ -41,3 +41,11 @@ export enum AudiomConfigKey {
   UseExistingMap = 'useExistingMap',
   ExistingMapId = 'existingMapId'
 }
+
+/** Names of lockable fields that can sync with the map */
+export enum LockableFieldName {
+  Title = 'title',
+  CenterLatitude = 'centerLatitude',
+  CenterLongitude = 'centerLongitude',
+  Zoom = 'zoom'
+}
