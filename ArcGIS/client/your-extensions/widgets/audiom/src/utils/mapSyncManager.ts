@@ -1,5 +1,5 @@
 import { JimuMapView, JimuLayerView, MapViewManager } from 'jimu-arcgis'
-import { getJimuMapViewById, extractMapConfigFromEsriMap } from './maputils'
+import { getJimuMapViewById, extractMapConfigFromEsriMap } from './mapUtils'
 import { ISourceConfig } from '../setting/configs'
 import { getLockedSources, getUnlockedSourceIds, excludeSourcesByIds, stripUserControlledProperties } from './sourceConfigUtils'
 import { createLogger } from './logger'
