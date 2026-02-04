@@ -10,6 +10,10 @@ This page provides a list of different maps made using the Audiom widget for ESR
 
 ## 📦 Installing the Audiom Widget
 
+### Obtaining an Audiom API Key
+
+Before Audiom will work, you need an Audiom API key. [Contact the XR Navigation team if you need an API key.](https://xrnavigation.io/contact)
+
 ### 🌐 For ArcGIS Enterprise Users
 
 You must register each custom widget in your portal. Portal administrator privileges are required to register a custom widget.
