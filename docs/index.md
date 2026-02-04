@@ -34,6 +34,10 @@ You must register each custom widget in your portal. Portal administrator privil
 2. Extract the Widget contents to `<ArcGIS Developer Edition>/client/your-extensions/widgets/`
 
 
+## 🎧 Using the Audiom Widget
+
+For detailed instructions on how to use the Audiom widget to easiliy make your own maps accessible, [please checkout our setup instructions.](./setup/)
+
 ## 🔧 Embedding Audiom Using the Embed Widget
 
 For those using ArcGIS Online or those without the ability to use custom widgets, the built-in [Embed Widget](https://doc.arcgis.com/en/experience-builder/latest/configure-widgets/embed-widget.htm) can be used instead.

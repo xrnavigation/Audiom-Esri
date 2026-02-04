@@ -1324,7 +1324,7 @@
         "honorThemeFont": false,
         "enableLabel": false,
         "embedCode": "",
-        "autoRefresh": true
+        "autoRefresh": false
       },
       "id": "widget_114",
       "useDataSourcesEnabled": false,
@@ -1586,12 +1586,12 @@
       }
     }
   },
-  "publishTimestamp": 1769657204017,
+  "publishTimestamp": 1770085333156,
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com",
     "enableA11yForWidgetSettings": true
   },
-  "timestamp": 1769657203799,
+  "timestamp": 1770085329254,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {
