@@ -36,7 +36,7 @@ You must register each custom widget in your portal. Portal administrator privil
 
 ## 🎧 Using the Audiom Widget
 
-For detailed instructions on how to use the Audiom widget to easiliy make your own maps accessible, [please checkout our setup instructions.](./setup/)
+For detailed instructions on how to use the Audiom widget to easily make your own maps accessible, [please checkout our setup instructions.](./setup/)
 
 ## 🔧 Embedding Audiom Using the Embed Widget
 
