@@ -22,7 +22,7 @@
     {{ content }}
   </main>
   <footer>
-    <p>&copy; 2026 <a href="https://xrnavigation.io">XR Navigation Inc.</a></p>
+    <p>&copy; {{ site.time | date: "%Y" | default: "2026" }} <a href="https://xrnavigation.io">XR Navigation Inc.</a></p>
   </footer>
 </body>
 </html>
