@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ page.title | default: site.title }}</title>
+  <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+</head>
+<body>
+  <header>
+    <a href="{{ '/' | relative_url }}" class="logo">
+      <img src="{{ '/assets/images/logo.png' | relative_url }}" alt="XR Navigation">
+    </a>
+    <nav>
+      <a href="{{ '/' | relative_url }}">Home</a>
+      <a href="{{ '/setup/' | relative_url }}">Setup Guide</a>
+      <a href="{{ '/embedding' | relative_url }}">Embed API</a>
+      <a href="https://xrnavigation.io/contact">Contact</a>
+    </nav>
+  </header>
+  <main>
+    {{ content }}
+  </main>
+  <footer>
+    <p>&copy; {{ site.time | date: "%Y" | default: "2026" }} <a href="https://xrnavigation.io">XR Navigation Inc.</a></p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh issue view:*)",
+      "WebFetch(domain:services7.arcgis.com)",
+      "WebFetch(domain:services.arcgis.com)",
+      "WebFetch(domain:services5.arcgis.com)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)"
+    ]
+  }
+}

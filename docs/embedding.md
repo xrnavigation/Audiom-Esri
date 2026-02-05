@@ -1,6 +1,10 @@
+---
+title: Audiom Embed Endpoint Documentation
+---
+
 # Audiom Embed Endpoint Documentation
 
-The Audiom Embed Endpoint allows you to integrate the Audiom inclusive mapping solution into your platform using an iFrame. The service dynamically generates an interactive map based on the URL query parameters provided.
+The Audiom Embed Endpoint allows you to integrate the Audiom inclusive map solution into your platform using an iFrame. The service dynamically generates an interactive map based on the URL query parameters provided.
 
 ## URL Structure
 
@@ -26,6 +30,8 @@ The following parameters can be passed via the URL query string:
 
 - **Description**: Your API key, necessary for fetching map data.
 - **Example**: `apiKey=abcxyz123456`
+
+[Contact the XR Navigation team if you need an API key.](https://xrnavigation.io/contact)
 
 ### `sources` (Optional)
 

@@ -1,3 +1,7 @@
+---
+title: Audiom Maps - ESRI Experience Builder
+---
+
 # 🗺️ Audiom Maps - ESRI Experience Builder
 
 <iframe width="900" height="506" src="https://www.youtube.com/embed/g26lc8rVu4g" frameborder="0" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
@@ -9,6 +13,10 @@ This page provides a list of different maps made using the Audiom widget for ESR
 
 
 ## 📦 Installing the Audiom Widget
+
+### Obtaining an Audiom API Key
+
+Before Audiom will work, you need an Audiom API key. [Contact the XR Navigation team if you need an API key.](https://xrnavigation.io/contact)
 
 ### 🌐 For ArcGIS Enterprise Users
 

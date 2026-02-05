@@ -1,0 +1,12 @@
+title: Audiom Maps
+description: Accessible maps using the Audiom widget for ESRI Experience Builder
+url: https://esri.xrnavigation.io
+
+markdown: kramdown
+highlighter: rouge
+
+defaults:
+- scope:
+    path: ""
+  values:
+    layout: default
