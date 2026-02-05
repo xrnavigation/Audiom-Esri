@@ -15,3 +15,4 @@ ArcGIS/server/*
 !ArcGIS/server/start-server.bat
 !ArcGIS/server/public/
 __pycache__
+/docs/_site

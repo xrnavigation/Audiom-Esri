@@ -1,3 +1,7 @@
+---
+title: Setting Up the Audiom Widget
+---
+
 # Setting Up the Audiom Widget in ArcGIS Experience Builder
 
 This tutorial walks you through adding the Audiom widget to an ArcGIS Experience Builder project using the Esri Building sample map.

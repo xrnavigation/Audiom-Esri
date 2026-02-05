@@ -1,3 +1,7 @@
+---
+title: Audiom Embed Endpoint Documentation
+---
+
 # Audiom Embed Endpoint Documentation
 
 The Audiom Embed Endpoint allows you to integrate the Audiom inclusive map solution into your platform using an iFrame. The service dynamically generates an interactive map based on the URL query parameters provided.
