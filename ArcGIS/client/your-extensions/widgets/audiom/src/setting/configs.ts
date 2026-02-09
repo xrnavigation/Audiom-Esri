@@ -56,6 +56,7 @@ export interface ISourceConfig {
   sourceUrl?: string
   rulesFileUrl?: string
   mapType?: MapType
+  where?: string  // Definition expression / where clause to filter features
   enabled?: boolean
   locked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual enabled state.
 }

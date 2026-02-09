@@ -52,6 +52,11 @@ export interface IAudiomSource {
   rules?: string;
 
   /**
+   * Where clause / definition expression to filter features
+   */
+  where?: string;
+
+  /**
    * Additional custom parameters for the source
    */
   additionalParams?: Record<string, string | number | boolean>;
@@ -67,6 +72,7 @@ export class AudiomSource implements IAudiomSource {
   name?: string;
   url?: string;
   rules?: string;
+  where?: string;
   additionalParams?: Record<string, string | number | boolean>;
 
   constructor(config: IAudiomSource) {
@@ -76,6 +82,7 @@ export class AudiomSource implements IAudiomSource {
     this.name = config.name;
     this.url = config.url;
     this.rules = config.rules;
+    this.where = config.where;
     this.additionalParams = config.additionalParams;
   }
 
@@ -106,6 +113,7 @@ export class AudiomSource implements IAudiomSource {
     name?: string;
     mapType?: MapType;
     rules?: string;
+    where?: string;
   }): AudiomSource {
     return new AudiomSource({
       source: config.source,
@@ -113,7 +121,8 @@ export class AudiomSource implements IAudiomSource {
       url: config.url,
       name: config.name,
       mapType: config.mapType,
-      rules: config.rules
+      rules: config.rules,
+      where: config.where
     });
   }
 
@@ -138,6 +147,9 @@ export class AudiomSource implements IAudiomSource {
     }
     if (this.rules) {
       params[`${this.source}.rules`] = this.rules;
+    }
+    if (this.where) {
+      params[`${this.source}.where`] = this.where;
     }
     if (this.additionalParams) {
       Object.entries(this.additionalParams).forEach(([key, value]) => {

@@ -96,7 +96,8 @@ export function getSourcesFromConfig(config: IAudiomConfig): AudiomSource[] {
         source: sourceConfig.source,
         url: sourceConfig.sourceUrl,
         mapType: sourceConfig.mapType || MapType.Indoor,
-        rules: sourceConfig.rulesFileUrl || ''
+        rules: sourceConfig.rulesFileUrl || '',
+        where: sourceConfig.where || undefined
       });
       sources.push(source);
     }
@@ -192,6 +193,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     sourceUrl?: string;
     mapType?: MapType;
     rulesFileUrl?: string;
+    where?: string;
     enabled?: boolean;
   }>;
 } | null {
@@ -216,6 +218,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     sourceUrl?: string;
     mapType?: MapType;
     rulesFileUrl?: string;
+    where?: string;
     enabled?: boolean;
   }> = [];
 
@@ -233,6 +236,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
       source: source.source,
       sourceUrl: source.url,
       mapType: source.mapType,
+      where: source.where,
       // Don't include rulesFileUrl - it's not from the map and shouldn't affect diff
       enabled: layer?.visible ?? true
     });
@@ -282,7 +286,8 @@ function processFeatureLayer(layer: FeatureLayer | null): AudiomSource | null {
     name: layer.title || DEFAULT_FEATURE_LAYER_NAME,
     source: layer.id,
     url: `${layer.url}/${layer.layerId}`,
-    mapType: MapType.Indoor
+    mapType: MapType.Indoor,
+    where: layer.definitionExpression || undefined
   });
 
   logger.debug(`${LOG_FOUND_FEATURE_LAYER} ${layer.title} - ${layer.url}`);
@@ -333,7 +338,8 @@ function processMapImageLayer(layer: MapImageLayer | null): AudiomSource[] {
       name: sublayer.title || DEFAULT_SUBLAYER_NAME,
       source: `${layer.id}_${sublayer.id}`,
       url: sublayer.url,
-      mapType: MapType.Indoor
+      mapType: MapType.Indoor,
+      where: (sublayer as any).definitionExpression || undefined
     });
 
     sources.push(source);
