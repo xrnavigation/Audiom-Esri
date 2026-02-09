@@ -242,7 +242,8 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     });
   });
 
-  // Esri zoom levels are typically 1 higher than the equivalent for Audiom
+  // Esri zoom levels are 1 higher than the equivalent for Audiom/Mapbox
+  // https://developers.arcgis.com/documentation/spatial-analysis-services/reference/zoom-levels-scale/
   const esriToAudiomZoomOffset = 1;
 
   return {
