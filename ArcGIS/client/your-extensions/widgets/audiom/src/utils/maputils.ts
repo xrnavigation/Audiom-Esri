@@ -242,11 +242,14 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     });
   });
 
+  // Esri zoom levels are typically 1 higher than the equivalent for Audiom
+  const esriToAudiomZoomOffset = 1;
+
   return {
     title: mapTitle,
     centerLatitude: center.latitude,
     centerLongitude: center.longitude,
-    zoom: zoom,
+    zoom: Math.max(zoom - esriToAudiomZoomOffset, 0),
     sourceConfigs: sourceConfigs.length > 0 ? sourceConfigs : undefined
   };
 }
