@@ -242,6 +242,9 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     }
 
     // Optional parameters
+    if (this.title) {
+      params.title = this.title;
+    }
     if (this.zoom !== undefined) {
       params.zoom = String(this.zoom);
     }
@@ -250,9 +253,6 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     }
     if (this.demo !== undefined) {
       params.demo = String(this.demo);
-    }
-    if (this.title) {
-      params.title = this.title;
     }
     if (this.showVisualMap !== undefined) {
       params.showVisualMap = String(this.showVisualMap);
@@ -267,13 +267,24 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
       params.stepsize = this.stepSize.toString();
     }
     if (this.visualStyle) {
-      params.visualstyle = this.visualStyle;
+      params.visualStyle = this.visualStyle;
     }
     if (this.visualBaseLayer) {
-      params.visualbaselayer = this.visualBaseLayer;
+      params.visualbaselayer0 = this.visualBaseLayer;
     }
     if (this.visualBaseLayerPosition) {
-      params.visualbaselayerposition = JSON.stringify(this.visualBaseLayerPosition);
+      // If it's already a string (from config), use as-is; otherwise stringify
+      // Remove any surrounding quotes if present to avoid double-encoding
+      let positionStr = typeof this.visualBaseLayerPosition === 'string' 
+        ? this.visualBaseLayerPosition 
+        : JSON.stringify(this.visualBaseLayerPosition);
+      
+      // Remove surrounding quotes if they exist
+      if (positionStr.startsWith('"') && positionStr.endsWith('"')) {
+        positionStr = positionStr.slice(1, -1);
+      }
+      
+      params.visualbaselayerposition0 = positionStr;
     }
 
     // Additional custom parameters
@@ -292,13 +303,19 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   toUrl(baseUrl: string = AudiomEmbedConfig.defaultBaseURL): string {
     const params = this.toQueryParams();
     const queryString = Object.entries(params)
-      .map(([key, value]) => `${key}=${value}`)
+      .map(([key, value]) => {
+        // Don't encode visualbaselayerposition0 value as it's already JSON formatted
+        if (key === 'visualbaselayerposition0') {
+          return `${key}=${value}`;
+        }
+        return `${key}=${encodeURIComponent(value)}`;
+      })
       .join('&');
 
     return `${baseUrl}/embed/${this.embedId}?${queryString}`;
   }
 
-  /**
+  /** 
    * Generate an embed URL with custom base URL
    */
   toUrlWithBase(baseUrl: string): string {

@@ -71,12 +71,12 @@ The following parameters can be passed via the URL query string:
 - **Example**: `soundpack=campus`
 - **Example**: `soundpack=/audio/custompackname`
 
-### `visualstyle` (Optional)
+### `visualStyle` (Optional)
 
 - **Description**: Visual rendering style for the map.
 - **Type**: String (enum)
 - **Values**: `geology`
-- **Example**: `visualstyle=geology`
+- **Example**: `visualStyle=geology`
 
 ### `visualbaselayer` (Optional)
 
