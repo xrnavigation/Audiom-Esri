@@ -78,6 +78,7 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
     heading: config.heading,
     stepSize: StepSize.create(config.stepSize ?? DEFAULT_CONFIG.stepSize, config.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit),
     soundpackUrl: config.soundpackUrl || undefined,
+    title: config.title || undefined,
     visualStyle: config.visualStyle || undefined,
     visualBaseLayer: config.visualBaseLayer || undefined,
     visualBaseLayerPosition: config.visualBaseLayerPosition || undefined,
