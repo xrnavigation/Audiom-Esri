@@ -2,6 +2,7 @@ import type { ValidityResult } from 'jimu-ui'
 import type { React } from 'jimu-core'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
+import { VisualStyle } from '../../../../shared/audiom-client/AudiomEmbedConfig'
 import { FieldType } from './enums'
 import type { LockableFieldName } from './configKeys'
 
@@ -74,6 +75,7 @@ export interface IAudiomConfig {
   soundpackUrl?: string
   visualBaseLayer?: string
   visualBaseLayerPosition?: number[][]
+  visualStyle?: VisualStyle
   sourceConfigs?: ISourceConfig[]
   centerLatitude?: number
   centerLatitudeLocked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual value.

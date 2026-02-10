@@ -34,6 +34,7 @@ export enum AudiomConfigKey {
   SoundpackUrl = 'soundpackUrl',
   VisualBaseLayer = 'visualBaseLayer',
   VisualBaseLayerPosition = 'visualBaseLayerPosition',
+  VisualStyle = 'visualStyle',
   SourceConfigs = 'sourceConfigs',
   CenterLatitude = 'centerLatitude',
   CenterLatitudeLocked = 'centerLatitudeLocked',

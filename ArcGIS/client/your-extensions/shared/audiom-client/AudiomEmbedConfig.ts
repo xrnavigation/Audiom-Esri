@@ -2,6 +2,13 @@ import { StepSize } from './StepSize';
 import { AudiomSource, IAudiomSource } from './AudiomSource';
 
 /**
+ * Visual style options for map rendering
+ */
+export enum VisualStyle {
+  Geology = 'geology'
+}
+
+/**
  * Geographic coordinates [longitude, latitude]
  */
 export type Coordinates = [number, number];
@@ -83,6 +90,11 @@ export interface IAudiomEmbedConfig {
   stepSize?: StepSize | string;
 
   /**
+   * Visual rendering style
+   */
+  visualStyle?: VisualStyle;
+
+  /**
    * URL for a visual base layer image overlay
    */
   visualBaseLayer?: string;
@@ -117,6 +129,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   heading?: 1 | 2 | 3 | 4 | 5 | 6;
   showHeading?: boolean;
   stepSize?: StepSize;
+  visualStyle?: VisualStyle;
   visualBaseLayer?: string;
   visualBaseLayerPosition?: number[][];
   additionalParams?: Record<string, string | number | boolean>;
@@ -161,6 +174,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
         : config.stepSize;
     }
 
+    this.visualStyle = config.visualStyle;
     this.visualBaseLayer = config.visualBaseLayer;
     this.visualBaseLayerPosition = config.visualBaseLayerPosition;
     this.additionalParams = config.additionalParams;
@@ -247,6 +261,9 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     }
     if (this.stepSize) {
       params.stepsize = this.stepSize.toString();
+    }
+    if (this.visualStyle) {
+      params.visualstyle = this.visualStyle;
     }
     if (this.visualBaseLayer) {
       params.visualbaselayer = this.visualBaseLayer;
