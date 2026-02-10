@@ -163,14 +163,19 @@ export function getSourcesFromEsriMap(
     sources.push(...layerSources);
   });
 
-  // Merge rules from config if provided
+  // Merge rules and mapType from config if provided
   if (config) {
     sources.forEach(source => {
       const sourceConfig = config.sourceConfigs?.find(sc => 
         sc.sourceUrl === source.url || sc.source === source.source
       );
-      if (sourceConfig?.rulesFileUrl) {
-        source.rules = sourceConfig.rulesFileUrl;
+      if (sourceConfig) {
+        if (sourceConfig.rulesFileUrl) {
+          source.rules = sourceConfig.rulesFileUrl;
+        }
+        if (sourceConfig.mapType) {
+          source.mapType = sourceConfig.mapType;
+        }
       }
     });
   }

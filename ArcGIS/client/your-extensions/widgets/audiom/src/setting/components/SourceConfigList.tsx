@@ -72,8 +72,13 @@ const SourceConfigList = (props: SourceConfigListProps) => {
   // Auto-collapse Source Configurations if 3 or more sources
   const shouldAutoCollapse = useMemo(() => sourceConfigs.length >= MAX_DEFAULT_VISIBLE_SOURCES, [sourceConfigs.length])
   const [sourceConfigsOpen, setSourceConfigsOpen] = useState(!shouldAutoCollapse)
-  // Independent state for the "Map Type (All)" selector - not derived from sources
-  const [allMapType, setAllMapType] = useState<MapType>(MapType.Indoor)
+  // Derive the common map type from sources — if all sources share the same type, show it; otherwise it's mixed
+  const commonMapType = useMemo(() => {
+    if (sourceConfigs.length === 0) return MapType.Indoor
+    const firstType = sourceConfigs[0]?.mapType ?? MapType.Indoor
+    const allSame = sourceConfigs.every(config => (config.mapType ?? MapType.Indoor) === firstType)
+    return allSame ? firstType : null
+  }, [sourceConfigs])
   const [expandedSources, setExpandedSources] = useState<{ [key: number]: boolean }>(() => {
     // Initialize: expand all if less than 3 sources
     const initial: { [key: number]: boolean } = {}
@@ -114,19 +119,11 @@ const SourceConfigList = (props: SourceConfigListProps) => {
   }
 
   const onAllMapTypeChange = (mapType: MapType) => {
-    setAllMapType(mapType)
     const newSourceConfigs = sourceConfigs.map(config => ({
       ...config,
       mapType
     }))
     onChange(newSourceConfigs)
-  }
-
-  // Check if sources have different map types
-  const hasMixedMapTypes = (): boolean => {
-    if (sourceConfigs.length === 0) return false
-    const firstType = sourceConfigs[0]?.mapType ?? MapType.Indoor
-    return sourceConfigs.some(config => (config.mapType ?? MapType.Indoor) !== firstType)
   }
 
   // Check if sources have different rules files
@@ -242,10 +239,10 @@ const SourceConfigList = (props: SourceConfigListProps) => {
             </div>
             <Select
               style={{ width: '100%' }}
-              value={hasMixedMapTypes() ? '' : allMapType}
+              value={commonMapType === null ? '' : commonMapType}
               onChange={(e) => onAllMapTypeChange(e.target.value as MapType)}
             >
-              {hasMixedMapTypes() && (
+              {commonMapType === null && (
                 <Option value="" disabled style={{ fontStyle: 'italic' }}>Mixed</Option>
               )}
               {MAP_TYPE_OPTIONS.map(opt => (
