@@ -250,7 +250,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
     { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
-    { key: AudiomConfigKey.VisualStyle, label: 'Visual Style', type: FieldType.Enum, enumOptions: [{ label: 'Geology', value: 'geology' }], showCopyButton: false },
+    { key: AudiomConfigKey.VisualStyle, label: 'Visual Style', type: FieldType.Enum, enumOptions: [{ label: 'Default', value: '' }, { label: 'Geology', value: 'geology' }], showCopyButton: false },
     { key: AudiomConfigKey.VisualBaseLayer, label: 'Visual Base Layer', type: FieldType.Text, placeholder: 'Enter image URL for visual base layer', validateOnAccept: (val) => validateUrl(String(val)) },
     { key: AudiomConfigKey.VisualBaseLayerPosition, label: 'Visual Base Layer Position', type: FieldType.Text, placeholder: '[[lng,lat],[lng,lat],[lng,lat],[lng,lat]]' }
   ]

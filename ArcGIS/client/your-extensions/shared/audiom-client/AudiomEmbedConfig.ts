@@ -5,6 +5,7 @@ import { AudiomSource, IAudiomSource } from './AudiomSource';
  * Visual style options for map rendering
  */
 export enum VisualStyle {
+  Default = '',
   Geology = 'geology'
 }
 
