@@ -233,7 +233,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const connectionFields: FieldConfig[] = [
     { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Password, placeholder: 'Enter API key' },
     { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl, validateOnAccept: (val) => validateUrl(String(val)) },
-    { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL', validateOnAccept: (val) => validateUrl(String(val)) }
+    { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack name or URL' }
   ]
 
   // Map settings fields - lockable when using existing map
@@ -249,7 +249,9 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Custom, showCopyButton: false, renderCustom: renderStepSizeUnitSelector },
     { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
-    { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false }
+    { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
+    { key: AudiomConfigKey.VisualBaseLayer, label: 'Visual Base Layer', type: FieldType.Text, placeholder: 'Enter image URL for visual base layer', validateOnAccept: (val) => validateUrl(String(val)) },
+    { key: AudiomConfigKey.VisualBaseLayerPosition, label: 'Visual Base Layer Position', type: FieldType.Text, placeholder: '[[lng,lat],[lng,lat],[lng,lat],[lng,lat]]' }
   ]
 
   const useExistingMap = config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap

@@ -32,6 +32,8 @@ export enum AudiomConfigKey {
   ShowVisualMap = 'showVisualMap',
   ShowHeading = 'showHeading',
   SoundpackUrl = 'soundpackUrl',
+  VisualBaseLayer = 'visualBaseLayer',
+  VisualBaseLayerPosition = 'visualBaseLayerPosition',
   SourceConfigs = 'sourceConfigs',
   CenterLatitude = 'centerLatitude',
   CenterLatitudeLocked = 'centerLatitudeLocked',

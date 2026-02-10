@@ -77,6 +77,9 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
     zoom: config.zoom ?? DEFAULT_CONFIG.zoom,
     heading: config.heading,
     stepSize: StepSize.create(config.stepSize ?? DEFAULT_CONFIG.stepSize, config.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit),
+    soundpackUrl: config.soundpackUrl || undefined,
+    visualBaseLayer: config.visualBaseLayer || undefined,
+    visualBaseLayerPosition: config.visualBaseLayerPosition || undefined,
   });
 }
 

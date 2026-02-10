@@ -72,6 +72,8 @@ export interface IAudiomConfig {
   showVisualMap?: boolean
   showHeading?: boolean
   soundpackUrl?: string
+  visualBaseLayer?: string
+  visualBaseLayerPosition?: number[][]
   sourceConfigs?: ISourceConfig[]
   centerLatitude?: number
   centerLatitudeLocked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual value.

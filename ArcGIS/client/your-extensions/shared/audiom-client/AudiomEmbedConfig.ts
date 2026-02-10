@@ -50,7 +50,7 @@ export interface IAudiomEmbedConfig {
   /**
    * Soundpack identifier or path
    */
-  soundpack?: string;
+  soundpackUrl?: string;
 
   /**
    * Enable demo mode
@@ -83,6 +83,17 @@ export interface IAudiomEmbedConfig {
   stepSize?: StepSize | string;
 
   /**
+   * URL for a visual base layer image overlay
+   */
+  visualBaseLayer?: string;
+
+  /**
+   * Position coordinates for visual base layer [[lng,lat], [lng,lat], [lng,lat], [lng,lat]]
+   * Order: top-left, top-right, bottom-right, bottom-left
+   */
+  visualBaseLayerPosition?: number[][];
+
+  /**
    * Additional custom parameters
    */
   additionalParams?: Record<string, string | number | boolean>;
@@ -99,13 +110,15 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   latitude?: number;
   longitude?: number;
   zoom?: number;
-  soundpack?: string;
+  soundpackUrl?: string;
   demo?: boolean;
   title?: string;
   showVisualMap?: boolean;
   heading?: 1 | 2 | 3 | 4 | 5 | 6;
   showHeading?: boolean;
   stepSize?: StepSize;
+  visualBaseLayer?: string;
+  visualBaseLayerPosition?: number[][];
   additionalParams?: Record<string, string | number | boolean>;
 
   /**
@@ -134,7 +147,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
 
     // Map settings
     this.zoom = config.zoom;
-    this.soundpack = config.soundpack;
+    this.soundpackUrl = config.soundpackUrl;
     this.demo = config.demo;
     this.title = config.title;
     this.showVisualMap = config.showVisualMap;
@@ -148,6 +161,8 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
         : config.stepSize;
     }
 
+    this.visualBaseLayer = config.visualBaseLayer;
+    this.visualBaseLayerPosition = config.visualBaseLayerPosition;
     this.additionalParams = config.additionalParams;
   }
 
@@ -212,8 +227,8 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     if (this.zoom !== undefined) {
       params.zoom = String(this.zoom);
     }
-    if (this.soundpack) {
-      params.soundpack = this.soundpack;
+    if (this.soundpackUrl) {
+      params.soundpack = this.soundpackUrl;
     }
     if (this.demo !== undefined) {
       params.demo = String(this.demo);
@@ -232,6 +247,12 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     }
     if (this.stepSize) {
       params.stepsize = this.stepSize.toString();
+    }
+    if (this.visualBaseLayer) {
+      params.visualbaselayer = this.visualBaseLayer;
+    }
+    if (this.visualBaseLayerPosition) {
+      params.visualbaselayerposition = JSON.stringify(this.visualBaseLayerPosition);
     }
 
     // Additional custom parameters
