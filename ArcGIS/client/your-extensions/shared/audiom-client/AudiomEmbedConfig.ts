@@ -213,7 +213,10 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
 
     // Sources
     if (this.sources && this.sources.length > 0) {
-      const sourceNames = this.sources.map(s => s.source).join(',');
+      // Previously used raw source IDs (e.g. ArcGIS layer IDs like "19c44caef8d-layer-2").
+      // Now uses whitespace-trimmed source names for human-readable, cleaner URLs.
+      // const sourceNames = this.sources.map(s => s.source).join(',');
+      const sourceNames = this.sources.map(s => s.sourceId).join(',');
       // Use 'sources' if multiple, 'source' if single
       const sourceKey = "sources"
       params[sourceKey] = sourceNames;
