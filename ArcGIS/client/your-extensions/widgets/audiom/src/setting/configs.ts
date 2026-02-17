@@ -74,7 +74,7 @@ export interface IAudiomConfig {
   showHeading?: boolean
   soundpackUrl?: string
   visualBaseLayer?: string
-  visualBaseLayerPosition?: number[][]
+  visualBaseLayerPosition?: string
   visualStyle?: VisualStyle
   sourceConfigs?: ISourceConfig[]
   centerLatitude?: number

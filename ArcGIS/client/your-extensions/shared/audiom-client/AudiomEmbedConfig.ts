@@ -1,5 +1,6 @@
 import { StepSize } from './StepSize';
 import { AudiomSource, IAudiomSource } from './AudiomSource';
+import { GeoQuad } from './GeoQuad';
 
 /**
  * Visual style options for map rendering
@@ -58,7 +59,7 @@ export interface IAudiomEmbedConfig {
   /**
    * Soundpack identifier or path
    */
-  soundpackUrl?: string;
+  soundpack?: string;
 
   /**
    * Enable demo mode
@@ -101,10 +102,10 @@ export interface IAudiomEmbedConfig {
   visualBaseLayer?: string;
 
   /**
-   * Position coordinates for visual base layer [[lng,lat], [lng,lat], [lng,lat], [lng,lat]]
+   * Position quad for visual base layer
    * Order: top-left, top-right, bottom-right, bottom-left
    */
-  visualBaseLayerPosition?: number[][];
+  visualBaseLayerPosition?: GeoQuad;
 
   /**
    * Additional custom parameters
@@ -123,7 +124,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   latitude?: number;
   longitude?: number;
   zoom?: number;
-  soundpackUrl?: string;
+  soundpack?: string;
   demo?: boolean;
   title?: string;
   showVisualMap?: boolean;
@@ -132,7 +133,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   stepSize?: StepSize;
   visualStyle?: VisualStyle;
   visualBaseLayer?: string;
-  visualBaseLayerPosition?: number[][];
+  visualBaseLayerPosition?: GeoQuad;
   additionalParams?: Record<string, string | number | boolean>;
 
   /**
@@ -161,7 +162,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
 
     // Map settings
     this.zoom = config.zoom;
-    this.soundpackUrl = config.soundpackUrl;
+    this.soundpack = config.soundpack;
     this.demo = config.demo;
     this.title = config.title;
     this.showVisualMap = config.showVisualMap;
@@ -248,8 +249,8 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     if (this.zoom !== undefined) {
       params.zoom = String(this.zoom);
     }
-    if (this.soundpackUrl) {
-      params.soundpack = this.soundpackUrl;
+    if (this.soundpack) {
+      params.soundpack = this.soundpack;
     }
     if (this.demo !== undefined) {
       params.demo = String(this.demo);
@@ -273,18 +274,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
       params.visualbaselayer0 = this.visualBaseLayer;
     }
     if (this.visualBaseLayerPosition) {
-      // If it's already a string (from config), use as-is; otherwise stringify
-      // Remove any surrounding quotes if present to avoid double-encoding
-      let positionStr = typeof this.visualBaseLayerPosition === 'string' 
-        ? this.visualBaseLayerPosition 
-        : JSON.stringify(this.visualBaseLayerPosition);
-      
-      // Remove surrounding quotes if they exist
-      if (positionStr.startsWith('"') && positionStr.endsWith('"')) {
-        positionStr = positionStr.slice(1, -1);
-      }
-      
-      params.visualbaselayerposition0 = positionStr;
+      params.visualbaselayerposition0 = this.visualBaseLayerPosition.toString();
     }
 
     // Additional custom parameters

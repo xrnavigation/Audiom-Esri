@@ -1,6 +1,7 @@
 import { AudiomSource, MapType } from "../../../../shared/audiom-client/AudiomSource";
 import { AudiomEmbedConfig } from "../../../../shared/audiom-client/AudiomEmbedConfig";
 import { StepSize, StepSizeUnit } from "../../../../shared/audiom-client/StepSize";
+import { GeoQuad } from "../../../../shared/audiom-client/GeoQuad";
 import { JimuMapView, MapViewManager } from "jimu-arcgis";
 import FeatureLayer from 'esri/layers/FeatureLayer';
 import CSVLayer from 'esri/layers/CSVLayer';
@@ -77,11 +78,11 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
     zoom: config.zoom ?? DEFAULT_CONFIG.zoom,
     heading: config.heading,
     stepSize: StepSize.create(config.stepSize ?? DEFAULT_CONFIG.stepSize, config.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit),
-    soundpackUrl: config.soundpackUrl || undefined,
+    soundpack: config.soundpackUrl || undefined,
     title: config.title || undefined,
     visualStyle: config.visualStyle || undefined,
     visualBaseLayer: config.visualBaseLayer || undefined,
-    visualBaseLayerPosition: config.visualBaseLayerPosition || undefined,
+    visualBaseLayerPosition: config.visualBaseLayerPosition ? GeoQuad.parse(config.visualBaseLayerPosition) : undefined,
   });
 }
 
