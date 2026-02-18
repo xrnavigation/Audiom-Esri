@@ -224,7 +224,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
 
     // Center coordinates (takes precedence)
     if (this.center) {
-      params.center = `${this.center[0]},${this.center[1]}`;
+      params.center = this.center.toString();
     } else {
       // Fallback to latitude/longitude
       if (this.latitude !== undefined) {
