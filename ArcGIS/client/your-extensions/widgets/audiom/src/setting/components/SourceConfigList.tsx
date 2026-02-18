@@ -4,7 +4,7 @@ import { Select, Option, Collapse, Button, Tooltip, TextInput } from 'jimu-ui'
 import { ExpandAllOutlined } from 'jimu-icons/outlined/directional/expand-all'
 import { CollapseAllOutlined } from 'jimu-icons/outlined/directional/collapse-all'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
-import { ISourceConfig } from '../configs'
+import { DEFAULT_SOURCE_CONFIG, ISourceConfig } from '../configs'
 import { ButtonSize, ButtonType, FlowType, Colors, MAP_TYPE_OPTIONS } from '../enums'
 import { Padding } from '../paddings'
 import CopyableLabel from './CopyableLabel'
@@ -72,8 +72,13 @@ const SourceConfigList = (props: SourceConfigListProps) => {
   // Auto-collapse Source Configurations if 3 or more sources
   const shouldAutoCollapse = useMemo(() => sourceConfigs.length >= MAX_DEFAULT_VISIBLE_SOURCES, [sourceConfigs.length])
   const [sourceConfigsOpen, setSourceConfigsOpen] = useState(!shouldAutoCollapse)
-  // Independent state for the "Map Type (All)" selector - not derived from sources
-  const [allMapType, setAllMapType] = useState<MapType>(MapType.Indoor)
+  // Derive the common map type from sources — if all sources share the same type, show it; otherwise it's mixed
+  const commonMapType = useMemo(() => {
+    if (sourceConfigs.length === 0) return DEFAULT_SOURCE_CONFIG.mapType
+    const firstType = sourceConfigs[0]?.mapType ?? DEFAULT_SOURCE_CONFIG.mapType
+    const allSame = sourceConfigs.every(config => (config.mapType ?? DEFAULT_SOURCE_CONFIG.mapType) === firstType)
+    return allSame ? firstType : null
+  }, [sourceConfigs])
   const [expandedSources, setExpandedSources] = useState<{ [key: number]: boolean }>(() => {
     // Initialize: expand all if less than 3 sources
     const initial: { [key: number]: boolean } = {}
@@ -114,19 +119,11 @@ const SourceConfigList = (props: SourceConfigListProps) => {
   }
 
   const onAllMapTypeChange = (mapType: MapType) => {
-    setAllMapType(mapType)
     const newSourceConfigs = sourceConfigs.map(config => ({
       ...config,
       mapType
     }))
     onChange(newSourceConfigs)
-  }
-
-  // Check if sources have different map types
-  const hasMixedMapTypes = (): boolean => {
-    if (sourceConfigs.length === 0) return false
-    const firstType = sourceConfigs[0]?.mapType ?? MapType.Indoor
-    return sourceConfigs.some(config => (config.mapType ?? MapType.Indoor) !== firstType)
   }
 
   // Check if sources have different rules files
@@ -159,7 +156,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
 
   const onAddSourceConfig = () => {
     const newSourceConfigs = [...sourceConfigs]
-    newSourceConfigs.push({})
+    newSourceConfigs.push({ ...DEFAULT_SOURCE_CONFIG })
     onChange(newSourceConfigs)
   }
 
@@ -171,7 +168,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
 
   const onToggleSourceEnabled = (index: number) => {
     const newSourceConfigs = [...sourceConfigs]
-    const currentEnabled = newSourceConfigs[index].enabled ?? true
+    const currentEnabled = newSourceConfigs[index].enabled ?? DEFAULT_SOURCE_CONFIG.enabled
     // Auto-unlock when manually toggling visibility
     newSourceConfigs[index] = { 
       ...newSourceConfigs[index], 
@@ -183,7 +180,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
 
   const onToggleLocked = (index: number) => {
     const newSourceConfigs = [...sourceConfigs]
-    const currentLocked = newSourceConfigs[index].locked ?? true
+    const currentLocked = newSourceConfigs[index].locked ?? DEFAULT_SOURCE_CONFIG.locked
     newSourceConfigs[index] = { ...newSourceConfigs[index], locked: !currentLocked }
     // If re-locking, the sync manager will restore the enabled state on next sync
     onChange(newSourceConfigs)
@@ -242,10 +239,10 @@ const SourceConfigList = (props: SourceConfigListProps) => {
             </div>
             <Select
               style={{ width: '100%' }}
-              value={hasMixedMapTypes() ? '' : allMapType}
+              value={commonMapType === null ? '' : commonMapType}
               onChange={(e) => onAllMapTypeChange(e.target.value as MapType)}
             >
-              {hasMixedMapTypes() && (
+              {commonMapType === null && (
                 <Option value="" disabled style={{ fontStyle: 'italic' }}>Mixed</Option>
               )}
               {MAP_TYPE_OPTIONS.map(opt => (

@@ -1,10 +1,15 @@
 import { StepSize } from './StepSize';
 import { AudiomSource, IAudiomSource } from './AudiomSource';
+import { GeoQuad } from './GeoQuad';
+import { Coordinates } from './Coordinates';
 
 /**
- * Geographic coordinates [longitude, latitude]
+ * Visual style options for map rendering
  */
-export type Coordinates = [number, number];
+export enum VisualStyle {
+  Default = '',
+  Geology = 'geology'
+}
 
 /**
  * Configuration interface for Audiom embedded map
@@ -83,6 +88,22 @@ export interface IAudiomEmbedConfig {
   stepSize?: StepSize | string;
 
   /**
+   * Visual rendering style
+   */
+  visualStyle?: VisualStyle;
+
+  /**
+   * URL for a visual base layer image overlay
+   */
+  visualBaseLayer?: string;
+
+  /**
+   * Position quad for visual base layer
+   * Order: top-left, top-right, bottom-right, bottom-left
+   */
+  visualBaseLayerPosition?: GeoQuad;
+
+  /**
    * Additional custom parameters
    */
   additionalParams?: Record<string, string | number | boolean>;
@@ -106,6 +127,9 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   heading?: 1 | 2 | 3 | 4 | 5 | 6;
   showHeading?: boolean;
   stepSize?: StepSize;
+  visualStyle?: VisualStyle;
+  visualBaseLayer?: string;
+  visualBaseLayerPosition?: GeoQuad;
   additionalParams?: Record<string, string | number | boolean>;
 
   /**
@@ -148,6 +172,9 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
         : config.stepSize;
     }
 
+    this.visualStyle = config.visualStyle;
+    this.visualBaseLayer = config.visualBaseLayer;
+    this.visualBaseLayerPosition = config.visualBaseLayerPosition;
     this.additionalParams = config.additionalParams;
   }
 
@@ -184,7 +211,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     // Sources
     if (this.sources && this.sources.length > 0) {
       const sourceNames = this.sources.map(s => s.source).join(',');
-      // Use 'sources' if multiple, 'source' if single
+
       const sourceKey = "sources"
       params[sourceKey] = sourceNames;
 
@@ -197,7 +224,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
 
     // Center coordinates (takes precedence)
     if (this.center) {
-      params.center = `${this.center[0]},${this.center[1]}`;
+      params.center = this.center.toString();
     } else {
       // Fallback to latitude/longitude
       if (this.latitude !== undefined) {
@@ -209,6 +236,9 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     }
 
     // Optional parameters
+    if (this.title) {
+      params.title = this.title;
+    }
     if (this.zoom !== undefined) {
       params.zoom = String(this.zoom);
     }
@@ -217,9 +247,6 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     }
     if (this.demo !== undefined) {
       params.demo = String(this.demo);
-    }
-    if (this.title) {
-      params.title = this.title;
     }
     if (this.showVisualMap !== undefined) {
       params.showVisualMap = String(this.showVisualMap);
@@ -232,6 +259,15 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     }
     if (this.stepSize) {
       params.stepsize = this.stepSize.toString();
+    }
+    if (this.visualStyle) {
+      params.visualStyle = this.visualStyle;
+    }
+    if (this.visualBaseLayer) {
+      params.visualbaselayer0 = this.visualBaseLayer;
+    }
+    if (this.visualBaseLayerPosition) {
+      params.visualbaselayerposition0 = this.visualBaseLayerPosition.toString();
     }
 
     // Additional custom parameters
@@ -250,13 +286,13 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   toUrl(baseUrl: string = AudiomEmbedConfig.defaultBaseURL): string {
     const params = this.toQueryParams();
     const queryString = Object.entries(params)
-      .map(([key, value]) => `${key}=${value}`)
+      .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
       .join('&');
 
     return `${baseUrl}/embed/${this.embedId}?${queryString}`;
   }
 
-  /**
+  /** 
    * Generate an embed URL with custom base URL
    */
   toUrlWithBase(baseUrl: string): string {

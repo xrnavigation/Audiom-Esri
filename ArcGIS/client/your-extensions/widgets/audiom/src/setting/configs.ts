@@ -2,6 +2,7 @@ import type { ValidityResult } from 'jimu-ui'
 import type { React } from 'jimu-core'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
+import { VisualStyle } from '../../../../shared/audiom-client/AudiomEmbedConfig'
 import { FieldType } from './enums'
 import type { LockableFieldName } from './configKeys'
 
@@ -26,6 +27,17 @@ export const DEFAULT_CONFIG = {
   centerLongitudeLocked: true,
   zoomLocked: true,
 } as const satisfies Partial<IAudiomConfig>
+
+export const DEFAULT_SOURCE_CONFIG: ISourceConfig = {
+  source: undefined,
+  name: undefined,
+  sourceUrl: undefined,
+  rulesFileUrl: undefined,
+  mapType: MapType.Indoor,
+  where: undefined,
+  enabled: true,
+  locked: true
+}
 
 export interface FieldConfig {
   key: string
@@ -56,6 +68,7 @@ export interface ISourceConfig {
   sourceUrl?: string
   rulesFileUrl?: string
   mapType?: MapType
+  where?: string  // Definition expression / where clause to filter features
   enabled?: boolean
   locked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual enabled state.
 }
@@ -71,6 +84,9 @@ export interface IAudiomConfig {
   showVisualMap?: boolean
   showHeading?: boolean
   soundpackUrl?: string
+  visualBaseLayer?: string
+  visualBaseLayerPosition?: string
+  visualStyle?: VisualStyle
   sourceConfigs?: ISourceConfig[]
   centerLatitude?: number
   centerLatitudeLocked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual value.
@@ -104,4 +120,26 @@ export function getConfigValue<K extends keyof typeof DEFAULT_CONFIG>(
     return config[key as keyof IAudiomConfig] as (typeof DEFAULT_CONFIG)[K]
   }
   return DEFAULT_CONFIG[key]
+}
+
+/**
+ * Type-safe source config value accessor with default fallback.
+ * Eliminates repetitive `source?.[key] ?? DEFAULT_SOURCE_CONFIG[key]` patterns.
+ * 
+ * @param source - The source configuration
+ * @param key - The source config key to access
+ * @returns The source config value or its default from DEFAULT_SOURCE_CONFIG
+ * 
+ * @example
+ * const mapType = getSourceConfigValue(source, 'mapType') // MapType
+ * const enabled = getSourceConfigValue(source, 'enabled') // boolean
+ */
+export function getSourceConfigValue<K extends keyof ISourceConfig>(
+  source: ISourceConfig | undefined,
+  key: K
+): ISourceConfig[K] {
+  if (source && key in source && source[key] !== undefined) {
+    return source[key]
+  }
+  return DEFAULT_SOURCE_CONFIG[key]
 }

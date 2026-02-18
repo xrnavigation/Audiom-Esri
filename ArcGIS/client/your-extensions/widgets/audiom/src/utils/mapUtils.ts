@@ -1,12 +1,14 @@
 import { AudiomSource, MapType } from "../../../../shared/audiom-client/AudiomSource";
 import { AudiomEmbedConfig } from "../../../../shared/audiom-client/AudiomEmbedConfig";
-import { StepSize, StepSizeUnit } from "../../../../shared/audiom-client/StepSize";
+import { StepSize } from "../../../../shared/audiom-client/StepSize";
+import { GeoQuad } from "../../../../shared/audiom-client/GeoQuad";
+import { Coordinates } from "../../../../shared/audiom-client/Coordinates";
 import { JimuMapView, MapViewManager } from "jimu-arcgis";
 import FeatureLayer from 'esri/layers/FeatureLayer';
 import CSVLayer from 'esri/layers/CSVLayer';
 import GeoJSONLayer from 'esri/layers/GeoJSONLayer';
 import MapImageLayer from 'esri/layers/MapImageLayer';
-import { DEFAULT_CONFIG, IAudiomConfig } from "../setting/configs";
+import { DEFAULT_CONFIG, DEFAULT_SOURCE_CONFIG, IAudiomConfig } from "../setting/configs";
 import { isConfigValid } from "../setting/validation/validation";
 import { createLogger } from './logger';
 import { LayerType, isExcludedLayerType } from './mapEnums';
@@ -71,12 +73,17 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
   return AudiomEmbedConfig.dynamic({
     apiKey: config.apiKey || '',
     sources: sources,
-    center: [config.centerLongitude ?? DEFAULT_CONFIG.centerLongitude, config.centerLatitude ?? DEFAULT_CONFIG.centerLatitude],
+    center: Coordinates.create(config.centerLongitude ?? DEFAULT_CONFIG.centerLongitude, config.centerLatitude ?? DEFAULT_CONFIG.centerLatitude),
     showVisualMap: config.showVisualMap ?? DEFAULT_CONFIG.showVisualMap,
     showHeading: config.showHeading ?? DEFAULT_CONFIG.showHeading,
     zoom: config.zoom ?? DEFAULT_CONFIG.zoom,
     heading: config.heading,
     stepSize: StepSize.create(config.stepSize ?? DEFAULT_CONFIG.stepSize, config.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit),
+    soundpack: config.soundpackUrl || undefined,
+    title: config.title || undefined,
+    visualStyle: config.visualStyle || undefined,
+    visualBaseLayer: config.visualBaseLayer || undefined,
+    visualBaseLayerPosition: config.visualBaseLayerPosition ? GeoQuad.parse(config.visualBaseLayerPosition) : undefined,
   });
 }
 
@@ -95,8 +102,9 @@ export function getSourcesFromConfig(config: IAudiomConfig): AudiomSource[] {
         name: sourceConfig.name,
         source: sourceConfig.source,
         url: sourceConfig.sourceUrl,
-        mapType: sourceConfig.mapType || MapType.Indoor,
-        rules: sourceConfig.rulesFileUrl || ''
+        mapType: sourceConfig.mapType || DEFAULT_SOURCE_CONFIG.mapType,
+        rules: sourceConfig.rulesFileUrl || '',
+        where: sourceConfig.where || undefined
       });
       sources.push(source);
     }
@@ -157,14 +165,19 @@ export function getSourcesFromEsriMap(
     sources.push(...layerSources);
   });
 
-  // Merge rules from config if provided
+  // Merge rules and mapType from config if provided
   if (config) {
     sources.forEach(source => {
       const sourceConfig = config.sourceConfigs?.find(sc => 
         sc.sourceUrl === source.url || sc.source === source.source
       );
-      if (sourceConfig?.rulesFileUrl) {
-        source.rules = sourceConfig.rulesFileUrl;
+      if (sourceConfig) {
+        if (sourceConfig.rulesFileUrl) {
+          source.rules = sourceConfig.rulesFileUrl;
+        }
+        if (sourceConfig.mapType) {
+          source.mapType = sourceConfig.mapType;
+        }
       }
     });
   }
@@ -192,6 +205,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     sourceUrl?: string;
     mapType?: MapType;
     rulesFileUrl?: string;
+    where?: string;
     enabled?: boolean;
   }>;
 } | null {
@@ -216,6 +230,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     sourceUrl?: string;
     mapType?: MapType;
     rulesFileUrl?: string;
+    where?: string;
     enabled?: boolean;
   }> = [];
 
@@ -233,16 +248,21 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
       source: source.source,
       sourceUrl: source.url,
       mapType: source.mapType,
+      where: source.where,
       // Don't include rulesFileUrl - it's not from the map and shouldn't affect diff
       enabled: layer?.visible ?? true
     });
   });
 
+  // Esri zoom levels are 1 higher than the equivalent for Audiom/Mapbox
+  // https://developers.arcgis.com/documentation/spatial-analysis-services/reference/zoom-levels-scale/
+  const esriToAudiomZoomOffset = 1;
+
   return {
     title: mapTitle,
     centerLatitude: center.latitude,
     centerLongitude: center.longitude,
-    zoom: zoom,
+    zoom: Math.max(zoom - esriToAudiomZoomOffset, 0),
     sourceConfigs: sourceConfigs.length > 0 ? sourceConfigs : undefined
   };
 }
@@ -282,7 +302,8 @@ function processFeatureLayer(layer: FeatureLayer | null): AudiomSource | null {
     name: layer.title || DEFAULT_FEATURE_LAYER_NAME,
     source: layer.id,
     url: `${layer.url}/${layer.layerId}`,
-    mapType: MapType.Indoor
+    mapType: MapType.Indoor,
+    where: layer.definitionExpression || undefined
   });
 
   logger.debug(`${LOG_FOUND_FEATURE_LAYER} ${layer.title} - ${layer.url}`);
@@ -333,7 +354,8 @@ function processMapImageLayer(layer: MapImageLayer | null): AudiomSource[] {
       name: sublayer.title || DEFAULT_SUBLAYER_NAME,
       source: `${layer.id}_${sublayer.id}`,
       url: sublayer.url,
-      mapType: MapType.Indoor
+      mapType: MapType.Indoor,
+      where: (sublayer as any).definitionExpression || undefined
     });
 
     sources.push(source);

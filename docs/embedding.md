@@ -67,8 +67,28 @@ The following parameters can be passed via the URL query string:
 
 ### `soundpack` (Optional)
 
-- **Description**: Identifier or path for the soundpack to be used. If not provided, it may default based on the `embedId` or to a system-wide default (e.g., `/audio`).
+- **Description**: Identifier, name, or path for the soundpack to be used. Can be a simple name (e.g., `campus`) or a full path. If not provided, it may default based on the `embedId` or to a system-wide default (e.g., `/audio`).
+- **Example**: `soundpack=campus`
 - **Example**: `soundpack=/audio/custompackname`
+
+### `visualStyle` (Optional)
+
+- **Description**: Visual rendering style for the map.
+- **Type**: String (enum)
+- **Values**: `geology`
+- **Example**: `visualStyle=geology`
+
+### `visualbaselayer` (Optional)
+
+- **Description**: URL of an image to use as a visual base layer overlay on the map.
+- **Type**: String (URL)
+- **Example**: `visualbaselayer=https://audiom.blob.core.windows.net/basemaps/Wayfinding_Centre_illustration_new.png`
+
+### `visualbaselayerposition` (Optional)
+
+- **Description**: Position coordinates for the visual base layer image overlay. An array of 4 coordinate pairs `[longitude, latitude]` defining the corners: top-left, top-right, bottom-right, bottom-left.
+- **Type**: JSON array of coordinate pairs
+- **Example**: `visualbaselayerposition=[[-6.270101,53.368574],[-6.268558,53.368574],[-6.268558,53.367483],[-6.270101,53.367483]]`
 
 ### `demo` (Optional)
 

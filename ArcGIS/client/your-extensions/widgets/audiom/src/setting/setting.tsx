@@ -10,7 +10,7 @@ import CollapsibleHeader from './components/CollapsibleHeader'
 import FieldRenderer from './components/FieldRenderer'
 import { useMapSyncState } from './hooks/useMapSyncState'
 import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/mapUtils'
-import { getMapSyncManager, MapSyncConfig } from '../utils/mapSyncManager'
+import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { mergeSourcesPreservingUnlocked } from '../utils/sourceConfigUtils'
 import { createLogger } from '../utils/logger'
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
@@ -19,7 +19,7 @@ import { Padding } from './paddings'
 import { AudiomConfigKey, LockableFieldName } from './configKeys'
 import { validateUrl, VALIDATION } from './validation/validation'
 
-const { useEffect, useCallback, useState } = React
+const { useEffect, useCallback, useState, useRef } = React
 
 const logger = createLogger('Setting')
 
@@ -100,14 +100,33 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     }
   }, [props.useMapWidgetIds, config?.existingMapId, props, config])
 
-  // Initialize MapSyncManager and listen for changes
+  // Initialize MapSyncManager: do the initial sync once when useExistingMap is
+  // first enabled for a given map, but only subscribe to ongoing layer/zoom
+  // changes when AUTO_SYNC_LAYERS is on.
+  //
+  // Initial sync tracking lives in the singleton MapSyncManager so it persists
+  // across component remounts (ExB remounts settings when switching widgets).
+  const applyConfigFromMapRef = useRef(applyConfigFromMap)
+  applyConfigFromMapRef.current = applyConfigFromMap
+
   useEffect(() => {
     // Use default value when useExistingMap is undefined
     const useExistingMap = config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap
     
     if (!useExistingMap || !effectiveMapId) {
       mapSyncManager.detach()
+      mapSyncManager.resetInitialSync()
       return
+    }
+
+    // If the singleton already did the initial sync for this map, only add change listener
+    if (mapSyncManager.isInitialSyncDone(effectiveMapId)) {
+      if (AUTO_SYNC_LAYERS) {
+        mapSyncManager.addChangeListener(applyConfigFromMapRef.current)
+      }
+      return () => {
+        mapSyncManager.removeChangeListener(applyConfigFromMapRef.current)
+      }
     }
 
     let retryInterval: ReturnType<typeof setInterval> | null = null
@@ -120,14 +139,17 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         return false
       }
 
-      // Do initial sync
+      // Do initial sync (once per map ID, tracked in singleton)
       const initialConfig = mapSyncManager.getCurrentConfig(effectiveMapId)
       if (initialConfig) {
-        applyConfigFromMap(initialConfig)
+        applyConfigFromMapRef.current(initialConfig)
       }
+      mapSyncManager.markInitialSyncDone(effectiveMapId)
 
-      // Listen for changes
-      mapSyncManager.addChangeListener(applyConfigFromMap)
+      // Only listen for ongoing changes when auto-sync is enabled
+      if (AUTO_SYNC_LAYERS) {
+        mapSyncManager.addChangeListener(applyConfigFromMapRef.current)
+      }
       return true
     }
 
@@ -152,9 +174,10 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     return () => {
       isCleanedUp = true
       if (retryInterval) clearInterval(retryInterval)
-      mapSyncManager.removeChangeListener(applyConfigFromMap)
+      mapSyncManager.removeChangeListener(applyConfigFromMapRef.current)
     }
-  }, [config?.useExistingMap, effectiveMapId, applyConfigFromMap, mapSyncManager, config])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config?.useExistingMap, effectiveMapId, mapSyncManager])
 
   const onMapWidgetSelected = (useMapWidgetIds: string[]) => {
     props.onSettingChange({
@@ -233,7 +256,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const connectionFields: FieldConfig[] = [
     { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Password, placeholder: 'Enter API key' },
     { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl, validateOnAccept: (val) => validateUrl(String(val)) },
-    { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack URL', validateOnAccept: (val) => validateUrl(String(val)) }
+    { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack name or URL' }
   ]
 
   // Map settings fields - lockable when using existing map
@@ -249,7 +272,10 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Custom, showCopyButton: false, renderCustom: renderStepSizeUnitSelector },
     { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
-    { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false }
+    { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
+    { key: AudiomConfigKey.VisualStyle, label: 'Visual Style', type: FieldType.Enum, enumOptions: [{ label: 'Default', value: '' }, { label: 'Geology', value: 'geology' }], showCopyButton: false },
+    { key: AudiomConfigKey.VisualBaseLayer, label: 'Visual Base Layer', type: FieldType.Text, placeholder: 'Enter image URL for visual base layer', validateOnAccept: (val) => validateUrl(String(val)) },
+    { key: AudiomConfigKey.VisualBaseLayerPosition, label: 'Visual Base Layer Position', type: FieldType.Text, placeholder: '[[lng,lat],[lng,lat],[lng,lat],[lng,lat]]' }
   ]
 
   const useExistingMap = config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap

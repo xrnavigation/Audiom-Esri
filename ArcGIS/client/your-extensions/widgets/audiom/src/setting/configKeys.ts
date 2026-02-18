@@ -16,6 +16,7 @@ export enum SourceConfigKey {
   SourceUrl = 'sourceUrl',
   RulesFileUrl = 'rulesFileUrl',
   MapType = 'mapType',
+  Where = 'where',
   Enabled = 'enabled',
   Locked = 'locked'
 }
@@ -31,6 +32,9 @@ export enum AudiomConfigKey {
   ShowVisualMap = 'showVisualMap',
   ShowHeading = 'showHeading',
   SoundpackUrl = 'soundpackUrl',
+  VisualBaseLayer = 'visualBaseLayer',
+  VisualBaseLayerPosition = 'visualBaseLayerPosition',
+  VisualStyle = 'visualStyle',
   SourceConfigs = 'sourceConfigs',
   CenterLatitude = 'centerLatitude',
   CenterLatitudeLocked = 'centerLatitudeLocked',

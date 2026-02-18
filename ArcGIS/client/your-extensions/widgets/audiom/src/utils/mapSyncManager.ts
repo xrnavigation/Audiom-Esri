@@ -28,6 +28,8 @@ export class MapSyncManager {
   private changeListeners: Set<MapSyncChangeListener> = new Set()
   private lastConfigJson: string = ''
   private initialized: boolean = false
+  /** Tracks which map ID has already had its initial sync performed */
+  private initialSyncDoneForMapId: string = ''
   
   // Bound listener references for cleanup
   private boundOnLayerCreated: ((jlv: JimuLayerView) => void) | null = null
@@ -110,6 +112,29 @@ export class MapSyncManager {
     this.boundOnVisibilityChanged = null
     this.initialized = false
     this.lastConfigJson = ''
+  }
+
+  /**
+   * Check if initial sync has already been performed for a given map ID.
+   * This persists across component remounts since the manager is a singleton.
+   */
+  isInitialSyncDone(mapId: string): boolean {
+    return this.initialSyncDoneForMapId === mapId
+  }
+
+  /**
+   * Mark that the initial sync has been performed for a given map ID.
+   */
+  markInitialSyncDone(mapId: string): void {
+    this.initialSyncDoneForMapId = mapId
+  }
+
+  /**
+   * Reset the initial sync tracking, allowing a fresh sync on next attach.
+   * Call this when the user toggles "Use Existing Map" off.
+   */
+  resetInitialSync(): void {
+    this.initialSyncDoneForMapId = ''
   }
 
   /**

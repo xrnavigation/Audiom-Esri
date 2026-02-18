@@ -52,6 +52,11 @@ export interface IAudiomSource {
   rules?: string;
 
   /**
+   * Where clause / definition expression to filter features
+   */
+  where?: string;
+
+  /**
    * Additional custom parameters for the source
    */
   additionalParams?: Record<string, string | number | boolean>;
@@ -67,6 +72,7 @@ export class AudiomSource implements IAudiomSource {
   name?: string;
   url?: string;
   rules?: string;
+  where?: string;
   additionalParams?: Record<string, string | number | boolean>;
 
   constructor(config: IAudiomSource) {
@@ -76,6 +82,7 @@ export class AudiomSource implements IAudiomSource {
     this.name = config.name;
     this.url = config.url;
     this.rules = config.rules;
+    this.where = config.where;
     this.additionalParams = config.additionalParams;
   }
 
@@ -106,6 +113,7 @@ export class AudiomSource implements IAudiomSource {
     name?: string;
     mapType?: MapType;
     rules?: string;
+    where?: string;
   }): AudiomSource {
     return new AudiomSource({
       source: config.source,
@@ -113,7 +121,8 @@ export class AudiomSource implements IAudiomSource {
       url: config.url,
       name: config.name,
       mapType: config.mapType,
-      rules: config.rules
+      rules: config.rules,
+      where: config.where
     });
   }
 
@@ -124,24 +133,29 @@ export class AudiomSource implements IAudiomSource {
   toQueryParams(): Record<string, string> {
     const params: Record<string, string> = {};
 
+    const sourceName = this.source;
+
     if (this.type) {
-      params[`${this.source}.type`] = this.type;
+      params[`${sourceName}.type`] = this.type;
     }
     if (this.mapType) {
-      params[`${this.source}.mapType`] = this.mapType;
+      params[`${sourceName}.mapType`] = this.mapType;
     }
     if (this.name) {
-      params[`${this.source}.name`] = this.name;
+      params[`${sourceName}.name`] = this.name;
     }
     if (this.url) {
-      params[`${this.source}.url`] = this.url;
+      params[`${sourceName}.url`] = this.url;
     }
     if (this.rules) {
-      params[`${this.source}.rules`] = this.rules;
+      params[`${sourceName}.rules`] = this.rules;
+    }
+    if (this.where) {
+      params[`${sourceName}.where`] = this.where;
     }
     if (this.additionalParams) {
       Object.entries(this.additionalParams).forEach(([key, value]) => {
-        params[`${this.source}.${key}`] = String(value);
+        params[`${sourceName}.${key}`] = String(value);
       });
     }
 
