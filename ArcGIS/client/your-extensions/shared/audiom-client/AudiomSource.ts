@@ -75,14 +75,6 @@ export class AudiomSource implements IAudiomSource {
   where?: string;
   additionalParams?: Record<string, string | number | boolean>;
 
-  /**
-   * Returns a URL-friendly source identifier derived from the source name
-   * with all whitespace removed. Falls back to the raw source ID if no name is set.
-   */
-  get sourceId(): string {
-    return (this.name || this.source).replace(/\s+/g, '');
-  }
-
   constructor(config: IAudiomSource) {
     this.source = config.source;
     this.type = config.type;
@@ -141,32 +133,29 @@ export class AudiomSource implements IAudiomSource {
   toQueryParams(): Record<string, string> {
     const params: Record<string, string> = {};
 
-    // Previously used raw source ID (e.g. ArcGIS layer ID like "19c44caef8d-layer-2")
-    // as the query param prefix. Now uses whitespace-trimmed source name for cleaner URLs.
-    // const prefix = this.source;
-    const prefix = this.sourceId;
+    const sourceName = this.source;
 
     if (this.type) {
-      params[`${prefix}.type`] = this.type;
+      params[`${sourceName}.type`] = this.type;
     }
     if (this.mapType) {
-      params[`${prefix}.mapType`] = this.mapType;
+      params[`${sourceName}.mapType`] = this.mapType;
     }
     if (this.name) {
-      params[`${prefix}.name`] = this.name;
+      params[`${sourceName}.name`] = this.name;
     }
     if (this.url) {
-      params[`${prefix}.url`] = this.url;
+      params[`${sourceName}.url`] = this.url;
     }
     if (this.rules) {
-      params[`${prefix}.rules`] = this.rules;
+      params[`${sourceName}.rules`] = this.rules;
     }
     if (this.where) {
-      params[`${prefix}.where`] = this.where;
+      params[`${sourceName}.where`] = this.where;
     }
     if (this.additionalParams) {
       Object.entries(this.additionalParams).forEach(([key, value]) => {
-        params[`${prefix}.${key}`] = String(value);
+        params[`${sourceName}.${key}`] = String(value);
       });
     }
 

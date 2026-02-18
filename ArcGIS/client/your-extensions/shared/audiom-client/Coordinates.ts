@@ -1,7 +1,7 @@
 /**
  * Interface for a geographic coordinate
  */
-export interface ICoordinate {
+export interface ICoordinates {
   /**
    * Longitude (x-coordinate)
    */
@@ -14,11 +14,11 @@ export interface ICoordinate {
 }
 
 /**
- * Represents a geographic coordinate with longitude and latitude.
+ * Represents a geographic coordinates with longitude and latitude.
  *
  * String format: "longitude,latitude" (e.g., "-122.4194,37.7749")
  */
-export class Coordinate implements ICoordinate {
+export class Coordinates implements ICoordinates {
   longitude: number;
   latitude: number;
 
@@ -28,36 +28,36 @@ export class Coordinate implements ICoordinate {
   }
 
   /**
-   * Create a Coordinate from an ICoordinate interface
+   * Create a Coordinates from an ICoordinates interface
    */
-  static from(coord: ICoordinate): Coordinate {
-    return new Coordinate(coord.longitude, coord.latitude);
+  static from(coord: ICoordinates): Coordinates {
+    return new Coordinates(coord.longitude, coord.latitude);
   }
 
   /**
-   * Create a Coordinate from a [longitude, latitude] array
+   * Create a Coordinates from a [longitude, latitude] array
    */
-  static fromArray(arr: number[]): Coordinate {
+  static fromArray(arr: number[]): Coordinates {
     if (arr.length < 2) {
-      throw new Error('Coordinate array must have at least 2 elements [longitude, latitude]');
+      throw new Error('Coordinates array must have at least 2 elements [longitude, latitude]');
     }
-    return new Coordinate(arr[0], arr[1]);
+    return new Coordinates(arr[0], arr[1]);
   }
 
   /**
-   * Parse a coordinate from a string in the format "longitude,latitude"
+   * Parse a Coordinates from a string in the format "longitude,latitude"
    */
-  static parse(str: string): Coordinate {
+  static parse(str: string): Coordinates {
     const parts = str.split(',').map(s => s.trim());
     if (parts.length !== 2) {
-      throw new Error(`Invalid coordinate format: "${str}". Expected "longitude,latitude"`);
+      throw new Error(`Invalid coordinates format: "${str}". Expected "longitude,latitude"`);
     }
     const longitude = parseFloat(parts[0]);
     const latitude = parseFloat(parts[1]);
     if (isNaN(longitude) || isNaN(latitude)) {
-      throw new Error(`Invalid coordinate values: "${str}". Values must be numeric`);
+      throw new Error(`Invalid coordinates values: "${str}". Values must be numeric`);
     }
-    return new Coordinate(longitude, latitude);
+    return new Coordinates(longitude, latitude);
   }
 
   /**
@@ -75,9 +75,9 @@ export class Coordinate implements ICoordinate {
   }
 
   /**
-   * Check equality with another coordinate
+   * Check equality with another coordinates
    */
-  equals(other: Coordinate): boolean {
+  equals(other: Coordinates): boolean {
     return this.longitude === other.longitude && this.latitude === other.latitude;
   }
 }

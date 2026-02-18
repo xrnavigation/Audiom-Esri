@@ -1,6 +1,7 @@
 import { StepSize } from './StepSize';
 import { AudiomSource, IAudiomSource } from './AudiomSource';
 import { GeoQuad } from './GeoQuad';
+import { Coordinates } from './Coordinates';
 
 /**
  * Visual style options for map rendering
@@ -9,11 +10,6 @@ export enum VisualStyle {
   Default = '',
   Geology = 'geology'
 }
-
-/**
- * Geographic coordinates [longitude, latitude]
- */
-export type Coordinates = [number, number];
 
 /**
  * Configuration interface for Audiom embedded map
@@ -214,11 +210,8 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
 
     // Sources
     if (this.sources && this.sources.length > 0) {
-      // Previously used raw source IDs (e.g. ArcGIS layer IDs like "19c44caef8d-layer-2").
-      // Now uses whitespace-trimmed source names for human-readable, cleaner URLs.
-      // const sourceNames = this.sources.map(s => s.source).join(',');
-      const sourceNames = this.sources.map(s => s.sourceId).join(',');
-      // Use 'sources' if multiple, 'source' if single
+      const sourceNames = this.sources.map(s => s.source).join(',');
+
       const sourceKey = "sources"
       params[sourceKey] = sourceNames;
 
@@ -293,13 +286,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   toUrl(baseUrl: string = AudiomEmbedConfig.defaultBaseURL): string {
     const params = this.toQueryParams();
     const queryString = Object.entries(params)
-      .map(([key, value]) => {
-        // Don't encode visualbaselayerposition0 value as it's already JSON formatted
-        if (key === 'visualbaselayerposition0') {
-          return `${key}=${value}`;
-        }
-        return `${key}=${encodeURIComponent(value)}`;
-      })
+      .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
       .join('&');
 
     return `${baseUrl}/embed/${this.embedId}?${queryString}`;

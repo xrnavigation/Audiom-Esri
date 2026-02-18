@@ -12,6 +12,7 @@ import { isConfigValid } from "../setting/validation/validation";
 import { createLogger } from './logger';
 import { LayerType, isExcludedLayerType } from './mapEnums';
 import { getMapTitle } from './esriTypes';
+import { Coordinates } from "your-extensions/shared/audiom-client/Coordinates";
 
 const logger = createLogger('MapUtils');
 
@@ -72,7 +73,7 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
   return AudiomEmbedConfig.dynamic({
     apiKey: config.apiKey || '',
     sources: sources,
-    center: [config.centerLongitude ?? DEFAULT_CONFIG.centerLongitude, config.centerLatitude ?? DEFAULT_CONFIG.centerLatitude],
+    center: Coordinates.fromArray([config.centerLongitude ?? DEFAULT_CONFIG.centerLongitude, config.centerLatitude ?? DEFAULT_CONFIG.centerLatitude]),
     showVisualMap: config.showVisualMap ?? DEFAULT_CONFIG.showVisualMap,
     showHeading: config.showHeading ?? DEFAULT_CONFIG.showHeading,
     zoom: config.zoom ?? DEFAULT_CONFIG.zoom,

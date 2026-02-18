@@ -1,4 +1,4 @@
-import { Coordinate, ICoordinate } from './Coordinate';
+import { Coordinates, ICoordinates } from './Coordinates';
 
 /**
  * Interface for a geographic quadrilateral defined by 4 corner coordinates
@@ -7,22 +7,22 @@ export interface IGeoQuad {
   /**
    * Top-left corner
    */
-  topLeft: ICoordinate;
+  topLeft: ICoordinates;
 
   /**
    * Top-right corner
    */
-  topRight: ICoordinate;
+  topRight: ICoordinates;
 
   /**
    * Bottom-right corner
    */
-  bottomRight: ICoordinate;
+  bottomRight: ICoordinates;
 
   /**
    * Bottom-left corner
    */
-  bottomLeft: ICoordinate;
+  bottomLeft: ICoordinates;
 }
 
 /**
@@ -32,12 +32,12 @@ export interface IGeoQuad {
  * Order: top-left, top-right, bottom-right, bottom-left
  */
 export class GeoQuad implements IGeoQuad {
-  topLeft: Coordinate;
-  topRight: Coordinate;
-  bottomRight: Coordinate;
-  bottomLeft: Coordinate;
+  topLeft: Coordinates;
+  topRight: Coordinates;
+  bottomRight: Coordinates;
+  bottomLeft: Coordinates;
 
-  constructor(topLeft: Coordinate, topRight: Coordinate, bottomRight: Coordinate, bottomLeft: Coordinate) {
+  constructor(topLeft: Coordinates, topRight: Coordinates, bottomRight: Coordinates, bottomLeft: Coordinates) {
     this.topLeft = topLeft;
     this.topRight = topRight;
     this.bottomRight = bottomRight;
@@ -49,10 +49,10 @@ export class GeoQuad implements IGeoQuad {
    */
   static from(quad: IGeoQuad): GeoQuad {
     return new GeoQuad(
-      Coordinate.from(quad.topLeft),
-      Coordinate.from(quad.topRight),
-      Coordinate.from(quad.bottomRight),
-      Coordinate.from(quad.bottomLeft)
+      Coordinates.from(quad.topLeft),
+      Coordinates.from(quad.topRight),
+      Coordinates.from(quad.bottomRight),
+      Coordinates.from(quad.bottomLeft)
     );
   }
 
@@ -66,10 +66,10 @@ export class GeoQuad implements IGeoQuad {
       throw new Error(`GeoQuad requires exactly 4 coordinates, got ${arr.length}`);
     }
     return new GeoQuad(
-      Coordinate.fromArray(arr[0]),
-      Coordinate.fromArray(arr[1]),
-      Coordinate.fromArray(arr[2]),
-      Coordinate.fromArray(arr[3])
+      Coordinates.fromArray(arr[0]),
+      Coordinates.fromArray(arr[1]),
+      Coordinates.fromArray(arr[2]),
+      Coordinates.fromArray(arr[3])
     );
   }
 
@@ -118,7 +118,7 @@ export class GeoQuad implements IGeoQuad {
    * Get all 4 corner coordinates as an array
    * Order: top-left, top-right, bottom-right, bottom-left
    */
-  getCoordinates(): [Coordinate, Coordinate, Coordinate, Coordinate] {
+  getCoordinates(): [Coordinates, Coordinates, Coordinates, Coordinates] {
     return [this.topLeft, this.topRight, this.bottomRight, this.bottomLeft];
   }
 
