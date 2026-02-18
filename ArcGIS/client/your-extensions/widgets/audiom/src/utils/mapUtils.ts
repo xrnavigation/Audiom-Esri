@@ -1,7 +1,8 @@
 import { AudiomSource, MapType } from "../../../../shared/audiom-client/AudiomSource";
 import { AudiomEmbedConfig } from "../../../../shared/audiom-client/AudiomEmbedConfig";
-import { StepSize, StepSizeUnit } from "../../../../shared/audiom-client/StepSize";
+import { StepSize } from "../../../../shared/audiom-client/StepSize";
 import { GeoQuad } from "../../../../shared/audiom-client/GeoQuad";
+import { Coordinates } from "../../../../shared/audiom-client/Coordinates";
 import { JimuMapView, MapViewManager } from "jimu-arcgis";
 import FeatureLayer from 'esri/layers/FeatureLayer';
 import CSVLayer from 'esri/layers/CSVLayer';
@@ -12,7 +13,6 @@ import { isConfigValid } from "../setting/validation/validation";
 import { createLogger } from './logger';
 import { LayerType, isExcludedLayerType } from './mapEnums';
 import { getMapTitle } from './esriTypes';
-import { Coordinates } from "your-extensions/shared/audiom-client/Coordinates";
 
 const logger = createLogger('MapUtils');
 
@@ -73,7 +73,7 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
   return AudiomEmbedConfig.dynamic({
     apiKey: config.apiKey || '',
     sources: sources,
-    center: Coordinates.fromArray([config.centerLongitude ?? DEFAULT_CONFIG.centerLongitude, config.centerLatitude ?? DEFAULT_CONFIG.centerLatitude]),
+    center: Coordinates.create(config.centerLongitude ?? DEFAULT_CONFIG.centerLongitude, config.centerLatitude ?? DEFAULT_CONFIG.centerLatitude),
     showVisualMap: config.showVisualMap ?? DEFAULT_CONFIG.showVisualMap,
     showHeading: config.showHeading ?? DEFAULT_CONFIG.showHeading,
     zoom: config.zoom ?? DEFAULT_CONFIG.zoom,

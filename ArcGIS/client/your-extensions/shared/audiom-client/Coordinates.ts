@@ -22,9 +22,13 @@ export class Coordinates implements ICoordinates {
   longitude: number;
   latitude: number;
 
-  constructor(longitude: number, latitude: number) {
+  private constructor(longitude: number, latitude: number) {
     this.longitude = longitude;
     this.latitude = latitude;
+  }
+
+  static create(longitude: number, latitude: number): Coordinates {
+    return new Coordinates(longitude, latitude);
   }
 
   /**
