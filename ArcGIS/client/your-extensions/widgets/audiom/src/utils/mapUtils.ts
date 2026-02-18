@@ -7,7 +7,7 @@ import FeatureLayer from 'esri/layers/FeatureLayer';
 import CSVLayer from 'esri/layers/CSVLayer';
 import GeoJSONLayer from 'esri/layers/GeoJSONLayer';
 import MapImageLayer from 'esri/layers/MapImageLayer';
-import { DEFAULT_CONFIG, IAudiomConfig } from "../setting/configs";
+import { DEFAULT_CONFIG, DEFAULT_SOURCE_CONFIG, IAudiomConfig } from "../setting/configs";
 import { isConfigValid } from "../setting/validation/validation";
 import { createLogger } from './logger';
 import { LayerType, isExcludedLayerType } from './mapEnums';
@@ -102,7 +102,7 @@ export function getSourcesFromConfig(config: IAudiomConfig): AudiomSource[] {
         name: sourceConfig.name,
         source: sourceConfig.source,
         url: sourceConfig.sourceUrl,
-        mapType: sourceConfig.mapType || MapType.Indoor,
+        mapType: sourceConfig.mapType || DEFAULT_SOURCE_CONFIG.mapType,
         rules: sourceConfig.rulesFileUrl || '',
         where: sourceConfig.where || undefined
       });

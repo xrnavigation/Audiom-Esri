@@ -6,7 +6,7 @@ import { LockOutlined } from 'jimu-icons/outlined/editor/lock'
 import { UnlockOutlined } from 'jimu-icons/outlined/editor/unlock'
 import { TrashOutlined } from 'jimu-icons/outlined/editor/trash'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
-import { FieldConfig, ISourceConfig } from '../configs'
+import { DEFAULT_SOURCE_CONFIG, FieldConfig, ISourceConfig } from '../configs'
 import { ButtonSize, ButtonType, FieldType, Colors, MAP_TYPE_OPTIONS } from '../enums'
 import { SourceConfigKey } from '../configKeys'
 import { validateUrl } from '../validation/validation'
@@ -100,7 +100,7 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
     ? sourceConfig.name 
     : `${SOURCE_PREFIX}${index + 1}`
   const isEnabled = sourceConfig.enabled !== false
-  const isLocked = sourceConfig.locked ?? true
+  const isLocked = sourceConfig.locked ?? DEFAULT_SOURCE_CONFIG.locked
 
   // Field configuration for source properties
   const sourceConfigFields: FieldConfig[] = [
@@ -113,7 +113,7 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
       label: FIELD_LABEL_MAP_TYPE,
       type: FieldType.Enum,
       enumOptions: [...MAP_TYPE_OPTIONS],
-      defaultValue: MapType.Indoor,
+      defaultValue: DEFAULT_SOURCE_CONFIG.mapType,
       showCopyButton: false
     }
   ]

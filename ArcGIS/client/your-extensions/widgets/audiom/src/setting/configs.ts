@@ -28,6 +28,17 @@ export const DEFAULT_CONFIG = {
   zoomLocked: true,
 } as const satisfies Partial<IAudiomConfig>
 
+export const DEFAULT_SOURCE_CONFIG: ISourceConfig = {
+  source: undefined,
+  name: undefined,
+  sourceUrl: undefined,
+  rulesFileUrl: undefined,
+  mapType: MapType.Indoor,
+  where: undefined,
+  enabled: true,
+  locked: true
+}
+
 export interface FieldConfig {
   key: string
   label: string
@@ -109,4 +120,26 @@ export function getConfigValue<K extends keyof typeof DEFAULT_CONFIG>(
     return config[key as keyof IAudiomConfig] as (typeof DEFAULT_CONFIG)[K]
   }
   return DEFAULT_CONFIG[key]
+}
+
+/**
+ * Type-safe source config value accessor with default fallback.
+ * Eliminates repetitive `source?.[key] ?? DEFAULT_SOURCE_CONFIG[key]` patterns.
+ * 
+ * @param source - The source configuration
+ * @param key - The source config key to access
+ * @returns The source config value or its default from DEFAULT_SOURCE_CONFIG
+ * 
+ * @example
+ * const mapType = getSourceConfigValue(source, 'mapType') // MapType
+ * const enabled = getSourceConfigValue(source, 'enabled') // boolean
+ */
+export function getSourceConfigValue<K extends keyof ISourceConfig>(
+  source: ISourceConfig | undefined,
+  key: K
+): ISourceConfig[K] {
+  if (source && key in source && source[key] !== undefined) {
+    return source[key]
+  }
+  return DEFAULT_SOURCE_CONFIG[key]
 }
