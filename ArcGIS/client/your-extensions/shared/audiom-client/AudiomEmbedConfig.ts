@@ -7,8 +7,30 @@ import { Coordinates } from './Coordinates';
  * Visual style options for map rendering
  */
 export enum VisualStyle {
-  Default = '',
-  Geology = 'geology'
+  Geology = 'geology',
+  Indoor = 'indoor',
+  Outdoor = 'outdoor',
+  Travel = 'travel'
+}
+
+/**
+ * Filter mode for map feature filtering
+ */
+export enum FilterMode {
+  /** Filters apply to all features everywhere */
+  Global = 'global',
+  /** Filters apply to menus and sonar scans only */
+  Scan = 'scan'
+}
+
+/**
+ * Visual base layer configuration
+ */
+export interface IVisualBaseLayer {
+  /** URL for the visual base layer image overlay */
+  url: string;
+  /** Position quad for the visual base layer */
+  position?: GeoQuad;
 }
 
 /**
@@ -88,20 +110,32 @@ export interface IAudiomEmbedConfig {
   stepSize?: StepSize | string;
 
   /**
+   * Comma-separated list of object types to filter map features
+   */
+  filters?: string[];
+
+  /**
+   * Controls how filters are applied
+   * @default FilterMode.Scan
+   */
+  filterMode?: FilterMode;
+
+  /**
    * Visual rendering style
    */
   visualStyle?: VisualStyle;
 
   /**
-   * URL for a visual base layer image overlay
+   * Visual base layer image overlays with optional positioning
    */
-  visualBaseLayer?: string;
+  visualBaseLayers?: IVisualBaseLayer[];
 
   /**
-   * Position quad for visual base layer
-   * Order: top-left, top-right, bottom-right, bottom-left
+   * Origins allowed to send messages via the PostMessage API.
+   * Set to '*' to allow any origin (development only).
+   * The PostMessage API is disabled by default.
    */
-  visualBaseLayerPosition?: GeoQuad;
+  allowedOrigins?: string[] | string;
 
   /**
    * Additional custom parameters
@@ -127,9 +161,11 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   heading?: 1 | 2 | 3 | 4 | 5 | 6;
   showHeading?: boolean;
   stepSize?: StepSize;
+  filters?: string[];
+  filterMode?: FilterMode;
   visualStyle?: VisualStyle;
-  visualBaseLayer?: string;
-  visualBaseLayerPosition?: GeoQuad;
+  visualBaseLayers?: IVisualBaseLayer[];
+  allowedOrigins?: string[] | string;
   additionalParams?: Record<string, string | number | boolean>;
 
   /**
@@ -172,9 +208,11 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
         : config.stepSize;
     }
 
+    this.filters = config.filters;
+    this.filterMode = config.filterMode;
     this.visualStyle = config.visualStyle;
-    this.visualBaseLayer = config.visualBaseLayer;
-    this.visualBaseLayerPosition = config.visualBaseLayerPosition;
+    this.visualBaseLayers = config.visualBaseLayers;
+    this.allowedOrigins = config.allowedOrigins;
     this.additionalParams = config.additionalParams;
   }
 
@@ -260,14 +298,27 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     if (this.stepSize) {
       params.stepsize = this.stepSize.toString();
     }
+    if (this.filters && this.filters.length > 0) {
+      params.filters = this.filters.join(',');
+    }
+    if (this.filterMode) {
+      params.filterMode = this.filterMode;
+    }
     if (this.visualStyle) {
       params.visualStyle = this.visualStyle;
     }
-    if (this.visualBaseLayer) {
-      params.visualbaselayer0 = this.visualBaseLayer;
+    if (this.visualBaseLayers && this.visualBaseLayers.length > 0) {
+      this.visualBaseLayers.forEach((layer, index) => {
+        params[`visualbaselayer${index}`] = layer.url;
+        if (layer.position) {
+          params[`visualbaselayerposition${index}`] = layer.position.toString();
+        }
+      });
     }
-    if (this.visualBaseLayerPosition) {
-      params.visualbaselayerposition0 = this.visualBaseLayerPosition.toString();
+    if (this.allowedOrigins) {
+      params.allowedOrigins = Array.isArray(this.allowedOrigins)
+        ? this.allowedOrigins.join(',')
+        : this.allowedOrigins;
     }
 
     // Additional custom parameters

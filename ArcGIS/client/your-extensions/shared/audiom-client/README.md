@@ -4,7 +4,7 @@ A strongly-typed TypeScript client library for embedding Audiom inclusive mappin
 
 ## Overview
 
-This library provides a complete set of TypeScript interfaces, classes, and utilities for working with the Audiom Embed API. It offers type safety, autocompletion support, and a clean API for generating embed URLs and handling PostMessage communication.
+This library provides a complete set of TypeScript interfaces, classes, and utilities for working with the Audiom Embed API. It offers type safety, autocompletion support, and a clean API for generating embed URLs and handling bidirectional PostMessage communication.
 
 ## Features
 
@@ -12,9 +12,10 @@ This library provides a complete set of TypeScript interfaces, classes, and util
 - ✅ **Builder pattern** for easy configuration
 - ✅ **Type-safe enums** for constants
 - ✅ **URL generation** from configuration objects
-- ✅ **PostMessage handler** for iframe communication
+- ✅ **Bidirectional PostMessage API** for iframe communication
 - ✅ **Multi-source support** with namespaced parameters
 - ✅ **Step size utilities** with multiple unit support
+- ✅ **Feature filters** with global and scan modes
 
 ## Installation
 
@@ -24,7 +25,11 @@ import {
   AudiomSource,
   StepSize,
   MapType,
-  AudiomMessageHandler
+  FilterMode,
+  VisualStyle,
+  AudiomMessageHandler,
+  AudiomOutboundEventType,
+  AudiomInboundCommandType
 } from './audiom-client';
 ```
 
@@ -36,12 +41,12 @@ import {
 const config = AudiomEmbedConfig.dynamic({
   apiKey: 'your-api-key-here',
   sources: ['osm'],
-  center: [-122.1431, 47.6495],
+  center: Coordinates.create(-122.1431, 47.6495),
   zoom: 15
 });
 
 const url = config.toUrl();
-// https://audiom-staging.herokuapp.com/embed/dynamic?apiKey=...&source=osm&center=-122.1431,47.6495&zoom=15
+// https://audiom-staging.herokuapp.com/embed/dynamic?apiKey=...&sources=osm&center=-122.1431,47.6495&zoom=15
 ```
 
 ### Static Map with Numeric ID
@@ -61,14 +66,14 @@ const url = config.toUrl();
 const config = AudiomEmbedConfig.dynamic({
   apiKey: 'your-api-key-here',
   sources: ['osm'],
-  center: [-122.1431, 47.6495],
-  stepsize: StepSize.Meters(10) // Type-safe step size
+  center: Coordinates.create(-122.1431, 47.6495),
+  stepSize: StepSize.meters(10) // Type-safe step size
 });
 
 // Alternative units:
-StepSize.Kilometers(5);
-StepSize.Miles(2);
-StepSize.Feet(100);
+StepSize.kilometers(5);
+StepSize.miles(2);
+StepSize.feet(100);
 StepSize.parse('50m'); // Parse from string
 ```
 
@@ -126,9 +131,110 @@ const config = AudiomEmbedConfig.dynamic({
 });
 ```
 
-## Complex Multi-Source Example
+## Filters
 
-This example matches the indoor mapping URL from the documentation:
+```typescript
+// Filter features by type in the URL
+const config = AudiomEmbedConfig.dynamic({
+  apiKey: 'your-api-key',
+  sources: ['osm'],
+  filters: ['walls', 'poi', 'building'],
+  filterMode: FilterMode.Global // or FilterMode.Scan (default)
+});
+// Produces: &filters=walls,poi,building&filterMode=global
+```
+
+## PostMessage API
+
+The PostMessage API enables bidirectional communication between your app and an embedded Audiom map. It must be enabled by specifying `allowedOrigins`.
+
+### Enabling the API
+
+```typescript
+const config = AudiomEmbedConfig.dynamic({
+  apiKey: 'your-api-key',
+  sources: ['osm'],
+  latitude: 47.6495,
+  longitude: -122.1431,
+  allowedOrigins: ['https://myapp.com', 'https://staging.myapp.com']
+  // or allowedOrigins: '*' for development
+});
+```
+
+### Listening for Events
+
+```typescript
+const handler = new AudiomMessageHandler('https://your-audiom-instance.com');
+
+// Embed is ready
+handler.on(AudiomOutboundEventType.Ready, (payload) => {
+  console.log('Audiom ready, API version:', payload.apiVersion);
+});
+
+// Avatar moved
+handler.on(AudiomOutboundEventType.PositionChanged, (payload) => {
+  const [lng, lat] = payload.position;
+  console.log('User moved to:', lng, lat);
+});
+
+// Avatar entered features
+handler.on(AudiomOutboundEventType.FeatureEntered, (payload) => {
+  payload.features.forEach(f => {
+    console.log(`Entered ${f.type}: ${f.name}`);
+  });
+});
+
+// Avatar exited features  
+handler.on(AudiomOutboundEventType.FeatureExited, (payload) => {
+  payload.features.forEach(f => console.log('Exited:', f.id));
+});
+
+// State query response
+handler.on(AudiomOutboundEventType.StateChanged, (payload) => {
+  console.log('Current position:', payload.position);
+});
+
+// Errors
+handler.on(AudiomOutboundEventType.Error, (payload) => {
+  console.error(`Audiom error [${payload.code}]:`, payload.message);
+});
+
+// Remove a specific listener
+handler.off(AudiomOutboundEventType.PositionChanged, myListener);
+
+// Clean up
+handler.dispose();
+```
+
+### Sending Commands
+
+```typescript
+const iframe = document.getElementById('audiom-embed') as HTMLIFrameElement;
+const audiomOrigin = 'https://your-audiom-instance.com';
+
+// Move the avatar
+handler.moveAvatar(iframe, [-122.4194, 37.7749], audiomOrigin);
+// Or with Coordinates:
+handler.moveAvatar(iframe, Coordinates.create(-122.4194, 37.7749), audiomOrigin);
+
+// Query current position (responds with stateChanged event)
+handler.getState(iframe, audiomOrigin);
+
+// Query enclosing features (responds with featureSelected event)
+handler.getEnclosingFeatures(iframe, audiomOrigin);
+
+// Set filters
+handler.setFilters(iframe, {
+  global: ['building', 'park'],
+  scan: ['poi', 'transit']
+}, audiomOrigin);
+
+// Execute a keyboard command
+handler.executeCommand(iframe, 'announcePosition', audiomOrigin);
+// Common commands: 'up', 'down', 'left', 'right', 'toggleSonar', 'announcePosition'
+```
+
+## Complex Multi-Source Example
 
 ```typescript
 const config = AudiomEmbedConfig.dynamic({
@@ -156,30 +262,10 @@ const config = AudiomEmbedConfig.dynamic({
       rules: '/rules/esri-indoor.json'
     })
   ],
-  center: [-117.1945001420124, 34.05679755835778]
+  center: Coordinates.create(-117.1945001420124, 34.05679755835778)
 });
 
 const url = config.toUrl();
-```
-
-## Listening to User Position Updates
-
-```typescript
-// Create message handler
-const messageHandler = new AudiomMessageHandler(
-  'https://audiom-staging.herokuapp.com' // Optional: restrict to origin
-);
-
-// Add listener
-messageHandler.addUserPositionListener((position) => {
-  const [longitude, latitude] = position;
-  console.log('User moved to:', longitude, latitude);
-  // Update your UI, sync with other maps, etc.
-});
-
-// Clean up when done
-messageHandler.removeAllListeners();
-messageHandler.dispose();
 ```
 
 ## Full Configuration Example
@@ -195,7 +281,7 @@ const config = AudiomEmbedConfig.dynamic({
       mapType: MapType.Indoor
     })
   ],
-  center: [-117.19, 34.06],
+  center: Coordinates.create(-117.19, 34.06),
   zoom: 18,
   title: 'Campus Indoor Navigation',
   soundpack: '/audio/campus',
@@ -203,7 +289,11 @@ const config = AudiomEmbedConfig.dynamic({
   showVisualMap: true,
   heading: 1,
   showHeading: true,
-  stepsize: StepSize.Meters(5),
+  stepSize: StepSize.meters(5),
+  filters: ['walls', 'poi'],
+  filterMode: FilterMode.Scan,
+  visualStyle: VisualStyle.Indoor,
+  allowedOrigins: ['https://myapp.com'],
   additionalParams: {
     organizationId: '12345',
     customFlag: true
@@ -230,20 +320,35 @@ const prodUrl = config.toUrlWithBase('https://audiom.example.com');
 - **`AudiomEmbedConfig`** - Main configuration class for embed maps
 - **`AudiomSource`** - Data source configuration
 - **`StepSize`** - Step size with unit support
-- **`AudiomMessageHandler`** - PostMessage communication handler
+- **`Coordinates`** - Geographic coordinate (longitude, latitude)
+- **`GeoQuad`** - Geographic quadrilateral (4 corners)
+- **`AudiomMessageHandler`** - Bidirectional PostMessage communication handler
 
 ### Enums
 
 - **`MapType`** - `Travel`, `Heatmap`, `Indoor`
 - **`SourceType`** - `OSM`, `TDEI`, `ESRI`, `GeoJSON`
 - **`StepSizeUnit`** - `Kilometers`, `Meters`, `Miles`, `Feet`
+- **`VisualStyle`** - `Geology`, `Indoor`, `Outdoor`, `Travel`
+- **`FilterMode`** - `Global`, `Scan`
+- **`AudiomOutboundEventType`** - `Ready`, `PositionChanged`, `FeatureEntered`, `FeatureExited`, `FeatureSelected`, `StateChanged`, `Error`
+- **`AudiomInboundCommandType`** - `MoveAvatar`, `GetState`, `GetEnclosingFeatures`, `SetFilters`, `ExecuteCommand`
+- **`AudiomErrorCode`** - `INVALID_ORIGIN`, `INVALID_MESSAGE`, `UNKNOWN_COMMAND`, `COMMAND_FAILED`, `NOT_READY`
+
+### Interfaces
+
+- **`IAudiomEmbedConfig`** - Configuration interface
+- **`IAudiomSource`** - Source interface
+- **`IVisualBaseLayer`** - Visual base layer configuration
+- **`IFeaturePayload`** - Map feature payload in PostMessage events
+- **`ISetFiltersPayload`** - Filter configuration for PostMessage commands
+- **`AudiomEventPayloadMap`** - Type map for event payloads
 
 ### Types
 
-- **`Coordinates`** - `[longitude, latitude]` tuple
-- **`IAudiomEmbedConfig`** - Configuration interface
-- **`IAudiomSource`** - Source interface
-- **`AudiomUserPositionListener`** - Position update callback
+- **`AudiomOutboundMessage`** - Discriminated union of all outbound event messages
+- **`AudiomInboundCommand`** - Discriminated union of all inbound command messages
+- **`AudiomEventListener<T>`** - Typed listener callback for a specific event type
 
 ## Type Safety
 
@@ -255,11 +360,24 @@ const config: AudiomEmbedConfig = AudiomEmbedConfig.dynamic({
   heading: 1, // ✅ Valid (1-6)
   // heading: 7, // ❌ TypeScript error
   
-  center: [-122.14, 47.65], // ✅ [longitude, latitude]
-  // center: [47.65, -122.14], // ⚠️ No compile error, but logically incorrect
+  center: Coordinates.create(-122.14, 47.65), // ✅ Coordinates object
   
-  mapType: MapType.Indoor, // ✅ Type-safe enum
-  // mapType: 'invalid', // ❌ TypeScript error
+  visualStyle: VisualStyle.Indoor, // ✅ Type-safe enum
+  // visualStyle: 'invalid', // ❌ TypeScript error
+  
+  filterMode: FilterMode.Global, // ✅ Type-safe enum
+});
+
+// Typed event listeners
+handler.on(AudiomOutboundEventType.PositionChanged, (payload) => {
+  // payload is typed as IPositionChangedPayload
+  const [lng, lat] = payload.position; // ✅ [number, number]
+});
+
+handler.on(AudiomOutboundEventType.FeatureEntered, (payload) => {
+  // payload is typed as IFeatureEnteredPayload
+  payload.features[0].name; // ✅ string
+  payload.features[0].properties; // ✅ Record<string, unknown>
 });
 ```
 
@@ -275,7 +393,7 @@ try {
 
 try {
   // Negative step size
-  const stepSize = StepSize.Meters(-5);
+  const stepSize = StepSize.meters(-5);
 } catch (error) {
   console.error('Step size must be positive:', error.message);
 }

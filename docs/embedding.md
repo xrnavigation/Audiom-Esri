@@ -1,10 +1,6 @@
----
-title: Audiom Embed Endpoint Documentation
----
-
 # Audiom Embed Endpoint Documentation
 
-The Audiom Embed Endpoint allows you to integrate the Audiom inclusive map solution into your platform using an iFrame. The service dynamically generates an interactive map based on the URL query parameters provided.
+The Audiom Embed Endpoint allows you to integrate the Audiom inclusive mapping solution into your platform using an iFrame. The service dynamically generates an interactive map based on the URL query parameters provided.
 
 ## URL Structure
 
@@ -31,14 +27,35 @@ The following parameters can be passed via the URL query string:
 - **Description**: Your API key, necessary for fetching map data.
 - **Example**: `apiKey=abcxyz123456`
 
-[Contact the XR Navigation team if you need an API key.](https://xrnavigation.io/contact)
+### `source` (Optional, Legacy)
 
-### `sources` (Optional)
+- **Description**: Single data source identifier or direct URL to GeoJSON data. For multiple sources, prefer the `sources` parameter instead.
+- **Example (Single Source)**: `source=osm`
+- **Example (URL Source)**: `source=https://example.com/mycustommap.geojson`
 
-- **Description**: Specifies the data source(s) for the map. This can be a single source name (e.g., "osm", "TDEI") or a comma-separated list of source names and/or direct URLs to GeoJSON data. If not provided, it defaults to `["osm"]`.
-- **Example (Single Source)**: `sources=osm`
-- **Example (Multiple Sources)**: `sources=TDEI,https://example.com/data.geojson`
-- **Example (URL Source)**: `sources=https://example.com/mycustommap.geojson`
+### `sources` (Optional, Recommended)
+
+- **Description**: Comma-separated list of data source identifiers and/or URLs. This is the recommended parameter for specifying one or more data sources. Takes precedence over `source` when both are provided.
+- **Example**: `sources=osm,TDEI`
+- **Example (Mixed)**: `sources=osm,https://example.com/custom.geojson`
+
+**Note**: When using `embed/dynamic`, either `source`/`sources` or a valid center (`center` or `latitude`+`longitude`) must be provided. If neither is specified, a `422 Unprocessable Entity` error is returned.
+
+#### Available Data Sources
+
+The following predefined sources are available:
+
+- **`osm`** - OpenStreetMap data (default for travel mapping)
+- **`covid_daily`** - COVID-19 daily statistics
+- **`covid_county_stats`** - COVID-19 county statistics
+- **`covid_global_stats`** - COVID-19 global statistics
+- **`covid_nytimes`** - COVID-19 NYTimes data
+- **`goodmaps`** - Goodmaps APH Facility (IMDF indoor mapping)
+- **`coon`** - Georgia Tech Coon Building (IMDF indoor mapping)
+- **`TDEI`** - TDEI sidewalk accessibility data
+- **`IMDF`** - Generic IMDF indoor mapping loader
+- **`presidential_election`** - US Presidential Election 2024 data
+- **Direct URLs** - Any valid GeoJSON URL is automatically detected and loaded
 
 ### `center` (Optional)
 
@@ -62,33 +79,13 @@ The following parameters can be passed via the URL query string:
 
 - **Description**: The initial zoom level of the map.
 - **Type**: Number
-- **Default**: `0`
+- **Default**: `14`
 - **Example**: `zoom=15`
 
 ### `soundpack` (Optional)
 
-- **Description**: Identifier, name, or path for the soundpack to be used. Can be a simple name (e.g., `campus`) or a full path. If not provided, it may default based on the `embedId` or to a system-wide default (e.g., `/audio`).
-- **Example**: `soundpack=campus`
+- **Description**: Identifier or path for the soundpack to be used. If not provided, it may default based on the `embedId` or to a system-wide default (e.g., `/audio`).
 - **Example**: `soundpack=/audio/custompackname`
-
-### `visualStyle` (Optional)
-
-- **Description**: Visual rendering style for the map.
-- **Type**: String (enum)
-- **Values**: `geology`
-- **Example**: `visualStyle=geology`
-
-### `visualbaselayer` (Optional)
-
-- **Description**: URL of an image to use as a visual base layer overlay on the map.
-- **Type**: String (URL)
-- **Example**: `visualbaselayer=https://audiom.blob.core.windows.net/basemaps/Wayfinding_Centre_illustration_new.png`
-
-### `visualbaselayerposition` (Optional)
-
-- **Description**: Position coordinates for the visual base layer image overlay. An array of 4 coordinate pairs `[longitude, latitude]` defining the corners: top-left, top-right, bottom-right, bottom-left.
-- **Type**: JSON array of coordinate pairs
-- **Example**: `visualbaselayerposition=[[-6.270101,53.368574],[-6.268558,53.368574],[-6.268558,53.367483],[-6.270101,53.367483]]`
 
 ### `demo` (Optional)
 
@@ -131,6 +128,35 @@ The following parameters can be passed via the URL query string:
 - **Example**: `stepsize=5km` (5 kilometers)
 - **Example**: `stepsize=100` (100 meters, assumes meters without unit)
 
+### `filters` (Optional)
+
+- **Description**: Comma-separated list of object types to filter the map features.
+- **Type**: String (comma-separated)
+- **Example**: `filters=walls,poi,building`
+
+### `filterMode` (Optional)
+
+- **Description**: Controls how filters are applied.
+- **Type**: String
+- **Values**: `"global"` (filters apply to all features everywhere) or `"scan"` (filters apply to menus and sonar scans only)
+- **Default**: `"scan"`
+- **Example**: `filterMode=global`
+
+### `visualStyle` (Optional)
+
+- **Description**: Sets the visual rendering style for the map.
+- **Type**: String
+- **Example**: `visualStyle=geology`
+
+### `allowedOrigins` (Optional, Required to enable PostMessage API)
+
+- **Description**: Comma-separated list of origins allowed to send messages to the embedded map via the PostMessage API, or `*` to allow any origin. The PostMessage API is disabled by default; this parameter is required to enable it.
+- **Security**: Only origins in this list can send commands to the map. Messages from other origins are rejected with an `INVALID_ORIGIN` error.
+- **Examples**:
+  - `allowedOrigins=https://myapp.com` (single origin)
+  - `allowedOrigins=https://myapp.com,https://staging.myapp.com` (multiple origins)
+  - `allowedOrigins=*` (any origin - use only for development/testing)
+
 ### Multi-Source Configuration
 
 For advanced configurations with multiple data sources, you can use namespaced parameters to pass source-specific settings. This works identically to the `/map` endpoint.
@@ -148,6 +174,10 @@ For advanced configurations with multiple data sources, you can use namespaced p
   - **Example**: `osm.name=Street%20Network`
 - **`{source}.url`** - URL for dynamic sources (required for ESRI type)
   - **Example**: `weather.url=https://services.arcgis.com/...`
+- **`{source}.rules`** - Path to a rules JSON file for custom feature classification
+  - **Example**: `census.rules=/rules/census.json`
+- **`{source}.where`** - SQL-style filter for ESRI sources
+  - **Example**: `census.where=State='Hawaii'`
 
 **Complete Example**:
 
@@ -158,6 +188,7 @@ For advanced configurations with multiple data sources, you can use namespaced p
 ### Other Parameters
 
 - **Description**: Any URL query parameters not listed above (e.g., `organizationId`, custom parameters for specific data loaders) will be collected and passed as `additionalParams` to the map data loader. This allows for extending functionality for custom data sources.
+- **Excluded from additionalParams**: `center`, `size`, `sources`, `zoom`, `organizationId`, `demo`, `title`, `soundpack`, `embedId`, `apiKey`, `showVisualMap`, `heading`, `showHeading`, `stepsize`, `filters`, `filterMode`, `visualStyle`, and all namespaced parameters (containing `.`).
 - **Example**: `myCustomParam=customValue` (This would be passed to the loader if `myCustomParam` is not a recognized top-level parameter).
 
 ### Parameters NOT Supported in Embed
@@ -194,16 +225,7 @@ The Audiom Embed API provides bidirectional communication between embedded maps 
 
 ### Enabling the API
 
-The PostMessage API is **disabled by default** for security. To enable it, you must specify which origins are allowed to communicate with the embedded map using the `allowedOrigins` URL parameter.
-
-#### `allowedOrigins` (Required to enable API)
-
-- **Description**: Comma-separated list of origins allowed to send messages to the embedded map, or `*` to allow any origin.
-- **Security**: Only origins in this list can send commands to the map. Messages from other origins are rejected with an `INVALID_ORIGIN` error.
-- **Examples**:
-  - `allowedOrigins=https://myapp.com` (single origin)
-  - `allowedOrigins=https://myapp.com,https://staging.myapp.com` (multiple origins)
-  - `allowedOrigins=*` (any origin - use only for development/testing)
+The PostMessage API is **disabled by default** for security. To enable it, you must specify which origins are allowed to communicate with the embedded map using the `allowedOrigins` URL query parameter (see [allowedOrigins](#allowedorigins-optional-required-to-enable-postmessage-api) in the Query Parameters section above).
 
 **Complete embed URL example**:
 ```
