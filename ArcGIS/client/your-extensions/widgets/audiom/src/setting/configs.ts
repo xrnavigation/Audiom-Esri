@@ -39,6 +39,21 @@ export const DEFAULT_SOURCE_CONFIG: ISourceConfig = {
   locked: true
 }
 
+export interface CoordinatePairFieldConfig {
+  /** Config key for the longitude value (FieldConfig.key is used for latitude) */
+  lngKey: keyof IAudiomConfig
+  /** Label for the latitude field (default: "Lat") */
+  latLabel?: string
+  /** Label for the longitude field (default: "Lng") */
+  lngLabel?: string
+  /** Lockable field name for latitude */
+  latLockableFieldName?: LockableFieldName
+  /** Lockable field name for longitude */
+  lngLockableFieldName?: LockableFieldName
+  /** Compact mode for tighter spacing */
+  compact?: boolean
+}
+
 export interface FieldConfig {
   key: keyof IAudiomConfig
   label: string
@@ -60,6 +75,8 @@ export interface FieldConfig {
   lockable?: boolean
   /** The LockableFieldName for this field (required if lockable is true) */
   lockableFieldName?: LockableFieldName
+  /** Config for CoordinatePair fields (only used with FieldType.CoordinatePair) */
+  coordinatePair?: CoordinatePairFieldConfig
 }
 
 export interface ISourceConfig {

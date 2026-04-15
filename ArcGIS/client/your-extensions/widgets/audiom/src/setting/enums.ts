@@ -4,7 +4,8 @@ export enum FieldType {
   Number = 'number',
   Switch = 'switch',
   Enum = 'enum',
-  Custom = 'custom'
+  Custom = 'custom',
+  CoordinatePair = 'coordinate-pair'
 }
 
 export enum ButtonSize {

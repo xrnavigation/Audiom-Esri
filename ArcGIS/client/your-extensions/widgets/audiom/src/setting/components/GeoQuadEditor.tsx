@@ -1,11 +1,25 @@
-import { React } from 'jimu-core'
-import { Label, Collapse } from 'jimu-ui'
+import { React, css } from 'jimu-core'
+import { Label, Collapse, TextInput, Button, Tooltip } from 'jimu-ui'
 import CoordinatePairInput from './CoordinatePairInput'
 import CollapsibleHeader from './CollapsibleHeader'
-import { Colors } from '../enums'
+import { ButtonSize, ButtonType, Colors } from '../enums'
 import { Padding } from '../paddings'
 
 const { useState } = React
+
+const HEADER_LABEL = 'Visual Base Layer Position'
+const TEXT_PLACEHOLDER = '[[lng,lat],[lng,lat],[lng,lat],[lng,lat]]'
+const TOOLTIP_VISUAL_MODE = 'Switch to visual editor'
+const TOOLTIP_TEXT_MODE = 'Switch to text input'
+const ICON_VISUAL = '⊞'
+const ICON_TEXT = '{ }'
+
+const CORNER_LABELS = {
+  TOP_LEFT: 'Top Left',
+  TOP_RIGHT: 'Top Right',
+  BOTTOM_LEFT: 'Bottom Left',
+  BOTTOM_RIGHT: 'Bottom Right'
+} as const
 
 export interface GeoQuadEditorProps {
   /** Serialized GeoQuad string: "[[lng,lat],[lng,lat],[lng,lat],[lng,lat]]" (TL, TR, BR, BL) */
@@ -64,9 +78,18 @@ const quadContainerStyle: React.CSSProperties = {
   borderRadius: '4px'
 }
 
+const modeButtonStyle = css({
+  fontSize: '11px',
+  padding: '0 4px',
+  minWidth: 'auto',
+  lineHeight: '20px'
+})
+
 /**
  * A structured editor for GeoQuad (4-corner geographic rectangle).
- * Renders a collapsible 2×2 grid of CoordinatePairInputs, one per corner.
+ * Supports two modes:
+ * - UI mode: collapsible 2×2 grid of CoordinatePairInputs
+ * - Text mode: raw JSON string input
  *
  * Corner order matches GeoQuad: TL, TR, BR, BL.
  * Layout visually represents the rectangle:
@@ -77,6 +100,7 @@ const quadContainerStyle: React.CSSProperties = {
 const GeoQuadEditor = (props: GeoQuadEditorProps) => {
   const { value, onChange, disabled = false } = props
   const [isOpen, setIsOpen] = useState(false)
+  const [textMode, setTextMode] = useState(false)
 
   const corners = parseCorners(value)
   // corners: [TL, TR, BR, BL] — matches GeoQuad array order
@@ -89,37 +113,63 @@ const GeoQuadEditor = (props: GeoQuadEditorProps) => {
 
   // Visual layout: top row = TL(0), TR(1); bottom row = BL(3), BR(2)
   const layout = [
-    { label: 'Top Left', index: 0 },
-    { label: 'Top Right', index: 1 },
-    { label: 'Bottom Left', index: 3 },
-    { label: 'Bottom Right', index: 2 }
+    { label: CORNER_LABELS.TOP_LEFT, index: 0 },
+    { label: CORNER_LABELS.TOP_RIGHT, index: 1 },
+    { label: CORNER_LABELS.BOTTOM_LEFT, index: 3 },
+    { label: CORNER_LABELS.BOTTOM_RIGHT, index: 2 }
   ]
+
+  const toggleAction = (
+    <Tooltip title={textMode ? TOOLTIP_VISUAL_MODE : TOOLTIP_TEXT_MODE}>
+      <Button
+        type={ButtonType.Tertiary}
+        size={ButtonSize.Small}
+        onClick={(e: React.MouseEvent) => { e.stopPropagation(); setTextMode(!textMode) }}
+        aria-label={textMode ? TOOLTIP_VISUAL_MODE : TOOLTIP_TEXT_MODE}
+        css={modeButtonStyle}
+      >
+        {textMode ? ICON_VISUAL : ICON_TEXT}
+      </Button>
+    </Tooltip>
+  )
 
   return (
     <div style={{ width: '100%' }}>
       <CollapsibleHeader
-        label="Visual Base Layer Position"
+        label={HEADER_LABEL}
         isOpen={isOpen}
         onToggle={() => setIsOpen(!isOpen)}
+        actions={toggleAction}
       />
       <Collapse isOpen={isOpen}>
-        <div style={quadContainerStyle}>
-          {layout.map(({ label, index }) => (
-            <div key={label}>
-              <Label style={cornerLabelStyle}>{label}</Label>
-              <CoordinatePairInput
-                compact
-                showCopyButton
-                latitude={corners[index].lat}
-                longitude={corners[index].lng}
-                onLatChange={(val) => updateCorner(index, 'lat', val)}
-                onLngChange={(val) => updateCorner(index, 'lng', val)}
-                latDisabled={disabled}
-                lngDisabled={disabled}
-              />
-            </div>
-          ))}
-        </div>
+        {textMode ? (
+          <TextInput
+            style={{ width: '100%', marginBottom: Padding.ElementGap }}
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={TEXT_PLACEHOLDER}
+            disabled={disabled}
+            aria-label={`${HEADER_LABEL} (raw)`}
+          />
+        ) : (
+          <div style={quadContainerStyle}>
+            {layout.map(({ label, index }) => (
+              <div key={label}>
+                <Label style={cornerLabelStyle}>{label}</Label>
+                <CoordinatePairInput
+                  compact
+                  showCopyButton
+                  latitude={corners[index].lat}
+                  longitude={corners[index].lng}
+                  onLatChange={(val) => updateCorner(index, 'lat', val)}
+                  onLngChange={(val) => updateCorner(index, 'lng', val)}
+                  latDisabled={disabled}
+                  lngDisabled={disabled}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </Collapse>
     </div>
   )

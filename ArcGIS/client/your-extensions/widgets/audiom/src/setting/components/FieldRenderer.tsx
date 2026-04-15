@@ -4,7 +4,18 @@ import { TextInput, NumericInput, Switch, Select, Option, Label } from 'jimu-ui'
 import { FieldConfig, IAudiomConfig } from '../configs'
 import { FieldType, FlowType, Colors } from '../enums'
 import CopyableLabel from './CopyableLabel'
+import CoordinatePairInput from './CoordinatePairInput'
 import LockableField, { LockableFieldType } from './LockableField'
+
+/** Runtime props for CoordinatePair fields, resolved by the caller */
+export interface CoordinatePairRuntimeProps {
+  lngValue: number
+  latLocked?: boolean
+  lngLocked?: boolean
+  showLockButton?: boolean
+  onLatLockToggle?: () => void
+  onLngLockToggle?: () => void
+}
 
 interface FieldRendererProps {
   /** The field configuration defining type, label, validation, etc. */
@@ -23,6 +34,8 @@ interface FieldRendererProps {
   showLockButton?: boolean
   /** Callback when lock toggle is clicked (for lockable fields) */
   onLockToggle?: () => void
+  /** Runtime props for CoordinatePair fields */
+  coordinatePairProps?: CoordinatePairRuntimeProps
 }
 
 /**
@@ -43,7 +56,11 @@ interface FieldRendererProps {
  * - Validation feedback on blur/accept
  */
 const FieldRenderer = (props: FieldRendererProps) => {
-  const { field, value, onChange, disabled = false, labelSuffix, locked, showLockButton, onLockToggle } = props
+  const {
+    field, value, onChange, disabled = false, labelSuffix,
+    locked, showLockButton, onLockToggle,
+    coordinatePairProps
+  } = props
 
   const handleChange = (newValue: unknown) => {
     onChange(field.key, newValue)
@@ -185,6 +202,30 @@ const FieldRenderer = (props: FieldRendererProps) => {
             {field.renderCustom?.()}
           </SettingRow>
         )
+
+      case FieldType.CoordinatePair: {
+        const cp = coordinatePairProps
+        const cpConfig = field.coordinatePair
+        return (
+          <SettingRow flow={FlowType.Wrap}>
+            <CopyableLabel label={field.label} copyValue={String(value ?? '')} showCopyButton={false} />
+            <CoordinatePairInput
+              latitude={value as number}
+              longitude={cp?.lngValue ?? 0}
+              onLatChange={(val) => handleChange(val)}
+              onLngChange={(val) => onChange(cpConfig!.lngKey, val)}
+              latDisabled={cp?.latLocked}
+              lngDisabled={cp?.lngLocked}
+              latLock={cp?.showLockButton && cp?.onLatLockToggle ? { locked: cp.latLocked ?? false, onToggle: cp.onLatLockToggle } : undefined}
+              lngLock={cp?.showLockButton && cp?.onLngLockToggle ? { locked: cp.lngLocked ?? false, onToggle: cp.onLngLockToggle } : undefined}
+              latLabel={cpConfig?.latLabel}
+              lngLabel={cpConfig?.lngLabel}
+              showCopyButton={field.showCopyButton}
+              compact={cpConfig?.compact}
+            />
+          </SettingRow>
+        )
+      }
 
       default:
         return null

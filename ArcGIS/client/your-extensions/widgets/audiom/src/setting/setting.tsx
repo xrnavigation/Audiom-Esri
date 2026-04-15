@@ -8,7 +8,6 @@ import SourceConfigList from './components/SourceConfigList'
 import CopyableLabel from './components/CopyableLabel'
 import CollapsibleHeader from './components/CollapsibleHeader'
 import FieldRenderer from './components/FieldRenderer'
-import CoordinatePairInput from './components/CoordinatePairInput'
 import GeoQuadEditor from './components/GeoQuadEditor'
 import { useMapSyncState } from './hooks/useMapSyncState'
 import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/mapUtils'
@@ -262,8 +261,17 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   ]
 
   // Map settings fields - lockable when using existing map
-  // Center lat/lng are rendered inline below (with separate locks + CoordinatePairInput)
   const mapSettingsFields: FieldConfig[] = [
+    {
+      key: AudiomConfigKey.CenterLatitude, label: 'Center', type: FieldType.CoordinatePair,
+      showCopyButton: true,
+      coordinatePair: {
+        lngKey: AudiomConfigKey.CenterLongitude,
+        latLabel: 'Latitude', lngLabel: 'Longitude',
+        latLockableFieldName: LockableFieldName.CenterLatitude,
+        lngLockableFieldName: LockableFieldName.CenterLongitude
+      }
+    },
     { key: AudiomConfigKey.Zoom, label: 'Zoom Level', type: FieldType.Number, min: VALIDATION.ZOOM_MIN, max: VALIDATION.ZOOM_MAX, defaultValue: DEFAULT_CONFIG.zoom, lockable: true, lockableFieldName: LockableFieldName.Zoom }
   ]
 
@@ -291,6 +299,17 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       onLockToggle: createLockToggleHandler(field.lockableFieldName)
     } : {}
 
+    // For CoordinatePair fields, provide per-coordinate lock state and lng value
+    const cpConfig = field.coordinatePair
+    const coordinatePairProps = field.type === FieldType.CoordinatePair && cpConfig ? {
+      lngValue: (config?.[cpConfig.lngKey] as number) ?? 0,
+      latLocked: cpConfig.latLockableFieldName ? isFieldLocked(cpConfig.latLockableFieldName) : false,
+      lngLocked: cpConfig.lngLockableFieldName ? isFieldLocked(cpConfig.lngLockableFieldName) : false,
+      showLockButton: useExistingMap,
+      onLatLockToggle: cpConfig.latLockableFieldName ? createLockToggleHandler(cpConfig.latLockableFieldName) : undefined,
+      onLngLockToggle: cpConfig.lngLockableFieldName ? createLockToggleHandler(cpConfig.lngLockableFieldName) : undefined,
+    } : undefined
+
     return (
       <FieldRenderer
         key={field.key}
@@ -299,6 +318,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         onChange={onPropertyChange}
         disabled={readOnly}
         labelSuffix={labelSuffix}
+        coordinatePairProps={coordinatePairProps}
         {...lockProps}
       />
     )
@@ -333,22 +353,6 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         />
         <Collapse isOpen={mapSettingsOpen}>
           <div style={{ paddingLeft: Padding.SectionContent }}>
-            <SettingRow flow={FlowType.Wrap}>
-              <Label style={{ marginBottom: '4px', fontWeight: 500 }}>Center</Label>
-              <CoordinatePairInput
-                latitude={config?.centerLatitude ?? DEFAULT_CONFIG.centerLatitude}
-                longitude={config?.centerLongitude ?? DEFAULT_CONFIG.centerLongitude}
-                onLatChange={(val) => onPropertyChange(AudiomConfigKey.CenterLatitude, val)}
-                onLngChange={(val) => onPropertyChange(AudiomConfigKey.CenterLongitude, val)}
-                latDisabled={isFieldLocked(LockableFieldName.CenterLatitude)}
-                lngDisabled={isFieldLocked(LockableFieldName.CenterLongitude)}
-                latLock={useExistingMap ? { locked: isFieldLocked(LockableFieldName.CenterLatitude), onToggle: createLockToggleHandler(LockableFieldName.CenterLatitude) } : undefined}
-                lngLock={useExistingMap ? { locked: isFieldLocked(LockableFieldName.CenterLongitude), onToggle: createLockToggleHandler(LockableFieldName.CenterLongitude) } : undefined}
-                latLabel="Latitude"
-                lngLabel="Longitude"
-                showCopyButton
-              />
-            </SettingRow>
             {mapSettingsFields.map((field) => renderField(field, false))}
           </div>
         </Collapse>

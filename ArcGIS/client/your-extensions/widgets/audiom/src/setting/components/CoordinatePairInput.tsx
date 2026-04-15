@@ -9,6 +9,16 @@ import { Padding } from '../paddings'
 
 const { useState, useCallback } = React
 
+const DEFAULT_LAT_LABEL = 'Lat'
+const DEFAULT_LNG_LABEL = 'Lng'
+const TOOLTIP_COPY = 'Copy to clipboard'
+const TOOLTIP_COPIED = 'Copied!'
+const TOOLTIP_LOCK = 'Lock to sync with map'
+const TOOLTIP_UNLOCK_TEMPLATE = (field: string) => `Unlock to edit ${field} manually`
+const TOOLTIP_RESET_DELAY = 1000
+const ICON_SIZE_LOCK = 12
+const ICON_SIZE_COPY = 10
+
 export interface CoordinateLockProps {
   locked: boolean
   onToggle: () => void
@@ -40,10 +50,6 @@ export interface CoordinatePairInputProps {
   /** Compact mode — reduces spacing for use inside GeoQuadEditor */
   compact?: boolean
 }
-
-const TOOLTIP_COPY = 'Copy to clipboard'
-const TOOLTIP_COPIED = 'Copied!'
-const TOOLTIP_RESET_DELAY = 1000
 
 const sublabelStyle: React.CSSProperties = {
   fontSize: '12px',
@@ -102,7 +108,7 @@ const CoordinatePairInput = (props: CoordinatePairInputProps) => {
     latitude, longitude, onLatChange, onLngChange,
     latDisabled = false, lngDisabled = false,
     latLock, lngLock,
-    latLabel = 'Lat', lngLabel = 'Lng',
+    latLabel = DEFAULT_LAT_LABEL, lngLabel = DEFAULT_LNG_LABEL,
     showCopyButton = false,
     compact = false
   } = props
@@ -121,8 +127,8 @@ const CoordinatePairInput = (props: CoordinatePairInputProps) => {
 
   const renderLockButton = (lock: CoordinateLockProps, fieldLabel: string) => {
     const tooltip = lock.locked
-      ? `Unlock to edit ${fieldLabel.toLowerCase()} manually`
-      : `Lock to sync with map`
+      ? TOOLTIP_UNLOCK_TEMPLATE(fieldLabel.toLowerCase())
+      : TOOLTIP_LOCK
     return (
       <Tooltip title={tooltip}>
         <Button
@@ -132,7 +138,7 @@ const CoordinatePairInput = (props: CoordinatePairInputProps) => {
           aria-label={lock.locked ? `Unlock ${fieldLabel}` : `Lock ${fieldLabel}`}
           css={lockButtonStyle}
         >
-          {lock.locked ? <LockOutlined size={12} /> : <UnlockOutlined size={12} />}
+          {lock.locked ? <LockOutlined size={ICON_SIZE_LOCK} /> : <UnlockOutlined size={ICON_SIZE_LOCK} />}
         </Button>
       </Tooltip>
     )
@@ -148,7 +154,7 @@ const CoordinatePairInput = (props: CoordinatePairInputProps) => {
           aria-label={`Copy ${field === 'lat' ? 'latitude' : 'longitude'} value`}
           css={copyButtonStyle}
         >
-          <CopyOutlined size={10} color={isCopied ? Colors.Success : undefined} />
+          <CopyOutlined size={ICON_SIZE_COPY} color={isCopied ? Colors.Success : undefined} />
         </button>
       </Tooltip>
     )
