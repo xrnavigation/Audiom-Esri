@@ -40,7 +40,7 @@ export const DEFAULT_SOURCE_CONFIG: ISourceConfig = {
 }
 
 export interface FieldConfig {
-  key: string
+  key: keyof IAudiomConfig
   label: string
   type: FieldType
   placeholder?: string

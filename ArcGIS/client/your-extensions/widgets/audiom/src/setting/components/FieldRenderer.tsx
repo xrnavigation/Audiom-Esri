@@ -1,7 +1,7 @@
 import { React } from 'jimu-core'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
 import { TextInput, NumericInput, Switch, Select, Option, Label } from 'jimu-ui'
-import { FieldConfig } from '../configs'
+import { FieldConfig, IAudiomConfig } from '../configs'
 import { FieldType, FlowType, Colors } from '../enums'
 import CopyableLabel from './CopyableLabel'
 import LockableField, { LockableFieldType } from './LockableField'
@@ -12,7 +12,7 @@ interface FieldRendererProps {
   /** The current value of the field */
   value: unknown
   /** Callback when the field value changes */
-  onChange: (key: string, value: unknown) => void
+  onChange: (key: keyof IAudiomConfig, value: unknown) => void
   /** Whether the field is read-only/disabled */
   disabled?: boolean
   /** Optional suffix text to display after the label (e.g., current value preview) */
