@@ -1,4 +1,5 @@
 import { React, css } from 'jimu-core'
+import { Tooltip } from 'jimu-ui'
 import { DownOutlined } from 'jimu-icons/outlined/directional/down'
 import { RightOutlined } from 'jimu-icons/outlined/directional/right'
 import { IconSize, HtmlButtonType, Colors, AriaRole } from '../enums'
@@ -47,7 +48,11 @@ const styles = {
   },
   label: {
     fontWeight: 500,
-    flex: 1
+    flex: 1,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    minWidth: 0
   },
   actions: {
     display: 'flex',
@@ -61,6 +66,8 @@ const toggleButtonStyle = css({
   display: 'flex',
   alignItems: 'center',
   flex: 1,
+  minWidth: 0,
+  overflow: 'hidden',
   justifyContent: 'flex-start',
   textAlign: 'left',
   padding: 0,
@@ -111,7 +118,9 @@ const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
         <span style={styles.icon} aria-hidden="true">
           {isOpen ? <DownOutlined size={IconSize.Small} /> : <RightOutlined size={IconSize.Small} />}
         </span>
-        <span style={styles.label}>{label}</span>
+        <Tooltip title={label}>
+          <span style={styles.label}>{label}</span>
+        </Tooltip>
       </button>
       {actions && (
         <div style={styles.actions}>
