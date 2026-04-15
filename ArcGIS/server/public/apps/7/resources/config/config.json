@@ -1191,7 +1191,7 @@
         "centerLatitude": 43.44876182483058,
         "centerLongitude": -88.69523680509465,
         "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
-        "zoom": 8,
+        "zoom": 7,
         "sourceConfig": {
           "source": "units",
           "name": "Units",
@@ -1312,7 +1312,13 @@
         "stepSize": 2,
         "visualStyle": "",
         "visualBaseLayer": "https://data.wgnhs.wisc.edu/accessible-statewide-quaternary/Q500_PNG_175dpi_WebMercator.png",
-        "visualBaseLayerPosition": "[[-92.9379002,47.1168906],[-86.6631554,47.1168906],[-86.6631554,42.4231201],[-92.9379002,42.4231201]]"
+        "visualBaseLayerPosition": "[[-92.9379002,47.1168906],[-86.6631554,47.1168906],[-86.6631554,42.4231201],[-92.9379002,42.4231201]]",
+        "visualBaseLayers": [
+          {
+            "url": "https://data.wgnhs.wisc.edu/accessible-statewide-quaternary/Q500_PNG_175dpi_WebMercator.png",
+            "position": "[[-92.9379002,47.1168906],[-86.6631554,47.1168906],[-86.6631554,42.4231201],[-92.9379002,42.4231201]]"
+          }
+        ]
       },
       "id": "widget_112",
       "useMapWidgetIds": [
@@ -1467,7 +1473,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1770776484194,
+  "timestamp": 1776289934575,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {

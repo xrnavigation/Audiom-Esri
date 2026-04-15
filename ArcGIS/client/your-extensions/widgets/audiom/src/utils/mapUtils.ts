@@ -84,10 +84,12 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
     soundpack: config.soundpackUrl || undefined,
     title: config.title || undefined,
     visualStyle: config.visualStyle || undefined,
-    visualBaseLayers: config.visualBaseLayer ? [{
-      url: config.visualBaseLayer,
-      position: config.visualBaseLayerPosition ? GeoQuad.parse(config.visualBaseLayerPosition) : undefined,
-    }] : undefined,
+    visualBaseLayers: config.visualBaseLayers && config.visualBaseLayers.length > 0
+      ? config.visualBaseLayers.map(layer => ({
+          url: layer.url,
+          position: layer.position ? GeoQuad.parse(layer.position) : undefined,
+        }))
+      : undefined,
   });
 }
 

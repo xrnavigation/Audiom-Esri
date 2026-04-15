@@ -39,6 +39,18 @@ export const DEFAULT_SOURCE_CONFIG: ISourceConfig = {
   locked: true
 }
 
+export interface IVisualBaseLayerConfig {
+  /** URL for the visual base layer image overlay */
+  url: string
+  /** Serialized GeoQuad position string: "[[lng,lat],[lng,lat],[lng,lat],[lng,lat]]" */
+  position?: string
+}
+
+export const DEFAULT_VISUAL_BASE_LAYER: IVisualBaseLayerConfig = {
+  url: '',
+  position: undefined
+}
+
 export interface CoordinatePairFieldConfig {
   /** Config key for the longitude value (FieldConfig.key is used for latitude) */
   lngKey: keyof IAudiomConfig
@@ -101,8 +113,7 @@ export interface IAudiomConfig {
   showVisualMap?: boolean
   showHeading?: boolean
   soundpackUrl?: string
-  visualBaseLayer?: string
-  visualBaseLayerPosition?: string
+  visualBaseLayers?: IVisualBaseLayerConfig[]
   visualStyle?: VisualStyle
   sourceConfigs?: ISourceConfig[]
   centerLatitude?: number

@@ -8,7 +8,7 @@ import SourceConfigList from './components/SourceConfigList'
 import CopyableLabel from './components/CopyableLabel'
 import CollapsibleHeader from './components/CollapsibleHeader'
 import FieldRenderer from './components/FieldRenderer'
-import GeoQuadEditor from './components/GeoQuadEditor'
+import VisualBaseLayerList from './components/VisualBaseLayerList'
 import { useMapSyncState } from './hooks/useMapSyncState'
 import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/mapUtils'
 import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
@@ -282,8 +282,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
     { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
-    { key: AudiomConfigKey.VisualStyle, label: 'Visual Style', type: FieldType.Enum, enumOptions: [{ label: 'Default', value: '' }, { label: 'Geology', value: 'geology' }], showCopyButton: false },
-    { key: AudiomConfigKey.VisualBaseLayer, label: 'Visual Base Layer', type: FieldType.Text, placeholder: 'Enter image URL for visual base layer', validateOnAccept: (val) => validateUrl(String(val)) }
+    { key: AudiomConfigKey.VisualStyle, label: 'Visual Style', type: FieldType.Enum, enumOptions: [{ label: 'Default', value: '' }, { label: 'Geology', value: 'geology' }], showCopyButton: false }
   ]
 
   const useExistingMap = config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap
@@ -373,9 +372,9 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
           }
           return renderField(field, false)
         })}
-        <GeoQuadEditor
-          value={String(config?.visualBaseLayerPosition ?? '')}
-          onChange={(val) => onPropertyChange(AudiomConfigKey.VisualBaseLayerPosition, val)}
+        <VisualBaseLayerList
+          layers={config?.visualBaseLayers || []}
+          onChange={(layers) => onPropertyChange(AudiomConfigKey.VisualBaseLayers, layers)}
         />
         <SettingRow flow={FlowType.Wrap}>
           <Button
