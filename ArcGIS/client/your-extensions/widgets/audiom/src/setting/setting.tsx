@@ -8,6 +8,8 @@ import SourceConfigList from './components/SourceConfigList'
 import CopyableLabel from './components/CopyableLabel'
 import CollapsibleHeader from './components/CollapsibleHeader'
 import FieldRenderer from './components/FieldRenderer'
+import CoordinatePairInput from './components/CoordinatePairInput'
+import GeoQuadEditor from './components/GeoQuadEditor'
 import { useMapSyncState } from './hooks/useMapSyncState'
 import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/mapUtils'
 import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
@@ -260,9 +262,8 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   ]
 
   // Map settings fields - lockable when using existing map
+  // Center lat/lng are rendered inline below (with separate locks + CoordinatePairInput)
   const mapSettingsFields: FieldConfig[] = [
-    { key: AudiomConfigKey.CenterLatitude, label: 'Center Latitude', type: FieldType.Number, min: VALIDATION.LATITUDE_MIN, max: VALIDATION.LATITUDE_MAX, defaultValue: DEFAULT_CONFIG.centerLatitude, lockable: true, lockableFieldName: LockableFieldName.CenterLatitude },
-    { key: AudiomConfigKey.CenterLongitude, label: 'Center Longitude', type: FieldType.Number, min: VALIDATION.LONGITUDE_MIN, max: VALIDATION.LONGITUDE_MAX, defaultValue: DEFAULT_CONFIG.centerLongitude, lockable: true, lockableFieldName: LockableFieldName.CenterLongitude },
     { key: AudiomConfigKey.Zoom, label: 'Zoom Level', type: FieldType.Number, min: VALIDATION.ZOOM_MIN, max: VALIDATION.ZOOM_MAX, defaultValue: DEFAULT_CONFIG.zoom, lockable: true, lockableFieldName: LockableFieldName.Zoom }
   ]
 
@@ -274,8 +275,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
     { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
     { key: AudiomConfigKey.VisualStyle, label: 'Visual Style', type: FieldType.Enum, enumOptions: [{ label: 'Default', value: '' }, { label: 'Geology', value: 'geology' }], showCopyButton: false },
-    { key: AudiomConfigKey.VisualBaseLayer, label: 'Visual Base Layer', type: FieldType.Text, placeholder: 'Enter image URL for visual base layer', validateOnAccept: (val) => validateUrl(String(val)) },
-    { key: AudiomConfigKey.VisualBaseLayerPosition, label: 'Visual Base Layer Position', type: FieldType.Text, placeholder: '[[lng,lat],[lng,lat],[lng,lat],[lng,lat]]' }
+    { key: AudiomConfigKey.VisualBaseLayer, label: 'Visual Base Layer', type: FieldType.Text, placeholder: 'Enter image URL for visual base layer', validateOnAccept: (val) => validateUrl(String(val)) }
   ]
 
   const useExistingMap = config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap
@@ -333,6 +333,22 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         />
         <Collapse isOpen={mapSettingsOpen}>
           <div style={{ paddingLeft: Padding.SectionContent }}>
+            <SettingRow flow={FlowType.Wrap}>
+              <Label style={{ marginBottom: '4px', fontWeight: 500 }}>Center</Label>
+              <CoordinatePairInput
+                latitude={config?.centerLatitude ?? DEFAULT_CONFIG.centerLatitude}
+                longitude={config?.centerLongitude ?? DEFAULT_CONFIG.centerLongitude}
+                onLatChange={(val) => onPropertyChange(AudiomConfigKey.CenterLatitude, val)}
+                onLngChange={(val) => onPropertyChange(AudiomConfigKey.CenterLongitude, val)}
+                latDisabled={isFieldLocked(LockableFieldName.CenterLatitude)}
+                lngDisabled={isFieldLocked(LockableFieldName.CenterLongitude)}
+                latLock={useExistingMap ? { locked: isFieldLocked(LockableFieldName.CenterLatitude), onToggle: createLockToggleHandler(LockableFieldName.CenterLatitude) } : undefined}
+                lngLock={useExistingMap ? { locked: isFieldLocked(LockableFieldName.CenterLongitude), onToggle: createLockToggleHandler(LockableFieldName.CenterLongitude) } : undefined}
+                latLabel="Latitude"
+                lngLabel="Longitude"
+                showCopyButton
+              />
+            </SettingRow>
             {mapSettingsFields.map((field) => renderField(field, false))}
           </div>
         </Collapse>
@@ -353,6 +369,10 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
           }
           return renderField(field, false)
         })}
+        <GeoQuadEditor
+          value={String(config?.visualBaseLayerPosition ?? '')}
+          onChange={(val) => onPropertyChange(AudiomConfigKey.VisualBaseLayerPosition, val)}
+        />
         <SettingRow flow={FlowType.Wrap}>
           <Button
             type={ButtonType.Primary}
