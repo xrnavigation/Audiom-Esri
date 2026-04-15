@@ -82,6 +82,7 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
         isOpen={isExpanded}
         onToggle={onToggleExpanded}
         level={CollapsibleHeaderLevel.Card}
+        showLabelTooltip
         actions={actions}
       />
       <Collapse isOpen={isExpanded}>

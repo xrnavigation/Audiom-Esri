@@ -29,6 +29,8 @@ interface CollapsibleHeaderProps {
   contentId?: string
   /** Whether this is a top-level section header (less padding) or a nested card header */
   level?: CollapsibleHeaderLevel
+  /** Whether to show a tooltip on the label (useful for truncated text) */
+  showLabelTooltip?: boolean
 }
 
 // Typed styles - simple properties with full key/value validation
@@ -96,7 +98,7 @@ const toggleButtonStyle = css({
  * - Focus-visible styling for keyboard navigation
  */
 const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
-  const { label, isOpen, onToggle, backgroundColor, actions, contentId, level = CollapsibleHeaderLevel.Section } = props
+  const { label, isOpen, onToggle, backgroundColor, actions, contentId, level = CollapsibleHeaderLevel.Section, showLabelTooltip = false } = props
 
   const levelStyle = level === CollapsibleHeaderLevel.Section ? styles.section : styles.card
   const containerStyle: React.CSSProperties = { ...styles.base, ...levelStyle, ...(backgroundColor ? { backgroundColor } : {}) }
@@ -118,9 +120,13 @@ const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
         <span style={styles.icon} aria-hidden="true">
           {isOpen ? <DownOutlined size={IconSize.Small} /> : <RightOutlined size={IconSize.Small} />}
         </span>
-        <Tooltip title={label}>
+        {showLabelTooltip ? (
+          <Tooltip title={label}>
+            <span style={styles.label}>{label}</span>
+          </Tooltip>
+        ) : (
           <span style={styles.label}>{label}</span>
-        </Tooltip>
+        )}
       </button>
       {actions && (
         <div style={styles.actions}>
