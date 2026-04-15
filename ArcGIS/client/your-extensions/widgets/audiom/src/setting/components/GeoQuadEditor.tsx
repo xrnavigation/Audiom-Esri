@@ -5,10 +5,9 @@ import CoordinatePairInput from './CoordinatePairInput'
 import CollapsibleHeader from './CollapsibleHeader'
 import { ButtonSize, ButtonType, Colors } from '../enums'
 import { Padding } from '../paddings'
-import { createLogger } from '../../utils/logger'
+import { useCopyToClipboard, TOOLTIP_COPY, TOOLTIP_COPIED } from '../useCopyToClipboard'
 
 const { useState, useCallback } = React
-const logger = createLogger('GeoQuadEditor')
 
 const HEADER_LABEL = 'Layer Position'
 const TEXT_PLACEHOLDER = '[[lng,lat],[lng,lat],[lng,lat],[lng,lat]]'
@@ -16,9 +15,7 @@ const TOOLTIP_VISUAL_MODE = 'Switch to visual editor'
 const TOOLTIP_TEXT_MODE = 'Switch to text input'
 const ICON_VISUAL = '⊞'
 const ICON_TEXT = '{ }'
-const TOOLTIP_COPY = 'Copy position array'
-const TOOLTIP_COPIED = 'Copied!'
-const TOOLTIP_COPY_RESET_DELAY = 1000
+const TOOLTIP_COPY_POSITION = 'Copy position array'
 
 const CORNER_LABELS = {
   TOP_LEFT: 'Top Left',
@@ -107,7 +104,7 @@ const GeoQuadEditor = (props: GeoQuadEditorProps) => {
   const { value, onChange, disabled = false } = props
   const [isOpen, setIsOpen] = useState(false)
   const [textMode, setTextMode] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const { copied, copyToClipboard } = useCopyToClipboard()
 
   const corners = parseCorners(value)
   // corners: [TL, TR, BR, BL] — matches GeoQuad array order
@@ -118,16 +115,10 @@ const GeoQuadEditor = (props: GeoQuadEditorProps) => {
     onChange(serializeCorners(updated))
   }
 
-  const handleCopy = useCallback(async (e: React.MouseEvent) => {
+  const handleCopy = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    try {
-      await navigator.clipboard.writeText(value || '')
-      setCopied(true)
-      setTimeout(() => setCopied(false), TOOLTIP_COPY_RESET_DELAY)
-    } catch (err) {
-      logger.error('Failed to copy position to clipboard:', err)
-    }
-  }, [value])
+    copyToClipboard(value || '')
+  }, [value, copyToClipboard])
 
   // Visual layout: top row = TL(0), TR(1); bottom row = BL(3), BR(2)
   const layout = [
@@ -140,12 +131,12 @@ const GeoQuadEditor = (props: GeoQuadEditorProps) => {
   const headerActions = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
       {value && (
-        <Tooltip title={copied ? TOOLTIP_COPIED : TOOLTIP_COPY}>
+        <Tooltip title={copied ? TOOLTIP_COPIED : TOOLTIP_COPY_POSITION}>
           <Button
             type={ButtonType.Tertiary}
             size={ButtonSize.Small}
             onClick={handleCopy}
-            aria-label={TOOLTIP_COPY}
+            aria-label={TOOLTIP_COPY_POSITION}
             css={modeButtonStyle}
           >
             <CopyOutlined size={12} color={copied ? Colors.Success : undefined} />

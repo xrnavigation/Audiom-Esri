@@ -6,16 +6,14 @@ import { CopyOutlined } from 'jimu-icons/outlined/editor/copy'
 import { VALIDATION } from '../validation/validation'
 import { ButtonSize, ButtonType, Colors } from '../enums'
 import { Padding } from '../paddings'
+import { useCopyToClipboard, TOOLTIP_COPY, TOOLTIP_COPIED } from '../useCopyToClipboard'
 
-const { useState, useCallback } = React
+const { useCallback } = React
 
 const DEFAULT_LAT_LABEL = 'Lat'
 const DEFAULT_LNG_LABEL = 'Lng'
-const TOOLTIP_COPY = 'Copy to clipboard'
-const TOOLTIP_COPIED = 'Copied!'
 const TOOLTIP_LOCK = 'Lock to sync with map'
 const TOOLTIP_UNLOCK_TEMPLATE = (field: string) => `Unlock to edit ${field} manually`
-const TOOLTIP_RESET_DELAY = 1000
 const ICON_SIZE_LOCK = 12
 const ICON_SIZE_COPY = 10
 
@@ -113,15 +111,8 @@ const CoordinatePairInput = (props: CoordinatePairInputProps) => {
     compact = false
   } = props
 
-  const [copiedField, setCopiedField] = useState<'lat' | 'lng' | null>(null)
-
-  const handleCopy = useCallback(async (field: 'lat' | 'lng', value: number) => {
-    try {
-      await navigator.clipboard.writeText(String(value))
-      setCopiedField(field)
-      setTimeout(() => setCopiedField(null), TOOLTIP_RESET_DELAY)
-    } catch { /* ignore */ }
-  }, [])
+  const { copied: latCopied, copyToClipboard: copyLat } = useCopyToClipboard()
+  const { copied: lngCopied, copyToClipboard: copyLng } = useCopyToClipboard()
 
   const gap = compact ? '4px' : Padding.ElementGap
 
@@ -145,12 +136,13 @@ const CoordinatePairInput = (props: CoordinatePairInputProps) => {
   }
 
   const renderCopyButton = (field: 'lat' | 'lng', value: number) => {
-    const isCopied = copiedField === field
+    const isCopied = field === 'lat' ? latCopied : lngCopied
+    const copy = field === 'lat' ? copyLat : copyLng
     return (
       <Tooltip title={isCopied ? TOOLTIP_COPIED : TOOLTIP_COPY} placement="top">
         <button
           type="button"
-          onClick={() => handleCopy(field, value)}
+          onClick={() => copy(String(value))}
           aria-label={`Copy ${field === 'lat' ? 'latitude' : 'longitude'} value`}
           css={copyButtonStyle}
         >
