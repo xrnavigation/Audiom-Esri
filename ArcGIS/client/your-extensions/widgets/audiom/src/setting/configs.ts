@@ -34,8 +34,14 @@ export const DEFAULT_SOURCE_CONFIG: ISourceConfig = {
   sourceUrl: undefined,
   rulesFileUrl: undefined,
   mapType: MapType.Indoor,
-  where: undefined,
+  filters: [],
+  filtersLocked: true,
   enabled: true,
+  locked: true
+}
+
+export const DEFAULT_FILTER_CONFIG: IFilterConfig = {
+  expression: '',
   locked: true
 }
 
@@ -67,7 +73,7 @@ export interface CoordinatePairFieldConfig {
 }
 
 export interface FieldConfig {
-  key: keyof IAudiomConfig
+  key: string
   label: string
   type: FieldType
   placeholder?: string
@@ -91,13 +97,23 @@ export interface FieldConfig {
   coordinatePair?: CoordinatePairFieldConfig
 }
 
+export interface IFilterConfig {
+  /** The SQL where clause expression (e.g., "population > 1000") */
+  expression: string
+  /** When locked (default), syncs from map. When unlocked, user-controlled. */
+  locked?: boolean
+  /** Whether this filter originated from the map (vs. user-added). Only map filters show lock icons. */
+  fromMap?: boolean
+}
+
 export interface ISourceConfig {
   source?: string
   name?: string
   sourceUrl?: string
   rulesFileUrl?: string
   mapType?: MapType
-  where?: string  // Definition expression / where clause to filter features
+  filters?: IFilterConfig[]  // List of filter expressions for this source
+  filtersLocked?: boolean  // When locked (default), syncs filters from map. When unlocked, allows add/remove.
   enabled?: boolean
   locked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual enabled state.
 }

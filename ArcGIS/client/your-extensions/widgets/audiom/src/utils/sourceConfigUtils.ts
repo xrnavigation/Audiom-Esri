@@ -1,4 +1,4 @@
-import { ISourceConfig } from '../setting/configs'
+import { ISourceConfig, IFilterConfig } from '../setting/configs'
 import { SourceConfigKey } from '../setting/configKeys'
 
 /**
@@ -7,15 +7,28 @@ import { SourceConfigKey } from '../setting/configKeys'
  * - mapType/rulesFileUrl: user-editable, preserved during sync
  * - locked: metadata, not relevant to change detection
  * - enabled: KEPT for locked sources to detect visibility changes from the map
+ * - filters: only locked filters are included in comparison
  */
 export function stripUserControlledProperties(source: ISourceConfig): Partial<ISourceConfig> {
   const {
     [SourceConfigKey.MapType]: _mapType,
     [SourceConfigKey.RulesFileUrl]: _rulesFileUrl,
     [SourceConfigKey.Locked]: _locked,
+    [SourceConfigKey.Filters]: _filters,
+    [SourceConfigKey.FiltersLocked]: _filtersLocked,
     ...comparable
   } = source
-  return comparable
+
+  // Include only map-origin filters in comparison, stripping metadata (locked/fromMap)
+  // so that unlocking a filter doesn't cause a diff.
+  const result: Partial<ISourceConfig> = { ...comparable }
+  const comparableFilters = (source.filters || [])
+    .filter(f => f.fromMap)
+    .map(f => ({ expression: f.expression }))
+  if (comparableFilters.length > 0) {
+    result.filters = comparableFilters as IFilterConfig[]
+  }
+  return result
 }
 
 /**
@@ -100,6 +113,13 @@ export function mergeSourcesPreservingUnlocked(
     if (current) {
       merged.mapType = current.mapType ?? mapSource.mapType
       merged.rulesFileUrl = current.rulesFileUrl ?? mapSource.rulesFileUrl
+      merged.filtersLocked = current.filtersLocked
+      // Merge filters: when filtersLocked, use only map filters; otherwise keep user-unlocked filters too
+      if (current.filtersLocked === false) {
+        merged.filters = mergeFilters(current.filters || [], mapSource.filters || [])
+      } else {
+        merged.filters = mapSource.filters || []
+      }
     }
     
     // For unlocked sources, also preserve enabled and locked state
@@ -110,4 +130,17 @@ export function mergeSourcesPreservingUnlocked(
     
     return merged
   })
+}
+
+/**
+ * Merge filter lists during map sync.
+ * - Locked filters are replaced with fresh map filters
+ * - Unlocked (user-controlled) filters are preserved
+ */
+export function mergeFilters(currentFilters: IFilterConfig[], mapFilters: IFilterConfig[]): IFilterConfig[] {
+  // Keep user-added filters (non-map filters) from current config
+  const userFilters = currentFilters.filter(f => !f.fromMap)
+  // Map filters are always locked (synced from map)
+  const lockedMapFilters = mapFilters.map(f => ({ ...f, locked: true, fromMap: true }))
+  return [...lockedMapFilters, ...userFilters]
 }

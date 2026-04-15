@@ -188,10 +188,10 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     })
   }
 
-  const onPropertyChange = (property: keyof IAudiomConfig, value: unknown) => {
+  const onPropertyChange = (property: string, value: unknown) => {
     props.onSettingChange({
       id: props.id,
-      config: config.set(property, value as IAudiomConfig[typeof property])
+      config: config.set(property as keyof IAudiomConfig, value as IAudiomConfig[keyof IAudiomConfig])
     })
   }
 
@@ -288,7 +288,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const useExistingMap = config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap
 
   const renderField = (field: FieldConfig, readOnly: boolean = false) => {
-    const value = config?.[field.key] ?? field.defaultValue
+    const value = config?.[field.key as keyof IAudiomConfig] ?? field.defaultValue
     const labelSuffix = field.key === AudiomConfigKey.StepSize ? getStepSizeDisplayText() : undefined
 
     // For lockable fields, provide lock state and handlers

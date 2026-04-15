@@ -148,9 +148,9 @@ const SourceConfigList = (props: SourceConfigListProps) => {
     onChange(newSourceConfigs)
   }
 
-  const onSourceConfigChange = (index: number, property: string, value: any) => {
+  const onSourceConfigChange = (index: number, updates: Record<string, unknown>) => {
     const newSourceConfigs = [...sourceConfigs]
-    newSourceConfigs[index] = { ...newSourceConfigs[index], [property]: value }
+    newSourceConfigs[index] = { ...newSourceConfigs[index], ...updates }
     onChange(newSourceConfigs)
   }
 
@@ -271,7 +271,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
               index={index}
               isExpanded={isExpanded}
               onToggleExpanded={() => toggleSourceExpanded(index)}
-              onFieldChange={(property, value) => onSourceConfigChange(index, property, value)}
+              onFieldChange={(updates) => onSourceConfigChange(index, updates)}
               onRemove={() => onRemoveSourceConfig(index)}
               onToggleEnabled={() => onToggleSourceEnabled(index)}
               onToggleLocked={() => onToggleLocked(index)}

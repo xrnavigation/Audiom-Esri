@@ -16,7 +16,8 @@ export enum SourceConfigKey {
   SourceUrl = 'sourceUrl',
   RulesFileUrl = 'rulesFileUrl',
   MapType = 'mapType',
-  Where = 'where',
+  Filters = 'filters',
+  FiltersLocked = 'filtersLocked',
   Enabled = 'enabled',
   Locked = 'locked'
 }

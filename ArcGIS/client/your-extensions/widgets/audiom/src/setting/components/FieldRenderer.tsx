@@ -23,7 +23,7 @@ interface FieldRendererProps {
   /** The current value of the field */
   value: unknown
   /** Callback when the field value changes */
-  onChange: (key: keyof IAudiomConfig, value: unknown) => void
+  onChange: (key: string, value: unknown) => void
   /** Whether the field is read-only/disabled */
   disabled?: boolean
   /** Optional suffix text to display after the label (e.g., current value preview) */

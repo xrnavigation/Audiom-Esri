@@ -10,7 +10,7 @@ import FeatureLayer from 'esri/layers/FeatureLayer';
 import CSVLayer from 'esri/layers/CSVLayer';
 import GeoJSONLayer from 'esri/layers/GeoJSONLayer';
 import MapImageLayer from 'esri/layers/MapImageLayer';
-import { DEFAULT_CONFIG, DEFAULT_SOURCE_CONFIG, IAudiomConfig } from "../setting/configs";
+import { DEFAULT_CONFIG, DEFAULT_SOURCE_CONFIG, IAudiomConfig, IFilterConfig } from "../setting/configs";
 import { isConfigValid } from "../setting/validation/validation";
 import { createLogger } from './logger';
 import { LayerType, isExcludedLayerType } from './mapEnums';
@@ -37,6 +37,19 @@ const LOG_EXTRACTED_SOURCES = 'Extracted';
  */
 export function isAudiomConfigValid(config: IAudiomConfig): boolean {
   return isConfigValid(config);
+}
+
+/**
+ * Combine a list of filter expressions into a single SQL WHERE clause.
+ * Non-empty expressions are wrapped in parentheses and joined with AND.
+ * @returns The combined expression string, or undefined if no valid filters.
+ */
+export function combineFilterExpressions(filters: IFilterConfig[]): string | undefined {
+  const expressions = filters
+    .map(f => f.expression?.trim())
+    .filter((expr): expr is string => !!expr)
+    .map(expr => `(${expr})`)
+  return expressions.length > 0 ? expressions.join(' AND ') : undefined
 }
 
 export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapView | undefined): AudiomEmbedConfig {
@@ -104,13 +117,14 @@ export function getSourcesFromConfig(config: IAudiomConfig): AudiomSource[] {
     }
 
     if (sourceConfig?.sourceUrl) {
+      const combinedWhere = combineFilterExpressions(sourceConfig.filters || [])
       const source = AudiomSource.fromEsri({
         name: sourceConfig.name,
         source: sourceConfig.source,
         url: sourceConfig.sourceUrl,
         mapType: sourceConfig.mapType || DEFAULT_SOURCE_CONFIG.mapType,
         rules: sourceConfig.rulesFileUrl || '',
-        where: sourceConfig.where ? raw(sourceConfig.where) : undefined
+        where: combinedWhere ? raw(combinedWhere) : undefined
       });
       sources.push(source);
     }
@@ -211,7 +225,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     sourceUrl?: string;
     mapType?: MapType;
     rulesFileUrl?: string;
-    where?: string;
+    filters?: IFilterConfig[];
     enabled?: boolean;
   }>;
 } | null {
@@ -236,7 +250,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     sourceUrl?: string;
     mapType?: MapType;
     rulesFileUrl?: string;
-    where?: string;
+    filters?: IFilterConfig[];
     enabled?: boolean;
   }> = [];
 
@@ -254,7 +268,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
       source: source.source,
       sourceUrl: source.url,
       mapType: source.mapType,
-      where: source.where ? toEsriSql(source.where) : undefined,
+      filters: source.where ? [{ expression: toEsriSql(source.where), locked: true, fromMap: true }] : [],
       // Don't include rulesFileUrl - it's not from the map and shouldn't affect diff
       enabled: layer?.visible ?? true
     });
