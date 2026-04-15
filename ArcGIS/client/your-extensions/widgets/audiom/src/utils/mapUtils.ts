@@ -84,8 +84,10 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
     soundpack: config.soundpackUrl || undefined,
     title: config.title || undefined,
     visualStyle: config.visualStyle || undefined,
-    visualBaseLayer: config.visualBaseLayer || undefined,
-    visualBaseLayerPosition: config.visualBaseLayerPosition ? GeoQuad.parse(config.visualBaseLayerPosition) : undefined,
+    visualBaseLayers: config.visualBaseLayer ? [{
+      url: config.visualBaseLayer,
+      position: config.visualBaseLayerPosition ? GeoQuad.parse(config.visualBaseLayerPosition) : undefined,
+    }] : undefined,
   });
 }
 
@@ -193,7 +195,7 @@ export function getSourcesFromEsriMap(
  * Rules files should not trigger a map change detection.
  */
 export function sanitizeSourceConfigsForDiff<T extends { rulesFileUrl?: string }>(sourceConfigs: T[]): T[] {
-  return sourceConfigs.map(sc => ({ ...sc, rulesFileUrl: undefined }));
+  return sourceConfigs.map((sc): T => ({ ...sc, rulesFileUrl: undefined }));
 }
 
 export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapViewManager): {
