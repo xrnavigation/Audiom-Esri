@@ -3,6 +3,8 @@ import { AudiomEmbedConfig } from "../../../../shared/audiom-client/AudiomEmbedC
 import { StepSize } from "../../../../shared/audiom-client/StepSize";
 import { GeoQuad } from "../../../../shared/audiom-client/GeoQuad";
 import { Coordinates } from "../../../../shared/audiom-client/Coordinates";
+import { raw } from "../../../../shared/audiom-client/expressions";
+import { toEsriSql } from "../../../../shared/audiom-client/expressions/serializers/EsriSqlSerializer";
 import { JimuMapView, MapViewManager } from "jimu-arcgis";
 import FeatureLayer from 'esri/layers/FeatureLayer';
 import CSVLayer from 'esri/layers/CSVLayer';
@@ -104,7 +106,7 @@ export function getSourcesFromConfig(config: IAudiomConfig): AudiomSource[] {
         url: sourceConfig.sourceUrl,
         mapType: sourceConfig.mapType || DEFAULT_SOURCE_CONFIG.mapType,
         rules: sourceConfig.rulesFileUrl || '',
-        where: sourceConfig.where || undefined
+        where: sourceConfig.where ? raw(sourceConfig.where) : undefined
       });
       sources.push(source);
     }
@@ -248,7 +250,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
       source: source.source,
       sourceUrl: source.url,
       mapType: source.mapType,
-      where: source.where,
+      where: source.where ? toEsriSql(source.where) : undefined,
       // Don't include rulesFileUrl - it's not from the map and shouldn't affect diff
       enabled: layer?.visible ?? true
     });
@@ -303,7 +305,7 @@ function processFeatureLayer(layer: FeatureLayer | null): AudiomSource | null {
     source: layer.id,
     url: `${layer.url}/${layer.layerId}`,
     mapType: MapType.Indoor,
-    where: layer.definitionExpression || undefined
+    where: layer.definitionExpression ? raw(layer.definitionExpression) : undefined
   });
 
   logger.debug(`${LOG_FOUND_FEATURE_LAYER} ${layer.title} - ${layer.url}`);
@@ -355,7 +357,7 @@ function processMapImageLayer(layer: MapImageLayer | null): AudiomSource[] {
       source: `${layer.id}_${sublayer.id}`,
       url: sublayer.url,
       mapType: MapType.Indoor,
-      where: (sublayer as any).definitionExpression || undefined
+      where: (sublayer as any).definitionExpression ? raw((sublayer as any).definitionExpression) : undefined
     });
 
     sources.push(source);
