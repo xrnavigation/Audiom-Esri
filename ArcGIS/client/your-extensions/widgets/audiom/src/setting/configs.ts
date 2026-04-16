@@ -3,7 +3,7 @@ import type { React } from 'jimu-core'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import { VisualStyle } from '../../../../shared/audiom-client/AudiomEmbedConfig'
-import { FieldType } from './enums'
+import { FieldType, FilterType } from './enums'
 import type { LockableFieldName } from './configKeys'
 
 /**
@@ -34,9 +34,42 @@ export const DEFAULT_SOURCE_CONFIG: ISourceConfig = {
   sourceUrl: undefined,
   rulesFileUrl: undefined,
   mapType: MapType.Indoor,
-  where: undefined,
+  filters: [],
+  filtersLocked: true,
   enabled: true,
   locked: true
+}
+
+export const DEFAULT_FILTER_CONFIG: IFilterConfig = {
+  expression: '',
+  locked: true
+}
+
+export interface IVisualBaseLayerConfig {
+  /** URL for the visual base layer image overlay */
+  url: string
+  /** Serialized GeoQuad position string: "[[lng,lat],[lng,lat],[lng,lat],[lng,lat]]" */
+  position?: string
+}
+
+export const DEFAULT_VISUAL_BASE_LAYER: IVisualBaseLayerConfig = {
+  url: '',
+  position: undefined
+}
+
+export interface CoordinatePairFieldConfig {
+  /** Config key for the longitude value (FieldConfig.key is used for latitude) */
+  lngKey: keyof IAudiomConfig
+  /** Label for the latitude field (default: "Lat") */
+  latLabel?: string
+  /** Label for the longitude field (default: "Lng") */
+  lngLabel?: string
+  /** Lockable field name for latitude */
+  latLockableFieldName?: LockableFieldName
+  /** Lockable field name for longitude */
+  lngLockableFieldName?: LockableFieldName
+  /** Compact mode for tighter spacing */
+  compact?: boolean
 }
 
 export interface FieldConfig {
@@ -60,6 +93,23 @@ export interface FieldConfig {
   lockable?: boolean
   /** The LockableFieldName for this field (required if lockable is true) */
   lockableFieldName?: LockableFieldName
+  /** Config for CoordinatePair fields (only used with FieldType.CoordinatePair) */
+  coordinatePair?: CoordinatePairFieldConfig
+}
+
+export interface IFilterConfig {
+  /** The filter expression (SQL WHERE clause or ISO 8601 time extent) */
+  expression: string
+  /** Filter type: 'where' for definition expression, 'when' for time extent */
+  filterType?: FilterType
+  /** When locked (default), syncs from map. When unlocked, user-controlled. */
+  locked?: boolean
+  /** Whether this filter originated from the map (vs. user-added). Only map filters show lock icons. */
+  fromMap?: boolean
+  /** Original map expression, used for comparison and reset on re-lock. Only set for fromMap filters. */
+  mapExpression?: string
+  /** Original map filter type, used for reset on re-lock. Only set for fromMap filters. */
+  mapFilterType?: FilterType
 }
 
 export interface ISourceConfig {
@@ -68,7 +118,8 @@ export interface ISourceConfig {
   sourceUrl?: string
   rulesFileUrl?: string
   mapType?: MapType
-  where?: string  // Definition expression / where clause to filter features
+  filters?: IFilterConfig[]  // List of filter expressions for this source
+  filtersLocked?: boolean  // When locked (default), syncs filters from map. When unlocked, allows add/remove.
   enabled?: boolean
   locked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual enabled state.
 }
@@ -84,8 +135,7 @@ export interface IAudiomConfig {
   showVisualMap?: boolean
   showHeading?: boolean
   soundpackUrl?: string
-  visualBaseLayer?: string
-  visualBaseLayerPosition?: string
+  visualBaseLayers?: IVisualBaseLayerConfig[]
   visualStyle?: VisualStyle
   sourceConfigs?: ISourceConfig[]
   centerLatitude?: number

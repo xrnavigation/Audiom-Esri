@@ -1191,7 +1191,7 @@
         "centerLatitude": 22.068169281361815,
         "centerLongitude": -159.55569309532407,
         "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
-        "zoom": 10,
+        "zoom": 9,
         "sourceConfig": {
           "source": "units",
           "name": "Units",
@@ -1206,7 +1206,14 @@
             "source": "19c0747361e-layer-7",
             "sourceUrl": "https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/ACS_Population_by_Race_and_Hispanic_Origin_Boundaries/FeatureServer/2",
             "mapType": "heatmap",
-            "where": "State = 'Hawaii'",
+            "filters": [
+              {
+                "expression": "State = 'Hawaii'",
+                "filterType": "where",
+                "locked": true,
+                "fromMap": true
+              }
+            ],
             "enabled": true,
             "rulesFileUrl": "/rules/census.json"
           },
@@ -1215,7 +1222,14 @@
             "source": "19c0747361e-layer-8",
             "sourceUrl": "https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/ACS_Population_by_Race_and_Hispanic_Origin_Boundaries/FeatureServer/1",
             "mapType": "heatmap",
-            "where": "State = 'Hawaii'",
+            "filters": [
+              {
+                "expression": "State = 'Hawaii'",
+                "filterType": "where",
+                "locked": true,
+                "fromMap": true
+              }
+            ],
             "enabled": false,
             "rulesFileUrl": "/rules/census.json"
           },
@@ -1224,7 +1238,14 @@
             "source": "19c0747361f-layer-9",
             "sourceUrl": "https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/ACS_Population_by_Race_and_Hispanic_Origin_Boundaries/FeatureServer/0",
             "mapType": "heatmap",
-            "where": "NAME = 'Hawaii'",
+            "filters": [
+              {
+                "expression": "NAME = 'Hawaii'",
+                "filterType": "where",
+                "locked": true,
+                "fromMap": true
+              }
+            ],
             "enabled": false,
             "rulesFileUrl": "/rules/census.json"
           }
@@ -1385,7 +1406,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1770775454589,
+  "timestamp": 1776302339482,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {

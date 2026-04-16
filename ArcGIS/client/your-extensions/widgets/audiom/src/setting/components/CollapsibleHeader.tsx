@@ -1,4 +1,5 @@
 import { React, css } from 'jimu-core'
+import { Tooltip } from 'jimu-ui'
 import { DownOutlined } from 'jimu-icons/outlined/directional/down'
 import { RightOutlined } from 'jimu-icons/outlined/directional/right'
 import { IconSize, HtmlButtonType, Colors, AriaRole } from '../enums'
@@ -28,6 +29,8 @@ interface CollapsibleHeaderProps {
   contentId?: string
   /** Whether this is a top-level section header (less padding) or a nested card header */
   level?: CollapsibleHeaderLevel
+  /** Whether to show a tooltip on the label (useful for truncated text) */
+  showLabelTooltip?: boolean
 }
 
 // Typed styles - simple properties with full key/value validation
@@ -47,7 +50,11 @@ const styles = {
   },
   label: {
     fontWeight: 500,
-    flex: 1
+    flex: 1,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    minWidth: 0
   },
   actions: {
     display: 'flex',
@@ -61,6 +68,8 @@ const toggleButtonStyle = css({
   display: 'flex',
   alignItems: 'center',
   flex: 1,
+  minWidth: 0,
+  overflow: 'hidden',
   justifyContent: 'flex-start',
   textAlign: 'left',
   padding: 0,
@@ -89,7 +98,7 @@ const toggleButtonStyle = css({
  * - Focus-visible styling for keyboard navigation
  */
 const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
-  const { label, isOpen, onToggle, backgroundColor, actions, contentId, level = CollapsibleHeaderLevel.Section } = props
+  const { label, isOpen, onToggle, backgroundColor, actions, contentId, level = CollapsibleHeaderLevel.Section, showLabelTooltip = false } = props
 
   const levelStyle = level === CollapsibleHeaderLevel.Section ? styles.section : styles.card
   const containerStyle: React.CSSProperties = { ...styles.base, ...levelStyle, ...(backgroundColor ? { backgroundColor } : {}) }
@@ -111,7 +120,13 @@ const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
         <span style={styles.icon} aria-hidden="true">
           {isOpen ? <DownOutlined size={IconSize.Small} /> : <RightOutlined size={IconSize.Small} />}
         </span>
-        <span style={styles.label}>{label}</span>
+        {showLabelTooltip ? (
+          <Tooltip title={label}>
+            <span style={styles.label}>{label}</span>
+          </Tooltip>
+        ) : (
+          <span style={styles.label}>{label}</span>
+        )}
       </button>
       {actions && (
         <div style={styles.actions}>

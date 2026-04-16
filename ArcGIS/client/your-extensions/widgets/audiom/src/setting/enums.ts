@@ -4,7 +4,8 @@ export enum FieldType {
   Number = 'number',
   Switch = 'switch',
   Enum = 'enum',
-  Custom = 'custom'
+  Custom = 'custom',
+  CoordinatePair = 'coordinate-pair'
 }
 
 export enum ButtonSize {
@@ -60,6 +61,11 @@ export enum AriaRole {
   Status = 'status',
   Group = 'group',
   Region = 'region'
+}
+
+export enum FilterType {
+  Where = 'where',
+  When = 'when'
 }
 
 // Theme Colors

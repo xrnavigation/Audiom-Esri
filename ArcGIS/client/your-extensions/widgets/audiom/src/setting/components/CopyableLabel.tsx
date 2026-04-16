@@ -1,11 +1,10 @@
 import { React, css } from 'jimu-core'
 import { Label, Tooltip } from 'jimu-ui'
 import { CopyOutlined } from 'jimu-icons/outlined/editor/copy'
-import { createLogger } from '../../utils/logger'
 import { Colors } from '../enums'
+import { useCopyToClipboard, TOOLTIP_COPY, TOOLTIP_COPIED } from '../useCopyToClipboard'
 
-const { useState, useCallback } = React
-const logger = createLogger('CopyableLabel')
+const { useCallback } = React
 
 interface CopyableLabelProps {
   /** The display text for the label */
@@ -17,10 +16,6 @@ interface CopyableLabelProps {
   /** Additional styles for the label container */
   style?: React.CSSProperties
 }
-
-const TOOLTIP_COPY = 'Copy to clipboard'
-const TOOLTIP_COPIED = 'Copied!'
-const TOOLTIP_RESET_DELAY = 2000
 
 // Typed styles - simple properties with full key/value validation
 const styles = {
@@ -64,22 +59,13 @@ const copyButtonStyle = css({
  */
 const CopyableLabel = (props: CopyableLabelProps) => {
   const { label, copyValue, showCopyButton = true, style } = props
-  const [copied, setCopied] = useState(false)
+  const { copied, copyToClipboard } = useCopyToClipboard()
 
-  const handleCopy = useCallback(async (e: React.MouseEvent) => {
+  const handleCopy = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    
-    const textToCopy = copyValue ?? label
-    
-    try {
-      await navigator.clipboard.writeText(textToCopy)
-      setCopied(true)
-      setTimeout(() => setCopied(false), TOOLTIP_RESET_DELAY)
-    } catch (err) {
-      logger.error('Failed to copy to clipboard:', err)
-    }
-  }, [copyValue, label])
+    copyToClipboard(copyValue ?? label)
+  }, [copyValue, label, copyToClipboard])
 
   return (
     <div style={{ ...styles.container, ...style }}>
