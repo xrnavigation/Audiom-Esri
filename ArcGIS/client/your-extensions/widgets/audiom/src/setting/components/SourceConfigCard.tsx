@@ -1,5 +1,5 @@
 import { React, css } from 'jimu-core'
-import { Card, Collapse, Button, Tooltip, TextInput } from 'jimu-ui'
+import { Card, Collapse, Button, ButtonGroup, Tooltip, TextInput } from 'jimu-ui'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
 import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
 import { InvisibleOutlined } from 'jimu-icons/outlined/application/invisible'
@@ -10,7 +10,7 @@ import { CopyOutlined } from 'jimu-icons/outlined/editor/copy'
 import { PlusOutlined } from 'jimu-icons/outlined/editor/plus'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
 import { DEFAULT_SOURCE_CONFIG, DEFAULT_FILTER_CONFIG, FieldConfig, ISourceConfig, IFilterConfig } from '../configs'
-import { ButtonSize, ButtonType, FieldType, FlowType, Colors, MAP_TYPE_OPTIONS } from '../enums'
+import { ButtonSize, ButtonType, FieldType, FlowType, Colors, MAP_TYPE_OPTIONS, FilterType } from '../enums'
 import { SourceConfigKey } from '../configKeys'
 import { validateUrl } from '../validation/validation'
 import { useCopyToClipboard, TOOLTIP_COPY, TOOLTIP_COPIED } from '../useCopyToClipboard'
@@ -123,6 +123,7 @@ const PLACEHOLDER_SOURCE_URL = 'Enter map source URL'
 const PLACEHOLDER_RULES_URL = 'Enter rules file URL'
 const PLACEHOLDER_SOURCE = 'Enter source identifier (e.g., units)'
 const PLACEHOLDER_FILTER = 'e.g., population > 1000'
+const PLACEHOLDER_TIME_FILTER = 'e.g., 2024-01-01/2024-12-31'
 
 const TOOLTIP_LOCK_FILTER = 'Lock to sync filter from map'
 const TOOLTIP_UNLOCK_FILTER = 'Unlock to manually edit filter'
@@ -130,34 +131,61 @@ const TOOLTIP_REMOVE_FILTER = 'Remove filter'
 const TOOLTIP_ADD_FILTER = 'Add filter'
 const TOOLTIP_LOCK_FILTERS = 'Lock filters to sync from map'
 const TOOLTIP_UNLOCK_FILTERS = 'Unlock to add/remove filters'
+const TOOLTIP_FILTER_TYPE_WHERE = 'Definition expression (WHERE)'
+const TOOLTIP_FILTER_TYPE_WHEN = 'Time extent filter (WHEN)'
+
+const FILTER_TYPE_OPTIONS = [
+  { value: FilterType.Where, label: 'Where', tooltip: TOOLTIP_FILTER_TYPE_WHERE },
+  { value: FilterType.When, label: 'When', tooltip: TOOLTIP_FILTER_TYPE_WHEN }
+] as const
 
 /**
- * A single filter row with a small action toolbar above the text input.
+ * A single filter row with a type toggle, action toolbar, and text input.
+ * Toggle switches between Where (definition expression) and When (time extent).
  * Actions (left to right): lock/unlock, copy, delete.
  */
 const FilterItem = (props: {
   filterIndex: number
   expression: string
+  filterType: FilterType
   isFilterLocked: boolean
   isFilterDisabled: boolean
   filtersLocked: boolean
   fromMap: boolean
   readOnly: boolean
   onExpressionChange: (filterIndex: number, expression: string) => void
+  onFilterTypeChange: (filterIndex: number, filterType: FilterType) => void
   onToggleLocked: (filterIndex: number) => void
   onRemove: (filterIndex: number) => void
 }) => {
   const {
-    filterIndex, expression, isFilterLocked, isFilterDisabled, filtersLocked, fromMap, readOnly,
-    onExpressionChange, onToggleLocked, onRemove
+    filterIndex, expression, filterType, isFilterLocked, isFilterDisabled, filtersLocked, fromMap, readOnly,
+    onExpressionChange, onFilterTypeChange, onToggleLocked, onRemove
   } = props
   const { copied, copyToClipboard } = useCopyToClipboard()
 
   const canDelete = !(readOnly && (isFilterLocked || filtersLocked))
+  const placeholder = filterType === FilterType.When ? PLACEHOLDER_TIME_FILTER : PLACEHOLDER_FILTER
 
   return (
     <div style={styles.filterItem}>
       <div style={styles.filterToolbar}>
+        {/* Filter type toggle: Where / When */}
+        <ButtonGroup size={ButtonSize.Small} style={{ marginRight: 'auto' }}>
+          {FILTER_TYPE_OPTIONS.map(opt => (
+            <Tooltip key={opt.value} title={opt.tooltip}>
+              <Button
+                size={ButtonSize.Small}
+                active={filterType === opt.value}
+                onClick={() => { if (!isFilterDisabled) onFilterTypeChange(filterIndex, opt.value) }}
+                disabled={isFilterDisabled && filterType !== opt.value}
+                style={{ minWidth: 44, fontSize: 11, padding: '1px 6px' }}
+              >
+                {opt.label}
+              </Button>
+            </Tooltip>
+          ))}
+        </ButtonGroup>
         {/* Lock/Unlock (only for map-synced filters in readOnly mode) */}
         {readOnly && fromMap && (
           <Tooltip title={isFilterLocked ? TOOLTIP_UNLOCK_FILTER : TOOLTIP_LOCK_FILTER}>
@@ -204,7 +232,7 @@ const FilterItem = (props: {
         style={{ width: '100%' }}
         value={expression}
         onChange={(e) => onExpressionChange(filterIndex, e.target.value)}
-        placeholder={PLACEHOLDER_FILTER}
+        placeholder={placeholder}
         disabled={isFilterDisabled}
         aria-label={`${FIELD_LABEL_FILTER} ${filterIndex + 1}`}
       />
@@ -388,10 +416,28 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
     updateFilters(newFilters)
   }
 
+  const onFilterTypeChange = (filterIndex: number, filterType: FilterType) => {
+    const newFilters = [...filters]
+    newFilters[filterIndex] = { ...newFilters[filterIndex], filterType, expression: '' }
+    updateFilters(newFilters)
+  }
+
   const onToggleFilterLocked = (filterIndex: number) => {
     const newFilters = [...filters]
     const current = newFilters[filterIndex]
-    newFilters[filterIndex] = { ...current, locked: !(current.locked ?? DEFAULT_FILTER_CONFIG.locked) }
+    const wasLocked = current.locked ?? DEFAULT_FILTER_CONFIG.locked
+    const nowLocked = !wasLocked
+    if (nowLocked && current.fromMap) {
+      // Re-locking: restore expression and filterType to original map values
+      newFilters[filterIndex] = {
+        ...current,
+        locked: true,
+        expression: current.mapExpression ?? current.expression,
+        filterType: current.mapFilterType ?? current.filterType
+      }
+    } else {
+      newFilters[filterIndex] = { ...current, locked: nowLocked }
+    }
     updateFilters(newFilters)
   }
 
@@ -403,14 +449,19 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
 
   const onAddFilter = () => {
     if (readOnly && filtersLocked) return
-    updateFilters([...filters, { ...DEFAULT_FILTER_CONFIG, locked: false, expression: '' }])
+    updateFilters([...filters, { ...DEFAULT_FILTER_CONFIG, filterType: FilterType.Where, locked: false, expression: '' }])
   }
 
   const onToggleFiltersLocked = () => {
     const newLocked = !filtersLocked
     if (newLocked) {
-      // Re-locking: strip user-added filters, re-lock map filters so sync restores them
-      const mapOnly = filters.filter(f => f.fromMap).map(f => ({ ...f, locked: true }))
+      // Re-locking: strip user-added filters, restore map filters to original values
+      const mapOnly = filters.filter(f => f.fromMap).map(f => ({
+        ...f,
+        locked: true,
+        expression: f.mapExpression ?? f.expression,
+        filterType: f.mapFilterType ?? f.filterType
+      }))
       onFieldChange({ [SourceConfigKey.FiltersLocked]: newLocked, [SourceConfigKey.Filters]: mapOnly })
     } else {
       onFieldChange({ [SourceConfigKey.FiltersLocked]: newLocked })
@@ -471,12 +522,14 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
                 key={filterIndex}
                 filterIndex={filterIndex}
                 expression={filterExpression}
+                filterType={filter.filterType ?? FilterType.Where}
                 isFilterLocked={isFilterLocked}
                 isFilterDisabled={isFilterDisabled}
                 filtersLocked={filtersLocked}
                 fromMap={filter.fromMap === true}
                 readOnly={readOnly}
                 onExpressionChange={onFilterExpressionChange}
+                onFilterTypeChange={onFilterTypeChange}
                 onToggleLocked={onToggleFilterLocked}
                 onRemove={onRemoveFilter}
               />

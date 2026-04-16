@@ -19,12 +19,13 @@ export function stripUserControlledProperties(source: ISourceConfig): Partial<IS
     ...comparable
   } = source
 
-  // Include only map-origin filters in comparison, stripping metadata (locked/fromMap)
-  // so that unlocking a filter doesn't cause a diff.
+  // Include ALL map-origin filters in comparison using their original map values.
+  // This ensures unlocking/editing a filter doesn't cause a diff (user edits change
+  // 'expression' but not 'mapExpression'). Only actual map changes cause a diff.
   const result: Partial<ISourceConfig> = { ...comparable }
   const comparableFilters = (source.filters || [])
     .filter(f => f.fromMap)
-    .map(f => ({ expression: f.expression }))
+    .map(f => ({ expression: f.mapExpression ?? f.expression }))
   if (comparableFilters.length > 0) {
     result.filters = comparableFilters as IFilterConfig[]
   }
@@ -140,7 +141,12 @@ export function mergeSourcesPreservingUnlocked(
 export function mergeFilters(currentFilters: IFilterConfig[], mapFilters: IFilterConfig[]): IFilterConfig[] {
   // Keep user-added filters (non-map filters) from current config
   const userFilters = currentFilters.filter(f => !f.fromMap)
-  // Map filters are always locked (synced from map)
-  const lockedMapFilters = mapFilters.map(f => ({ ...f, locked: true, fromMap: true }))
-  return [...lockedMapFilters, ...userFilters]
+  // Keep unlocked map-origin filters, updating their mapExpression/mapFilterType from fresh map data
+  const unlockedMapFilters = currentFilters.filter(f => f.fromMap && f.locked === false)
+  // Locked map filters are replaced with fresh values from the map
+  const lockedMapFilters = mapFilters.map(f => ({
+    ...f, locked: true, fromMap: true,
+    mapExpression: f.expression, mapFilterType: f.filterType
+  }))
+  return [...lockedMapFilters, ...unlockedMapFilters, ...userFilters]
 }

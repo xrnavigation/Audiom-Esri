@@ -82,6 +82,30 @@ export class DateTimeInterval {
   }
 
   /**
+   * Parse an OGC `datetime` interval string: `start/end`.
+   * Either side may be `..` (open-ended) or an ISO 8601 / RFC 3339 date string.
+   * Returns `null` if the format is invalid or both sides are unparseable.
+   */
+  static fromOgcDateTimeParam(param: string): DateTimeInterval | null {
+    const parts = param.split('/');
+    if (parts.length !== 2) return null;
+
+    const parseDate = (s: string): Date | null => {
+      const trimmed = s.trim();
+      if (!trimmed || trimmed === '..') return null;
+      const ms = Date.parse(trimmed);
+      return isNaN(ms) ? null : new Date(ms);
+    };
+
+    const start = parseDate(parts[0]);
+    const end = parseDate(parts[1]);
+    if (start === null && end === null && parts[0].trim() !== '..' && parts[1].trim() !== '..') {
+      return null; // both sides were unparseable (not intentionally open)
+    }
+    return new DateTimeInterval(start, end);
+  }
+
+  /**
    * Serialize to OGC `datetime` parameter format.
    * Closed: `start/end`
    * Open start: `../end`

@@ -110,6 +110,53 @@ describe('DateTimeInterval', () => {
     });
   });
 
+  describe('fromOgcDateTimeParam', () => {
+    it('parses a closed interval', () => {
+      const interval = DateTimeInterval.fromOgcDateTimeParam('2024-01-01T00:00:00Z/2024-06-30T23:59:59Z');
+      expect(interval).not.toBeNull();
+      expect(interval!.start!.getTime()).toBe(Date.UTC(2024, 0, 1, 0, 0, 0));
+      expect(interval!.end!.getTime()).toBe(Date.UTC(2024, 5, 30, 23, 59, 59));
+    });
+
+    it('parses an open-start interval', () => {
+      const interval = DateTimeInterval.fromOgcDateTimeParam('../2024-06-30T23:59:59Z');
+      expect(interval).not.toBeNull();
+      expect(interval!.start).toBeNull();
+      expect(interval!.end!.getTime()).toBe(Date.UTC(2024, 5, 30, 23, 59, 59));
+    });
+
+    it('parses an open-end interval', () => {
+      const interval = DateTimeInterval.fromOgcDateTimeParam('2024-01-01T00:00:00Z/..');
+      expect(interval).not.toBeNull();
+      expect(interval!.start!.getTime()).toBe(Date.UTC(2024, 0, 1, 0, 0, 0));
+      expect(interval!.end).toBeNull();
+    });
+
+    it('parses a fully open interval', () => {
+      const interval = DateTimeInterval.fromOgcDateTimeParam('../..');
+      expect(interval).not.toBeNull();
+      expect(interval!.start).toBeNull();
+      expect(interval!.end).toBeNull();
+    });
+
+    it('returns null for missing separator', () => {
+      expect(DateTimeInterval.fromOgcDateTimeParam('2024-01-01T00:00:00Z')).toBeNull();
+    });
+
+    it('returns null for garbage on both sides', () => {
+      expect(DateTimeInterval.fromOgcDateTimeParam('foo/bar')).toBeNull();
+    });
+
+    it('round-trips with toOgcDateTimeParam', () => {
+      const original = DateTimeInterval.create(start, end);
+      const serialized = original.toOgcDateTimeParam();
+      const parsed = DateTimeInterval.fromOgcDateTimeParam(serialized);
+      expect(parsed).not.toBeNull();
+      expect(parsed!.start!.getTime()).toBe(start.getTime());
+      expect(parsed!.end!.getTime()).toBe(end.getTime());
+    });
+  });
+
   describe('toOverpassDiffSetting', () => {
     it('formats a closed interval as [diff:"start","end"]', () => {
       const interval = DateTimeInterval.create(start, end);

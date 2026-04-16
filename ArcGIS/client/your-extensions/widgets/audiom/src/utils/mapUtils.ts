@@ -5,12 +5,15 @@ import { GeoQuad } from "../../../../shared/audiom-client/GeoQuad";
 import { Coordinates } from "../../../../shared/audiom-client/Coordinates";
 import { raw } from "../../../../shared/audiom-client/expressions";
 import { toEsriSql } from "../../../../shared/audiom-client/expressions/serializers/EsriSqlSerializer";
+import { TimeExtent as AudiomTimeExtent } from "../../../../shared/audiom-client/expressions/temporal/EsriTemporalFilter";
+import { DateTimeInterval } from "../../../../shared/audiom-client/expressions/temporal/DateTimeFilter";
 import { JimuMapView, MapViewManager } from "jimu-arcgis";
 import FeatureLayer from 'esri/layers/FeatureLayer';
 import CSVLayer from 'esri/layers/CSVLayer';
 import GeoJSONLayer from 'esri/layers/GeoJSONLayer';
 import MapImageLayer from 'esri/layers/MapImageLayer';
 import { DEFAULT_CONFIG, DEFAULT_SOURCE_CONFIG, IAudiomConfig, IFilterConfig } from "../setting/configs";
+import { FilterType } from "../setting/enums";
 import { isConfigValid } from "../setting/validation/validation";
 import { createLogger } from './logger';
 import { LayerType, isExcludedLayerType } from './mapEnums';
@@ -42,14 +45,60 @@ export function isAudiomConfigValid(config: IAudiomConfig): boolean {
 /**
  * Combine a list of filter expressions into a single SQL WHERE clause.
  * Non-empty expressions are wrapped in parentheses and joined with AND.
+ * Only includes 'where' type filters (or filters with no type, for backwards compatibility).
  * @returns The combined expression string, or undefined if no valid filters.
  */
 export function combineFilterExpressions(filters: IFilterConfig[]): string | undefined {
   const expressions = filters
+    .filter(f => !f.filterType || f.filterType === FilterType.Where)
     .map(f => f.expression?.trim())
     .filter((expr): expr is string => !!expr)
     .map(expr => `(${expr})`)
   return expressions.length > 0 ? expressions.join(' AND ') : undefined
+}
+
+/**
+ * Combine temporal (when) filters into a TimeExtent for Esri queries.
+ * Each 'when' filter expression is an ISO 8601 interval: "start/end"
+ * where start and end are ISO date strings or epoch milliseconds.
+ * Returns the tightest intersection of all time ranges.
+ */
+export function combineTimeFilters(filters: IFilterConfig[]): { start: number | null, end: number | null } | undefined {
+  const timeFilters = filters.filter(f => f.filterType === FilterType.When)
+  if (timeFilters.length === 0) return undefined
+
+  let latestStart: number | null = null
+  let earliestEnd: number | null = null
+
+  for (const f of timeFilters) {
+    const expr = f.expression?.trim()
+    if (!expr) continue
+    const interval = DateTimeInterval.fromOgcDateTimeParam(expr)
+    if (!interval) continue
+
+    if (interval.start !== null) {
+      const ms = interval.start.getTime()
+      latestStart = latestStart !== null ? Math.max(latestStart, ms) : ms
+    }
+    if (interval.end !== null) {
+      const ms = interval.end.getTime()
+      earliestEnd = earliestEnd !== null ? Math.min(earliestEnd, ms) : ms
+    }
+  }
+
+  if (latestStart === null && earliestEnd === null) return undefined
+  return { start: latestStart, end: earliestEnd }
+}
+
+/**
+ * Format a layer's timeExtent as an ISO 8601 interval string.
+ */
+function formatTimeExtent(timeExtent: { start?: Date, end?: Date }): string | undefined {
+  if (!timeExtent) return undefined
+  const start = timeExtent.start ?? null
+  const end = timeExtent.end ?? null
+  if (start === null && end === null) return undefined
+  return DateTimeInterval.create(start, end).toOgcDateTimeParam()
 }
 
 export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapView | undefined): AudiomEmbedConfig {
@@ -118,13 +167,15 @@ export function getSourcesFromConfig(config: IAudiomConfig): AudiomSource[] {
 
     if (sourceConfig?.sourceUrl) {
       const combinedWhere = combineFilterExpressions(sourceConfig.filters || [])
+      const combinedTime = combineTimeFilters(sourceConfig.filters || [])
       const source = AudiomSource.fromEsri({
         name: sourceConfig.name,
         source: sourceConfig.source,
         url: sourceConfig.sourceUrl,
         mapType: sourceConfig.mapType || DEFAULT_SOURCE_CONFIG.mapType,
         rules: sourceConfig.rulesFileUrl || '',
-        where: combinedWhere ? raw(combinedWhere) : undefined
+        where: combinedWhere ? raw(combinedWhere) : undefined,
+        time: combinedTime ? AudiomTimeExtent.fromEpochMs(combinedTime.start, combinedTime.end) : undefined
       });
       sources.push(source);
     }
@@ -258,17 +309,31 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
   const layerSources = getSourcesFromEsriMap(jimuMapView);
   
   layerSources.forEach(source => {
-    // Find the corresponding layer to get visibility
+    // Find the corresponding layer to get visibility and timeExtent
     const layer = view.map.allLayers.find(l => 
       l.id === source.source || l.id === source.source.split('_')[0]
     );
     
+    const filters: IFilterConfig[] = []
+    if (source.where) {
+      const expr = toEsriSql(source.where)
+      filters.push({ expression: expr, mapExpression: expr, filterType: FilterType.Where, mapFilterType: FilterType.Where, locked: true, fromMap: true })
+    }
+    // Extract timeExtent from the layer if available (FeatureLayer, etc.)
+    const layerTimeExtent = (layer as any)?.timeExtent
+    if (layerTimeExtent) {
+      const timeExpr = formatTimeExtent(layerTimeExtent)
+      if (timeExpr) {
+        filters.push({ expression: timeExpr, mapExpression: timeExpr, filterType: FilterType.When, mapFilterType: FilterType.When, locked: true, fromMap: true })
+      }
+    }
+
     sourceConfigs.push({
       name: source.name,
       source: source.source,
       sourceUrl: source.url,
       mapType: source.mapType,
-      filters: source.where ? [{ expression: toEsriSql(source.where), locked: true, fromMap: true }] : [],
+      filters,
       // Don't include rulesFileUrl - it's not from the map and shouldn't affect diff
       enabled: layer?.visible ?? true
     });

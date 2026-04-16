@@ -3,7 +3,7 @@ import type { React } from 'jimu-core'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import { VisualStyle } from '../../../../shared/audiom-client/AudiomEmbedConfig'
-import { FieldType } from './enums'
+import { FieldType, FilterType } from './enums'
 import type { LockableFieldName } from './configKeys'
 
 /**
@@ -98,12 +98,18 @@ export interface FieldConfig {
 }
 
 export interface IFilterConfig {
-  /** The SQL where clause expression (e.g., "population > 1000") */
+  /** The filter expression (SQL WHERE clause or ISO 8601 time extent) */
   expression: string
+  /** Filter type: 'where' for definition expression, 'when' for time extent */
+  filterType?: FilterType
   /** When locked (default), syncs from map. When unlocked, user-controlled. */
   locked?: boolean
   /** Whether this filter originated from the map (vs. user-added). Only map filters show lock icons. */
   fromMap?: boolean
+  /** Original map expression, used for comparison and reset on re-lock. Only set for fromMap filters. */
+  mapExpression?: string
+  /** Original map filter type, used for reset on re-lock. Only set for fromMap filters. */
+  mapFilterType?: FilterType
 }
 
 export interface ISourceConfig {

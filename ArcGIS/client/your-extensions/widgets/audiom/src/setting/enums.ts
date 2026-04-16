@@ -63,6 +63,11 @@ export enum AriaRole {
   Region = 'region'
 }
 
+export enum FilterType {
+  Where = 'where',
+  When = 'when'
+}
+
 // Theme Colors
 
 /**
