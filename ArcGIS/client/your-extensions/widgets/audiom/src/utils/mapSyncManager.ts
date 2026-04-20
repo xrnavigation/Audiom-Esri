@@ -1,7 +1,7 @@
 import { JimuMapView, JimuLayerView, MapViewManager } from 'jimu-arcgis'
 import { getJimuMapViewById, extractMapConfigFromEsriMap } from './mapUtils'
 import { ISourceConfig } from '../setting/configs'
-import { getLockedSources, getUnlockedSourceIds, excludeSourcesByIds, stripUserControlledProperties } from './sourceConfigUtils'
+import { getUnlockedSourceIds, serializeLockedForDiff } from './sourceConfigUtils'
 import { createLogger } from './logger'
 
 const logger = createLogger('MapSyncManager')
@@ -183,17 +183,9 @@ export class MapSyncManager {
     const newConfig = this.getCurrentConfig(mapId)
     if (!newConfig) return false
 
-    // Get IDs of unlocked sources from current config
     const unlockedIds = getUnlockedSourceIds(currentConfig.sourceConfigs || [])
-
-    // Filter to only compare locked sources, then strip user-controlled properties
-    const lockedCurrentSources = getLockedSources(currentConfig.sourceConfigs || [])
-    const lockedNewSources = excludeSourcesByIds(newConfig.sourceConfigs || [], unlockedIds)
-
-    const currentJson = JSON.stringify(lockedCurrentSources.map(stripUserControlledProperties))
-    const newJson = JSON.stringify(lockedNewSources.map(stripUserControlledProperties))
-
-    return currentJson !== newJson
+    return serializeLockedForDiff(currentConfig.sourceConfigs) !==
+      serializeLockedForDiff(newConfig.sourceConfigs, unlockedIds)
   }
 
   /**
@@ -236,22 +228,16 @@ export class MapSyncManager {
     if (!mapConfig) return
 
     const mapConfigJson = JSON.stringify(mapConfig.sourceConfigs || [])
-    
+
     // Check for initial mismatch if current config provided
     if (currentConfig) {
-      // Get IDs of unlocked sources from current config
       const unlockedIds = getUnlockedSourceIds(currentConfig.sourceConfigs || [])
-      
-      // Filter to only compare locked sources
-      const lockedCurrentSources = getLockedSources(currentConfig.sourceConfigs || [])
-      const lockedMapSources = excludeSourcesByIds(mapConfig.sourceConfigs || [], unlockedIds)
-      
-      const currentConfigJson = JSON.stringify(lockedCurrentSources)
-      const mapLockedJson = JSON.stringify(lockedMapSources)
-      const hasMismatch = currentConfigJson !== mapLockedJson
-      
+      const hasMismatch =
+        serializeLockedForDiff(currentConfig.sourceConfigs) !==
+        serializeLockedForDiff(mapConfig.sourceConfigs, unlockedIds)
+
       this.initialized = true
-      
+
       if (hasMismatch) {
         logger.debug('Initial config mismatch detected on attach')
         // Defer notification to next tick to allow listeners to be added

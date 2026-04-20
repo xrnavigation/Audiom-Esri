@@ -13,6 +13,7 @@ import { DEFAULT_SOURCE_CONFIG, DEFAULT_FILTER_CONFIG, FieldConfig, ISourceConfi
 import { ButtonSize, ButtonType, FieldType, FlowType, Colors, MAP_TYPE_OPTIONS, FilterType } from '../enums'
 import { SourceConfigKey } from '../configKeys'
 import { validateUrl } from '../validation/validation'
+import { replaceAt } from '../../utils/sourceConfigUtils'
 import { useCopyToClipboard, TOOLTIP_COPY, TOOLTIP_COPIED } from '../useCopyToClipboard'
 import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 import CopyableLabel from './CopyableLabel'
@@ -411,34 +412,27 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
   }
 
   const onFilterExpressionChange = (filterIndex: number, expression: string) => {
-    const newFilters = [...filters]
-    newFilters[filterIndex] = { ...newFilters[filterIndex], expression }
-    updateFilters(newFilters)
+    updateFilters(replaceAt(filters, filterIndex, { expression }))
   }
 
   const onFilterTypeChange = (filterIndex: number, filterType: FilterType) => {
-    const newFilters = [...filters]
-    newFilters[filterIndex] = { ...newFilters[filterIndex], filterType, expression: '' }
-    updateFilters(newFilters)
+    updateFilters(replaceAt(filters, filterIndex, { filterType, expression: '' }))
   }
 
   const onToggleFilterLocked = (filterIndex: number) => {
-    const newFilters = [...filters]
-    const current = newFilters[filterIndex]
+    const current = filters[filterIndex]
     const wasLocked = current.locked ?? DEFAULT_FILTER_CONFIG.locked
     const nowLocked = !wasLocked
     if (nowLocked && current.fromMap) {
       // Re-locking: restore expression and filterType to original map values
-      newFilters[filterIndex] = {
-        ...current,
+      updateFilters(replaceAt(filters, filterIndex, {
         locked: true,
         expression: current.mapExpression ?? current.expression,
         filterType: current.mapFilterType ?? current.filterType
-      }
+      }))
     } else {
-      newFilters[filterIndex] = { ...current, locked: nowLocked }
+      updateFilters(replaceAt(filters, filterIndex, { locked: nowLocked }))
     }
-    updateFilters(newFilters)
   }
 
   const onRemoveFilter = (filterIndex: number) => {

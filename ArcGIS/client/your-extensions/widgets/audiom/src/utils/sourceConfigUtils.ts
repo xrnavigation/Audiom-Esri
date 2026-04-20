@@ -2,6 +2,40 @@ import { ISourceConfig, IFilterConfig } from '../setting/configs'
 import { SourceConfigKey } from '../setting/configKeys'
 
 /**
+ * Return a new array with the element at `index` shallow-merged with `patch`.
+ * Used to immutably update a single item in lists like sourceConfigs/filters/layers.
+ */
+export function replaceAt<T>(arr: T[], index: number, patch: Partial<T>): T[] {
+  const next = arr.slice()
+  next[index] = { ...next[index], ...patch }
+  return next
+}
+
+/**
+ * Canonical JSON serialization of locked sources for change detection.
+ *
+ * - Only sources with `locked !== false` are included.
+ * - User-controlled properties are stripped via stripUserControlledProperties.
+ * - Map-origin filters are compared via their original mapExpression so
+ *   user filter edits don't trigger a false-positive map change.
+ * - When `excludeSourceIds` is provided (e.g., the IDs of sources the
+ *   widget has manually unlocked), those sources are also excluded.
+ *   This is used asymmetrically: pass the widget config's unlocked IDs
+ *   when diffing freshly-extracted map sources, so an unlocked source
+ *   on the widget side doesn't cause map-side changes to register.
+ */
+export function serializeLockedForDiff(
+  sources: ISourceConfig[] | undefined,
+  excludeSourceIds?: Set<string>
+): string {
+  let filtered = (sources || []).filter(s => s.locked !== false)
+  if (excludeSourceIds && excludeSourceIds.size > 0) {
+    filtered = filtered.filter(s => !excludeSourceIds.has(s.source || ''))
+  }
+  return JSON.stringify(filtered.map(stripUserControlledProperties))
+}
+
+/**
  * Strip properties that shouldn't be compared for change detection on locked sources.
  * Only used on locked sources (unlocked sources are excluded from comparison entirely).
  * - mapType/rulesFileUrl: user-editable, preserved during sync

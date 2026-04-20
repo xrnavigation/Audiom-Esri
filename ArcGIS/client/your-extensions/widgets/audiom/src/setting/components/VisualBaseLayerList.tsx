@@ -3,6 +3,7 @@ import { Collapse, Button } from 'jimu-ui'
 import { IVisualBaseLayerConfig, DEFAULT_VISUAL_BASE_LAYER } from '../configs'
 import { ButtonType, FlowType } from '../enums'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
+import { replaceAt } from '../../utils/sourceConfigUtils'
 import CollapsibleHeader from './CollapsibleHeader'
 import VisualBaseLayerCard from './VisualBaseLayerCard'
 
@@ -32,9 +33,7 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
   }, [])
 
   const handleFieldChange = useCallback((index: number, field: keyof IVisualBaseLayerConfig, value: string | undefined) => {
-    const updated = [...layers]
-    updated[index] = { ...updated[index], [field]: value }
-    onChange(updated)
+    onChange(replaceAt(layers, index, { [field]: value } as Partial<IVisualBaseLayerConfig>))
   }, [layers, onChange])
 
   const handleRemove = useCallback((index: number) => {

@@ -7,6 +7,7 @@ import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
 import { DEFAULT_SOURCE_CONFIG, ISourceConfig } from '../configs'
 import { ButtonSize, ButtonType, FlowType, Colors, MAP_TYPE_OPTIONS } from '../enums'
 import { Padding } from '../paddings'
+import { replaceAt } from '../../utils/sourceConfigUtils'
 import CopyableLabel from './CopyableLabel'
 import CollapsibleHeader from './CollapsibleHeader'
 import SourceConfigCard from './SourceConfigCard'
@@ -148,42 +149,29 @@ const SourceConfigList = (props: SourceConfigListProps) => {
     onChange(newSourceConfigs)
   }
 
-  const onSourceConfigChange = (index: number, updates: Record<string, unknown>) => {
-    const newSourceConfigs = [...sourceConfigs]
-    newSourceConfigs[index] = { ...newSourceConfigs[index], ...updates }
-    onChange(newSourceConfigs)
+  const onSourceConfigChange = (index: number, updates: Partial<ISourceConfig>) => {
+    onChange(replaceAt(sourceConfigs, index, updates))
   }
 
   const onAddSourceConfig = () => {
-    const newSourceConfigs = [...sourceConfigs]
-    newSourceConfigs.push({ ...DEFAULT_SOURCE_CONFIG })
-    onChange(newSourceConfigs)
+    onChange([...sourceConfigs, { ...DEFAULT_SOURCE_CONFIG }])
   }
 
   const onRemoveSourceConfig = (index: number) => {
-    const newSourceConfigs = [...sourceConfigs]
-    newSourceConfigs.splice(index, 1)
-    onChange(newSourceConfigs)
+    onChange(sourceConfigs.filter((_, i) => i !== index))
   }
 
   const onToggleSourceEnabled = (index: number) => {
-    const newSourceConfigs = [...sourceConfigs]
-    const currentEnabled = newSourceConfigs[index].enabled ?? DEFAULT_SOURCE_CONFIG.enabled
+    const current = sourceConfigs[index]
+    const currentEnabled = current.enabled ?? DEFAULT_SOURCE_CONFIG.enabled
     // Auto-unlock when manually toggling visibility
-    newSourceConfigs[index] = { 
-      ...newSourceConfigs[index], 
-      enabled: !currentEnabled,
-      locked: false 
-    }
-    onChange(newSourceConfigs)
+    onChange(replaceAt(sourceConfigs, index, { enabled: !currentEnabled, locked: false }))
   }
 
   const onToggleLocked = (index: number) => {
-    const newSourceConfigs = [...sourceConfigs]
-    const currentLocked = newSourceConfigs[index].locked ?? DEFAULT_SOURCE_CONFIG.locked
-    newSourceConfigs[index] = { ...newSourceConfigs[index], locked: !currentLocked }
+    const currentLocked = sourceConfigs[index].locked ?? DEFAULT_SOURCE_CONFIG.locked
     // If re-locking, the sync manager will restore the enabled state on next sync
-    onChange(newSourceConfigs)
+    onChange(replaceAt(sourceConfigs, index, { locked: !currentLocked }))
   }
 
   return (
