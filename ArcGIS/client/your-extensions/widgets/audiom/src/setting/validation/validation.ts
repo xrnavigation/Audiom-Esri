@@ -30,46 +30,33 @@ const MESSAGES = {
 } as const
 
 /**
- * Validates latitude value is within -90 to 90 range
+ * Build a numeric range validator. Nullish values are considered valid
+ * (use validateRequired separately to enforce presence).
  */
-export function validateLatitude(value: number | undefined): ValidityResult {
-  if (isNullish(value)) {
-    return { valid: true }
-  }
-  const valid = value >= VALIDATION.LATITUDE_MIN && value <= VALIDATION.LATITUDE_MAX
-  return {
-    valid,
-    msg: valid ? undefined : MESSAGES.LATITUDE_RANGE
+function makeRangeValidator(min: number, max: number, msg: string) {
+  return (value: number | undefined): ValidityResult => {
+    if (isNullish(value)) {
+      return { valid: true }
+    }
+    const valid = value >= min && value <= max
+    return { valid, msg: valid ? undefined : msg }
   }
 }
 
-/**
- * Validates longitude value is within -180 to 180 range
- */
-export function validateLongitude(value: number | undefined): ValidityResult {
-  if (isNullish(value)) {
-    return { valid: true }
-  }
-  const valid = value >= VALIDATION.LONGITUDE_MIN && value <= VALIDATION.LONGITUDE_MAX
-  return {
-    valid,
-    msg: valid ? undefined : MESSAGES.LONGITUDE_RANGE
-  }
-}
+/** Validates latitude value is within -90 to 90 range */
+export const validateLatitude = makeRangeValidator(
+  VALIDATION.LATITUDE_MIN, VALIDATION.LATITUDE_MAX, MESSAGES.LATITUDE_RANGE
+)
 
-/**
- * Validates zoom level is within 0 to 22 range
- */
-export function validateZoom(value: number | undefined): ValidityResult {
-  if (isNullish(value)) {
-    return { valid: true }
-  }
-  const valid = value >= VALIDATION.ZOOM_MIN && value <= VALIDATION.ZOOM_MAX
-  return {
-    valid,
-    msg: valid ? undefined : MESSAGES.ZOOM_RANGE
-  }
-}
+/** Validates longitude value is within -180 to 180 range */
+export const validateLongitude = makeRangeValidator(
+  VALIDATION.LONGITUDE_MIN, VALIDATION.LONGITUDE_MAX, MESSAGES.LONGITUDE_RANGE
+)
+
+/** Validates zoom level is within 0 to 22 range */
+export const validateZoom = makeRangeValidator(
+  VALIDATION.ZOOM_MIN, VALIDATION.ZOOM_MAX, MESSAGES.ZOOM_RANGE
+)
 
 /**
  * Validates step size matches pattern: number optionally followed by unit (m, km, mi, ft)
@@ -86,28 +73,34 @@ export function validateStepSize(value: string | number | undefined): ValidityRe
   }
 }
 
+/** URL schemes permitted for user-supplied URLs. Excludes javascript:/data:/file: etc. */
+const ALLOWED_URL_PROTOCOLS = new Set(['http:', 'https:'])
+
 /**
  * Validates a URL string or local path.
  * Allows:
- * - Full URLs (http://, https://)
+ * - Full http(s) URLs only — javascript:, data:, file:, etc. are rejected
+ *   to prevent XSS via iframe src or window.open.
  * - Relative paths (./path, ../path, /path)
- * - Host:port patterns (localhost:3000, audiom:8080)
  */
 export function validateUrl(value: string | undefined): ValidityResult {
   if (isNullishOrWhiteSpace(value)) {
     return { valid: true }
   }
-  
+
   const trimmed = value.trim()
-  
+
   // Allow relative paths
   if (trimmed.startsWith('./') || trimmed.startsWith('../') || trimmed.startsWith('/')) {
     return { valid: true }
   }
-  
-  // Validate full URLs (requires http://, https://, etc.)
+
+  // Validate full URLs and restrict to safe protocols
   try {
-    new URL(trimmed)
+    const parsed = new URL(trimmed)
+    if (!ALLOWED_URL_PROTOCOLS.has(parsed.protocol)) {
+      return { valid: false, msg: MESSAGES.INVALID_URL }
+    }
     return { valid: true }
   } catch {
     return { valid: false, msg: MESSAGES.INVALID_URL }
@@ -123,21 +116,6 @@ export function validateRequired(value: string | undefined): ValidityResult {
     valid,
     msg: valid ? undefined : MESSAGES.REQUIRED
   }
-}
-
-/**
- * Parses step size string to extract numeric value
- * Handles formats like "1", "1.5", "1km", "1.5mi"
- */
-export function parseStepSizeValue(value: string | number | undefined): number {
-  if (value === undefined || value === null) {
-    return DEFAULT_CONFIG.stepSize
-  }
-  if (typeof value === 'number') {
-    return value
-  }
-  const match = String(value).match(/^(\d+\.?\d*)/)
-  return match ? parseFloat(match[1]) : DEFAULT_CONFIG.stepSize
 }
 
 /**

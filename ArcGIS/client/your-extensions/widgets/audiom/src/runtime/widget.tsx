@@ -8,9 +8,6 @@ import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs'
 import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation'
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
-import { createLogger } from '../utils/logger'
-
-const logger = createLogger('Widget')
 
 // Typed styles with full key/value validation
 const styles = {
@@ -94,8 +91,8 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
     }
   }, [sanitizedConfig?.sourceConfigs, lastSyncedConfigJson])
 
-  const mapConfig = audiomConfigToEmbedConfig(props.config, jimuMapView)
-  const embedUrl = mapConfig.toUrl(props.config?.baseUrl || DEFAULT_CONFIG.baseUrl)
+  const mapConfig = audiomConfigToEmbedConfig(sanitizedConfig as IAudiomConfig, jimuMapView)
+  const embedUrl = mapConfig.toUrl(sanitizedConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
 
   return (
     <div className="jimu-widget" style={styles.container}>
@@ -107,11 +104,13 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
         message="Map changes detected. Select the Audiom widget to re-synchronize."
         variant={MessageType.Warning}
       />
-      <iframe 
-        name="audiom" 
-        src={embedUrl} 
+      <iframe
+        name="audiom"
+        src={embedUrl}
         style={styles.iframe}
         title={props.config.title || 'Audiom Widget'}
+        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
+        referrerPolicy="no-referrer"
       />
     </div>
   )

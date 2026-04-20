@@ -179,6 +179,3 @@ export class JimuConfig {
     return this.config.arcgisJsApiUrl
   }
 }
-
-// Export singleton instance and convenience functions
-export const jimuConfig = JimuConfig.getInstance()

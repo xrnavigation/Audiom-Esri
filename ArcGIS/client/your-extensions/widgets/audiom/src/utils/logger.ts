@@ -87,9 +87,3 @@ export function createLogger(context: string): Logger {
     error: (...args: unknown[]) => logInternal(LogLevel.Error, context, ...args)
   }
 }
-
-/**
- * Default logger without a specific context.
- * Use createLogger() for module-specific logging.
- */
-export const logger: Logger = createLogger('')

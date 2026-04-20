@@ -42,7 +42,6 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
   // Use the map sync state hook for lockable fields
   const {
-    mapValues,
     updateMapValues,
     isFieldLocked,
     createLockToggleHandler,
@@ -208,7 +207,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     const embedConfig = audiomConfigToEmbedConfig(plainConfig, undefined)
 
     const previewUrl = embedConfig.toUrl(plainConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
-    window.open(previewUrl, '_blank')
+    window.open(previewUrl, '_blank', 'noopener,noreferrer')
   }
 
   const renderStepSizeUnitSelector = () => {

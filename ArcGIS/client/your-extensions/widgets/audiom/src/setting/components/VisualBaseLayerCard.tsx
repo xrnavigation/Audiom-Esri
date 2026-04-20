@@ -52,12 +52,15 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
     onFieldChange('position', value || undefined)
   }, [onFieldChange])
 
-  // Safely derive label — URL parsing can fail
-  let safeLabel: string
-  try {
-    safeLabel = layer.url ? (new URL(layer.url).pathname.split('/').pop() || `${LAYER_PREFIX}${index + 1}`) : `${LAYER_PREFIX}${index + 1}`
-  } catch {
-    safeLabel = layer.url ? `${LAYER_PREFIX}${index + 1}` : `${LAYER_PREFIX}${index + 1}`
+  // Safely derive label — URL parsing can fail; fall back to a generic numbered label
+  const fallbackLabel = `${LAYER_PREFIX}${index + 1}`
+  let safeLabel: string = fallbackLabel
+  if (layer.url) {
+    try {
+      safeLabel = new URL(layer.url).pathname.split('/').pop() || fallbackLabel
+    } catch {
+      // Keep fallbackLabel
+    }
   }
 
   const actions = (

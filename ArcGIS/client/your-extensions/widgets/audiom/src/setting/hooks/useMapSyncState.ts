@@ -172,11 +172,8 @@ export function useMapSyncState(
   }, [isFieldLocked])
 
   return {
-    mapValues,
     updateMapValues,
     isFieldLocked,
-    getFieldValue,
-    getMapValue,
     createLockToggleHandler,
     fieldNeedsUpdate,
     syncLockedFieldsToConfig

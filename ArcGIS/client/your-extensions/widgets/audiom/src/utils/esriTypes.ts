@@ -6,12 +6,10 @@
 
 /**
  * Portal item metadata attached to maps loaded from ArcGIS Online/Portal.
- * Contains title and other metadata from the web map item.
+ * Only fields actually consumed are declared here.
  */
 export interface EsriPortalItem {
   readonly title?: string;
-  readonly id?: string;
-  readonly snippet?: string;
 }
 
 /**

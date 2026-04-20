@@ -90,7 +90,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
 
   // Update sourceConfigsOpen when source count crosses threshold
   useEffect(() => {
-    if (sourceConfigs.length < 3) {
+    if (sourceConfigs.length < MAX_DEFAULT_VISIBLE_SOURCES) {
       setSourceConfigsOpen(true)
     }
   }, [sourceConfigs.length])

@@ -26,13 +26,6 @@ const DEFAULT_FEATURE_LAYER_NAME = 'Feature Layer';
 const DEFAULT_CSV_LAYER_NAME = 'CSV Layer';
 const DEFAULT_GEOJSON_LAYER_NAME = 'GeoJSON Layer';
 const DEFAULT_SUBLAYER_NAME = 'Sublayer';
-const LOG_NO_MAP_VIEW = 'No map view available';
-const LOG_PROCESSING_LAYER = 'Processing layer:';
-const LOG_FOUND_FEATURE_LAYER = 'Found FeatureLayer:';
-const LOG_FOUND_CSV_LAYER = 'Found CSV layer:';
-const LOG_FOUND_GEOJSON_LAYER = 'Found GeoJSON layer:';
-const LOG_FOUND_SUBLAYER = 'Found sublayer:';
-const LOG_EXTRACTED_SOURCES = 'Extracted';
 
 /**
  * Validates if the Audiom config is ready for use.
@@ -191,7 +184,7 @@ export function getJimuMapViewById(mapId: string, mapViewManager?: MapViewManage
 
   const jimuMapViews = mapViewManager.getJimuMapViewGroup(mapId)?.jimuMapViews;
   if (!jimuMapViews || Object.keys(jimuMapViews).length === 0) {
-    logger.warn(`${LOG_NO_MAP_VIEW} for map ID: ${mapId}`);
+    logger.warn(`No map view available for map ID: ${mapId}`);
     return undefined;
   }
 
@@ -217,7 +210,7 @@ export function getSourcesFromEsriMap(
   config?: IAudiomConfig
 ): AudiomSource[] {
   if (!jimuMapView || !jimuMapView.view) {
-    logger.warn(LOG_NO_MAP_VIEW);
+    logger.warn('No map view available');
     return [];
   }
 
@@ -253,7 +246,7 @@ export function getSourcesFromEsriMap(
     });
   }
 
-  logger.debug(`${LOG_EXTRACTED_SOURCES} ${sources.length} sources from map`);
+  logger.debug(`Extracted ${sources.length} sources from map`);
   return sources;
 }
 
@@ -309,11 +302,14 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
   const layerSources = getSourcesFromEsriMap(jimuMapView);
   
   layerSources.forEach(source => {
-    // Find the corresponding layer to get visibility and timeExtent
-    const layer = view.map.allLayers.find(l => 
-      l.id === source.source || l.id === source.source.split('_')[0]
-    );
-    
+    // Find the corresponding layer to get visibility and timeExtent.
+    // source.source can be undefined for some layer types (e.g. CSV/GeoJSON via fromGeoJsonUrl);
+    // skip the lookup in that case rather than crashing on .split.
+    const sourceId = source.source
+    const layer = sourceId
+      ? view.map.allLayers.find(l => l.id === sourceId || l.id === sourceId.split('_')[0])
+      : undefined
+
     const filters: IFilterConfig[] = []
     if (source.where) {
       const expr = toEsriSql(source.where)
@@ -353,7 +349,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
 }
 
 function processLayer(layer: __esri.Layer): AudiomSource[] {
-  logger.debug(`${LOG_PROCESSING_LAYER} ${layer.title} (type: ${layer.type})`);
+  logger.debug(`Processing layer: ${layer.title} (type: ${layer.type})`);
 
   let source: AudiomSource | null = null;
 
@@ -391,7 +387,7 @@ function processFeatureLayer(layer: FeatureLayer | null): AudiomSource | null {
     where: layer.definitionExpression ? raw(layer.definitionExpression) : undefined
   });
 
-  logger.debug(`${LOG_FOUND_FEATURE_LAYER} ${layer.title} - ${layer.url}`);
+  logger.debug(`Found FeatureLayer: ${layer.title} - ${layer.url}`);
   return source;
 }
 
@@ -405,7 +401,7 @@ function processCSVLayer(layer: CSVLayer | null): AudiomSource | null {
     layer.title || DEFAULT_CSV_LAYER_NAME
   );
 
-  logger.debug(`${LOG_FOUND_CSV_LAYER} ${layer.title} - ${layer.url}`);
+  logger.debug(`Found CSV layer: ${layer.title} - ${layer.url}`);
   return source;
 }
 
@@ -419,7 +415,7 @@ function processGeoJSONLayer(layer: GeoJSONLayer | null): AudiomSource | null {
     layer.title || DEFAULT_GEOJSON_LAYER_NAME
   );
   
-  logger.debug(`${LOG_FOUND_GEOJSON_LAYER} ${layer.title} - ${layer.url}`);
+  logger.debug(`Found GeoJSON layer: ${layer.title} - ${layer.url}`);
   return source;
 }
 
@@ -444,7 +440,7 @@ function processMapImageLayer(layer: MapImageLayer | null): AudiomSource[] {
     });
 
     sources.push(source);
-    logger.debug(`${LOG_FOUND_SUBLAYER} ${sublayer.title} - ${sublayer.url}`);
+    logger.debug(`Found sublayer: ${sublayer.title} - ${sublayer.url}`);
   });
 
   return sources;
