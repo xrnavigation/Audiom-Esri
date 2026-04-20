@@ -9,6 +9,14 @@ const logger = createLogger('MapSyncManager')
 // Auto-sync layers with ESRI map - hidden config for now, always enabled
 export const AUTO_SYNC_LAYERS = true
 
+/**
+ * Trailing-edge debounce window for notifyChange. Esri layer events often
+ * fire in bursts (a single user toggle may emit visibility + loaded events,
+ * a WebMap load fires N "created" events back-to-back, etc.) and we don't
+ * want to recompute the diff and re-render every single one.
+ */
+const NOTIFY_DEBOUNCE_MS = 100
+
 export interface MapSyncConfig {
   title?: string
   centerLatitude?: number
@@ -35,6 +43,9 @@ export class MapSyncManager {
   private boundOnLayerCreated: ((jlv: JimuLayerView) => void) | null = null
   private boundOnLayerRemoved: ((jlv: JimuLayerView) => void) | null = null
   private boundOnVisibilityChanged: ((jlvs: JimuLayerView[]) => void) | null = null
+
+  // Pending debounced notify timer; cleared on detach / coalesced on rapid bursts.
+  private notifyTimer: ReturnType<typeof setTimeout> | null = null
 
   /**
    * Initialize the sync manager with a map widget ID.
@@ -67,17 +78,17 @@ export class MapSyncManager {
     // Create bound listener functions
     this.boundOnLayerCreated = (jimuLayerView: JimuLayerView) => {
       logger.debug('Layer created', jimuLayerView.layer?.title)
-      this.notifyChange()
+      this.scheduleNotify()
     }
 
     this.boundOnLayerRemoved = (jimuLayerView: JimuLayerView) => {
       logger.debug('Layer removed', jimuLayerView.layer?.title)
-      this.notifyChange()
+      this.scheduleNotify()
     }
 
     this.boundOnVisibilityChanged = (jimuLayerViews: JimuLayerView[]) => {
       logger.debug('Layer visibility changed', jimuLayerViews.map(v => v.layer?.title))
-      this.notifyChange()
+      this.scheduleNotify()
     }
 
     // Add listeners
@@ -112,6 +123,10 @@ export class MapSyncManager {
     this.boundOnVisibilityChanged = null
     this.initialized = false
     this.lastConfigJson = ''
+    if (this.notifyTimer !== null) {
+      clearTimeout(this.notifyTimer)
+      this.notifyTimer = null
+    }
   }
 
   /**
@@ -189,6 +204,22 @@ export class MapSyncManager {
   }
 
   /**
+   * Schedule a debounced call to notifyChange. Multiple calls inside
+   * NOTIFY_DEBOUNCE_MS coalesce into a single notification on the trailing
+   * edge. Used in place of direct notifyChange() so layer-event bursts and
+   * the initial-mismatch case both go through one path.
+   */
+  private scheduleNotify(): void {
+    if (this.notifyTimer !== null) {
+      clearTimeout(this.notifyTimer)
+    }
+    this.notifyTimer = setTimeout(() => {
+      this.notifyTimer = null
+      this.notifyChange()
+    }, NOTIFY_DEBOUNCE_MS)
+  }
+
+  /**
    * Notify all listeners of a change.
    */
   private notifyChange(): void {
@@ -240,8 +271,11 @@ export class MapSyncManager {
 
       if (hasMismatch) {
         logger.debug('Initial config mismatch detected on attach')
-        // Defer notification to next tick to allow listeners to be added
-        setTimeout(() => this.notifyChange(), 0)
+        // Schedule notify so listeners attached after attach() still receive
+        // the initial mismatch event. The debounce window also lets us
+        // coalesce with any layer-created bursts that fire right after a
+        // WebMap finishes loading.
+        this.scheduleNotify()
       } else {
         // Configs match, store baseline
         this.lastConfigJson = mapConfigJson
