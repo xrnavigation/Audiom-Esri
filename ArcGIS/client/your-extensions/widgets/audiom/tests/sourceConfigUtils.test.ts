@@ -12,6 +12,7 @@ import {
 } from '../src/utils/sourceConfigUtils'
 import type { ISourceConfig, IFilterConfig } from '../src/setting/configs'
 import { FilterType } from '../src/setting/enums'
+import { MapType } from 'your-extensions/shared/audiom-client/AudiomSource'
 
 const src = (overrides: Partial<ISourceConfig> = {}): ISourceConfig => ({
   source: 'a',
@@ -102,7 +103,7 @@ describe('serializeLockedForDiff', () => {
   })
 
   it('strips user-controlled properties', () => {
-    const list = [src({ source: 'a', mapType: 'indoor', rulesFileUrl: 'rules.json', locked: true })]
+    const list = [src({ source: 'a', mapType: MapType.Indoor, rulesFileUrl: 'rules.json', locked: true })]
     const json = serializeLockedForDiff(list)
     expect(json).not.toContain('mapType')
     expect(json).not.toContain('rulesFileUrl')
@@ -143,7 +144,7 @@ describe('stripUserControlledProperties', () => {
       source: 'a',
       name: 'A',
       enabled: true,
-      mapType: 'indoor',
+      mapType: MapType.Indoor,
       rulesFileUrl: 'r',
       locked: true,
       filtersLocked: true
@@ -182,11 +183,11 @@ describe('mergeFilters', () => {
 describe('mergeSourcesPreservingUnlocked', () => {
   it('preserves user-editable mapType / rulesFileUrl / filtersLocked from current config', () => {
     const current = [src({
-      source: 'a', mapType: 'indoor', rulesFileUrl: 'r.json', filtersLocked: true
+      source: 'a', mapType: MapType.Indoor, rulesFileUrl: 'r.json', filtersLocked: true
     })]
     const map = [src({ source: 'a', mapType: undefined, rulesFileUrl: undefined })]
     const [merged] = mergeSourcesPreservingUnlocked(current, map)
-    expect(merged.mapType).toBe('indoor')
+    expect(merged.mapType).toBe(MapType.Indoor)
     expect(merged.rulesFileUrl).toBe('r.json')
     expect(merged.filtersLocked).toBe(true)
   })
