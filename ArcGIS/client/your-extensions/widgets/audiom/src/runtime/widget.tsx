@@ -27,7 +27,9 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   const [jimuMapView, setJimuMapView] = useState<JimuMapView>()
   const [hasChanges, setHasChanges] = useState(false)
   const [lastSyncedConfigJson, setLastSyncedConfigJson] = useState<string>('')
-  const mapSyncManager = getMapSyncManager()
+  // Per-widget MapSyncManager instance (shared with the same widget's
+  // settings panel via the widget id key).
+  const mapSyncManager = getMapSyncManager(props.id)
   
   // Check if Live View is enabled (appMode === Run means live view is active)
   const isLiveView = ReactRedux.useSelector((state: IMState) => 

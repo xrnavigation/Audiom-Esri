@@ -288,20 +288,45 @@ export class MapSyncManager {
   }
 }
 
-// Singleton instance for sharing between settings and widget
-let sharedInstance: MapSyncManager | null = null
+// Per-widget instances. Each audiom widget on a page gets its own
+// MapSyncManager so two widgets can't accidentally share initial-sync state,
+// listeners, or debounce timers. The map is keyed by widget id and outlives
+// component remounts (ExB remounts the settings panel when the user switches
+// between widget settings tabs), which is what lets initial-sync tracking
+// persist across remounts for the same widget.
+const instances: Map<string, MapSyncManager> = new Map()
 
-export function getMapSyncManager(): MapSyncManager {
-  if (!sharedInstance) {
-    sharedInstance = new MapSyncManager()
+/**
+ * Get (or lazily create) the MapSyncManager for a given widget id.
+ *
+ * Pass `props.id` from the consuming widget — both the settings panel and
+ * the runtime view of a single widget should pass the same id so they share
+ * an instance.
+ */
+export function getMapSyncManager(widgetId: string): MapSyncManager {
+  let inst = instances.get(widgetId)
+  if (!inst) {
+    inst = new MapSyncManager()
+    instances.set(widgetId, inst)
   }
-  return sharedInstance
+  return inst
 }
 
 /**
- * React hook for using the MapSyncManager in components.
- * Returns the manager instance and a function to force re-render on changes.
+ * Dispose the MapSyncManager for a widget. Detaches listeners and removes
+ * the entry from the registry. Safe to call when no instance exists.
  */
-export function useMapSyncManager() {
-  return getMapSyncManager()
+export function disposeMapSyncManager(widgetId: string): void {
+  const inst = instances.get(widgetId)
+  if (inst) {
+    inst.detach()
+    instances.delete(widgetId)
+  }
+}
+
+/**
+ * React hook for using the per-widget MapSyncManager in components.
+ */
+export function useMapSyncManager(widgetId: string) {
+  return getMapSyncManager(widgetId)
 }

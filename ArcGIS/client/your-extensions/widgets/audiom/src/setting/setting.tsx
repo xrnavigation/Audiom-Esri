@@ -27,7 +27,11 @@ const logger = createLogger('Setting')
 
 const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
-  const mapSyncManager = getMapSyncManager()
+  // Each widget id gets its own MapSyncManager instance — two audiom widgets
+  // on the same page won't share listeners / initial-sync state / debounce
+  // timers. The instance survives the settings panel being remounted
+  // (e.g. switching widget tabs) because the registry is keyed by widget id.
+  const mapSyncManager = getMapSyncManager(props.id)
   const [mapSettingsOpen, setMapSettingsOpen] = useState(true)
   // Bumps each time JimuMapViewComponent reports the active JimuMapView is
   // ready (or that the map id changed). Used to (re)trigger the
@@ -106,8 +110,9 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   // first enabled for a given map, but only subscribe to ongoing layer/zoom
   // changes when AUTO_SYNC_LAYERS is on.
   //
-  // Initial sync tracking lives in the singleton MapSyncManager so it persists
-  // across component remounts (ExB remounts settings when switching widgets).
+  // Initial sync tracking lives on the per-widget MapSyncManager instance, so
+  // it persists across component remounts (ExB remounts settings when
+  // switching widgets) without leaking state to other widgets.
   //
   // applyConfigFromMap depends on `config`, which changes on every edit. We
   // intentionally do NOT want this effect to re-run (re-attach, re-do initial
