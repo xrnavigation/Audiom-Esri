@@ -12,7 +12,7 @@ import {
 } from '../src/utils/sourceConfigUtils'
 import type { ISourceConfig, IFilterConfig } from '../src/setting/configs'
 import { FilterType } from '../src/setting/enums'
-import { MapType } from 'your-extensions/shared/audiom-client/AudiomSource'
+import { MapType } from '../../../shared/audiom-client/AudiomSource'
 
 const src = (overrides: Partial<ISourceConfig> = {}): ISourceConfig => ({
   source: 'a',
