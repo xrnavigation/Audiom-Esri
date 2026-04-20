@@ -171,6 +171,16 @@ export function mergeSourcesPreservingUnlocked(
  * Merge filter lists during map sync.
  * - Locked filters are replaced with fresh map filters
  * - Unlocked (user-controlled) filters are preserved
+ *
+ * NOTE on ordering: the result is always
+ *   [ ...freshLockedMapFilters, ...preservedUnlockedMapFilters, ...userAddedFilters ]
+ * regardless of how the user originally interleaved them. This means a sync
+ * pass can visibly reorder filters in the settings UI (e.g. an unlocked
+ * map filter that the user dragged above a locked one will jump back below
+ * after the next sync). This is intentional for now — the bucket order
+ * is more predictable than trying to preserve interleaved positions while
+ * inserting newly-added map filters. If we later need stable ordering, the
+ * fix is to track each map-origin filter's original index and merge by it.
  */
 export function mergeFilters(currentFilters: IFilterConfig[], mapFilters: IFilterConfig[]): IFilterConfig[] {
   // Keep user-added filters (non-map filters) from current config

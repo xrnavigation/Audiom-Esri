@@ -106,6 +106,13 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   //
   // Initial sync tracking lives in the singleton MapSyncManager so it persists
   // across component remounts (ExB remounts settings when switching widgets).
+  //
+  // applyConfigFromMap depends on `config`, which changes on every edit. We
+  // intentionally do NOT want this effect to re-run (re-attach, re-do initial
+  // sync, etc.) every time the user changes a setting — only when the map id
+  // or useExistingMap toggles. We pin the latest callback into a ref and read
+  // it from inside the effect / from the change listener; this is the
+  // "useEvent" / "useLatest" pattern (see RFC: react-events).
   const applyConfigFromMapRef = useRef(applyConfigFromMap)
   applyConfigFromMapRef.current = applyConfigFromMap
 
@@ -176,6 +183,10 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       if (retryInterval) clearInterval(retryInterval)
       mapSyncManager.removeChangeListener(applyConfigFromMapRef.current)
     }
+  // exhaustive-deps disabled intentionally: `config` is read inside the effect
+  // (via applyConfigFromMapRef.current → applyConfigFromMap closure) but we do
+  // not want a re-run on every config change — only on map id / toggle change.
+  // See the useRef + ref-pinning pattern above.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config?.useExistingMap, effectiveMapId, mapSyncManager])
 
