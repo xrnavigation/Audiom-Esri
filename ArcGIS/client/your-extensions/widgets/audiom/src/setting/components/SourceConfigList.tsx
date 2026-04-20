@@ -4,9 +4,9 @@ import { Select, Option, Collapse, Button, Tooltip, TextInput } from 'jimu-ui'
 import { ExpandAllOutlined } from 'jimu-icons/outlined/directional/expand-all'
 import { CollapseAllOutlined } from 'jimu-icons/outlined/directional/collapse-all'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
-import { DEFAULT_SOURCE_CONFIG, ISourceConfig } from '../configs'
-import { ButtonSize, ButtonType, FlowType, Colors, MAP_TYPE_OPTIONS } from '../enums'
-import { Padding } from '../paddings'
+import { ButtonSize, ButtonType, FlowType, Colors, Padding } from '../enums'
+import { DEFAULT_SOURCE_CONFIG, ISourceConfig, MAP_TYPE_OPTIONS } from '../configs'
+import { replaceAt } from '../../utils/sourceConfigUtils'
 import CopyableLabel from './CopyableLabel'
 import CollapsibleHeader from './CollapsibleHeader'
 import SourceConfigCard from './SourceConfigCard'
@@ -43,7 +43,8 @@ const TOOLTIP_COLLAPSE_ALL = 'Collapse all sources'
 const BUTTON_ADD = 'Add Source Configuration'
 const FIELD_LABEL_ALL_MAP_TYPE = 'Map Type (All)'
 const FIELD_LABEL_ALL_RULES_FILE = 'Rules File (All)'
-const MIXED_VALUE_PLACEHOLDER = '-'
+// MIXED_VALUE_PLACEHOLDER is now imported from ../strings
+import { MIXED_VALUE_PLACEHOLDER } from '../strings'
 const EMPTY_STATE_MESSAGE = 'No sources could be extracted from the ESRI map.'
 
 interface SourceConfigListProps {
@@ -90,7 +91,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
 
   // Update sourceConfigsOpen when source count crosses threshold
   useEffect(() => {
-    if (sourceConfigs.length < 3) {
+    if (sourceConfigs.length < MAX_DEFAULT_VISIBLE_SOURCES) {
       setSourceConfigsOpen(true)
     }
   }, [sourceConfigs.length])
@@ -126,17 +127,17 @@ const SourceConfigList = (props: SourceConfigListProps) => {
     onChange(newSourceConfigs)
   }
 
-  // Check if sources have different rules files
-  const hasMixedRulesFiles = (): boolean => {
+  // Check if sources have different rules files (memoized — recomputes only when sourceConfigs changes)
+  const hasMixedRulesFiles = useMemo<boolean>(() => {
     if (sourceConfigs.length === 0) return false
     const firstRulesFile = sourceConfigs[0]?.rulesFileUrl ?? ''
     return sourceConfigs.some(config => (config.rulesFileUrl ?? '') !== firstRulesFile)
-  }
+  }, [sourceConfigs])
 
   // Get the current rules file value for display
   const getAllRulesFileValue = (): string => {
     if (sourceConfigs.length === 0) return ''
-    if (hasMixedRulesFiles()) return MIXED_VALUE_PLACEHOLDER
+    if (hasMixedRulesFiles) return MIXED_VALUE_PLACEHOLDER
     return sourceConfigs[0]?.rulesFileUrl ?? ''
   }
 
@@ -148,42 +149,29 @@ const SourceConfigList = (props: SourceConfigListProps) => {
     onChange(newSourceConfigs)
   }
 
-  const onSourceConfigChange = (index: number, updates: Record<string, unknown>) => {
-    const newSourceConfigs = [...sourceConfigs]
-    newSourceConfigs[index] = { ...newSourceConfigs[index], ...updates }
-    onChange(newSourceConfigs)
+  const onSourceConfigChange = (index: number, updates: Partial<ISourceConfig>) => {
+    onChange(replaceAt(sourceConfigs, index, updates))
   }
 
   const onAddSourceConfig = () => {
-    const newSourceConfigs = [...sourceConfigs]
-    newSourceConfigs.push({ ...DEFAULT_SOURCE_CONFIG })
-    onChange(newSourceConfigs)
+    onChange([...sourceConfigs, { ...DEFAULT_SOURCE_CONFIG }])
   }
 
   const onRemoveSourceConfig = (index: number) => {
-    const newSourceConfigs = [...sourceConfigs]
-    newSourceConfigs.splice(index, 1)
-    onChange(newSourceConfigs)
+    onChange(sourceConfigs.filter((_, i) => i !== index))
   }
 
   const onToggleSourceEnabled = (index: number) => {
-    const newSourceConfigs = [...sourceConfigs]
-    const currentEnabled = newSourceConfigs[index].enabled ?? DEFAULT_SOURCE_CONFIG.enabled
+    const current = sourceConfigs[index]
+    const currentEnabled = current.enabled ?? DEFAULT_SOURCE_CONFIG.enabled
     // Auto-unlock when manually toggling visibility
-    newSourceConfigs[index] = { 
-      ...newSourceConfigs[index], 
-      enabled: !currentEnabled,
-      locked: false 
-    }
-    onChange(newSourceConfigs)
+    onChange(replaceAt(sourceConfigs, index, { enabled: !currentEnabled, locked: false }))
   }
 
   const onToggleLocked = (index: number) => {
-    const newSourceConfigs = [...sourceConfigs]
-    const currentLocked = newSourceConfigs[index].locked ?? DEFAULT_SOURCE_CONFIG.locked
-    newSourceConfigs[index] = { ...newSourceConfigs[index], locked: !currentLocked }
+    const currentLocked = sourceConfigs[index].locked ?? DEFAULT_SOURCE_CONFIG.locked
     // If re-locking, the sync manager will restore the enabled state on next sync
-    onChange(newSourceConfigs)
+    onChange(replaceAt(sourceConfigs, index, { locked: !currentLocked }))
   }
 
   return (

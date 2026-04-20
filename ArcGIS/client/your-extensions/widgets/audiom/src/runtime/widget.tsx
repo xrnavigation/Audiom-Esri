@@ -1,16 +1,13 @@
 import { type AllWidgetProps, React, ReactRedux, AppMode, type IMState } from 'jimu-core'
 import { audiomConfigToEmbedConfig } from '../utils/mapUtils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
-import { getLockedSources } from '../utils/sourceConfigUtils'
+import { serializeLockedForDiff } from '../utils/sourceConfigUtils'
 import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis'
 import { useState, useEffect } from 'react'
 import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs'
 import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation'
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
-import { createLogger } from '../utils/logger'
-
-const logger = createLogger('Widget')
 
 // Typed styles with full key/value validation
 const styles = {
@@ -30,7 +27,9 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   const [jimuMapView, setJimuMapView] = useState<JimuMapView>()
   const [hasChanges, setHasChanges] = useState(false)
   const [lastSyncedConfigJson, setLastSyncedConfigJson] = useState<string>('')
-  const mapSyncManager = getMapSyncManager()
+  // Per-widget MapSyncManager instance (shared with the same widget's
+  // settings panel via the widget id key).
+  const mapSyncManager = getMapSyncManager(props.id)
   
   // Check if Live View is enabled (appMode === Run means live view is active)
   const isLiveView = ReactRedux.useSelector((state: IMState) => 
@@ -61,8 +60,7 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
     mapSyncManager.attach(sanitizedConfig.existingMapId, sanitizedConfig)
 
     // Store the initial synced config (only locked sources for comparison)
-    const lockedSources = getLockedSources(sanitizedConfig.sourceConfigs || [])
-    const initialJson = JSON.stringify(lockedSources)
+    const initialJson = serializeLockedForDiff(sanitizedConfig.sourceConfigs)
     setLastSyncedConfigJson(initialJson)
 
     // Listen for changes
@@ -80,10 +78,9 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   }, [sanitizedConfig?.useExistingMap, sanitizedConfig?.existingMapId, sanitizedConfig, mapSyncManager])
 
   // Clear changes indicator when config updates (means settings panel synced)
-  // Only compare locked sources - unlocked sources are manually controlled
+  // Only compare locked sources — unlocked sources are manually controlled
   useEffect(() => {
-    const lockedSources = getLockedSources(sanitizedConfig?.sourceConfigs || [])
-    const currentJson = JSON.stringify(lockedSources)
+    const currentJson = serializeLockedForDiff(sanitizedConfig?.sourceConfigs)
     if (currentJson !== lastSyncedConfigJson && lastSyncedConfigJson !== '') {
       // Config changed, meaning settings panel likely synced it
       setHasChanges(false)
@@ -94,8 +91,8 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
     }
   }, [sanitizedConfig?.sourceConfigs, lastSyncedConfigJson])
 
-  const mapConfig = audiomConfigToEmbedConfig(props.config, jimuMapView)
-  const embedUrl = mapConfig.toUrl(props.config?.baseUrl || DEFAULT_CONFIG.baseUrl)
+  const mapConfig = audiomConfigToEmbedConfig(sanitizedConfig as IAudiomConfig, jimuMapView)
+  const embedUrl = mapConfig.toUrl(sanitizedConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
 
   return (
     <div className="jimu-widget" style={styles.container}>
@@ -107,11 +104,13 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
         message="Map changes detected. Select the Audiom widget to re-synchronize."
         variant={MessageType.Warning}
       />
-      <iframe 
-        name="audiom" 
-        src={embedUrl} 
+      <iframe
+        name="audiom"
+        src={embedUrl}
         style={styles.iframe}
         title={props.config.title || 'Audiom Widget'}
+        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
+        referrerPolicy="no-referrer"
       />
     </div>
   )

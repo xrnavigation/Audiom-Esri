@@ -26,13 +26,6 @@ const DEFAULT_FEATURE_LAYER_NAME = 'Feature Layer';
 const DEFAULT_CSV_LAYER_NAME = 'CSV Layer';
 const DEFAULT_GEOJSON_LAYER_NAME = 'GeoJSON Layer';
 const DEFAULT_SUBLAYER_NAME = 'Sublayer';
-const LOG_NO_MAP_VIEW = 'No map view available';
-const LOG_PROCESSING_LAYER = 'Processing layer:';
-const LOG_FOUND_FEATURE_LAYER = 'Found FeatureLayer:';
-const LOG_FOUND_CSV_LAYER = 'Found CSV layer:';
-const LOG_FOUND_GEOJSON_LAYER = 'Found GeoJSON layer:';
-const LOG_FOUND_SUBLAYER = 'Found sublayer:';
-const LOG_EXTRACTED_SOURCES = 'Extracted';
 
 /**
  * Validates if the Audiom config is ready for use.
@@ -102,37 +95,9 @@ function formatTimeExtent(timeExtent: { start?: Date, end?: Date }): string | un
 }
 
 export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapView | undefined): AudiomEmbedConfig {
-  const mapViewManager = MapViewManager.getInstance();
-  const sources: AudiomSource[] = [];
-
   logger.debug('audiomConfigToEmbedConfig - useExistingMap:', config.useExistingMap);
 
-  if (config.useExistingMap) {
-    const jimuMapView = jmv;
-    // Get sources from map and merge in rules from config
-    const mapSources = getSourcesFromEsriMap(jimuMapView, config);
-
-    // If map view is not available or returns no sources, fall back to config sources
-    if (mapSources.length === 0) {
-      logger.debug('No sources from map view, falling back to config sources');
-      const configSources = getSourcesFromConfig(config);
-      sources.push(...configSources);
-    } else {
-      // Filter sources based on enabled status from config
-      const enabledSources = mapSources.filter(mapSource => {
-        const sourceConfig = config.sourceConfigs?.find(sc => 
-          sc.sourceUrl === mapSource.url || sc.source === mapSource.source
-        );
-        // If source is in config, respect its enabled status; otherwise include it (default enabled)
-        return sourceConfig ? sourceConfig.enabled !== false : true;
-      });
-
-      sources.push(...enabledSources);
-    }
-  } else {
-    const configSources = getSourcesFromConfig(config);
-    sources.push(...configSources);
-  }
+  const sources = resolveSources(config, jmv);
 
   return AudiomEmbedConfig.dynamic({
     apiKey: config.apiKey || '',
@@ -152,6 +117,35 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
           position: layer.position ? GeoQuad.parse(layer.position) : undefined,
         }))
       : undefined,
+  });
+}
+
+/**
+ * Resolve the source list for an embed config.
+ *
+ * - When `useExistingMap` is on, prefer sources extracted from the live
+ *   JimuMapView (filtered by the per-source `enabled` flag in config). If the
+ *   map view returns nothing (not ready, no layers, etc.) fall back to the
+ *   sources stored directly in the config.
+ * - When `useExistingMap` is off, always use the config sources.
+ */
+function resolveSources(config: IAudiomConfig, jmv: JimuMapView | undefined): AudiomSource[] {
+  if (!config.useExistingMap) {
+    return getSourcesFromConfig(config);
+  }
+
+  const mapSources = getSourcesFromEsriMap(jmv, config);
+  if (mapSources.length === 0) {
+    logger.debug('No sources from map view, falling back to config sources');
+    return getSourcesFromConfig(config);
+  }
+
+  // Respect per-source enabled flag (default true when no matching config entry).
+  return mapSources.filter(mapSource => {
+    const sourceConfig = config.sourceConfigs?.find(sc =>
+      sc.sourceUrl === mapSource.url || sc.source === mapSource.source
+    );
+    return sourceConfig ? sourceConfig.enabled !== false : true;
   });
 }
 
@@ -191,7 +185,7 @@ export function getJimuMapViewById(mapId: string, mapViewManager?: MapViewManage
 
   const jimuMapViews = mapViewManager.getJimuMapViewGroup(mapId)?.jimuMapViews;
   if (!jimuMapViews || Object.keys(jimuMapViews).length === 0) {
-    logger.warn(`${LOG_NO_MAP_VIEW} for map ID: ${mapId}`);
+    logger.warn(`No map view available for map ID: ${mapId}`);
     return undefined;
   }
 
@@ -216,30 +210,40 @@ export function getSourcesFromEsriMap(
   jimuMapView: JimuMapView | undefined,
   config?: IAudiomConfig
 ): AudiomSource[] {
+  return getSourceLayerPairsFromEsriMap(jimuMapView, config).map(p => p.source);
+}
+
+/**
+ * Like {@link getSourcesFromEsriMap}, but also returns the originating Esri
+ * layer alongside each source. Walks the operational layers exactly once.
+ *
+ * For sublayer-bearing layers (e.g. MapImageLayer) the returned `layer` is
+ * the parent layer that carries the `visible`/`timeExtent` properties — not
+ * the sublayer — which is what callers actually need.
+ */
+export function getSourceLayerPairsFromEsriMap(
+  jimuMapView: JimuMapView | undefined,
+  config?: IAudiomConfig
+): Array<{ source: AudiomSource, layer: __esri.Layer }> {
   if (!jimuMapView || !jimuMapView.view) {
-    logger.warn(LOG_NO_MAP_VIEW);
+    logger.warn('No map view available');
     return [];
   }
 
-  const sources: AudiomSource[] = [];
   const map = jimuMapView.view.map;
-
-  // Use allLayers to include sublayers; filter out basemap/tile layers
-  // map.layers only contains top-level operational layers and may be empty
-  // if accessed before the WebMap is fully loaded
   const operationalLayers = getOperationalLayers(map);
 
   logger.debug(`map.layers: ${map.layers.length}, map.allLayers: ${map.allLayers.length}, filtered: ${operationalLayers.length}`);
 
+  const pairs: Array<{ source: AudiomSource, layer: __esri.Layer }> = [];
   operationalLayers.forEach((layer) => {
-    const layerSources = processLayer(layer);
-    sources.push(...layerSources);
+    processLayer(layer).forEach(source => pairs.push({ source, layer }));
   });
 
   // Merge rules and mapType from config if provided
   if (config) {
-    sources.forEach(source => {
-      const sourceConfig = config.sourceConfigs?.find(sc => 
+    pairs.forEach(({ source }) => {
+      const sourceConfig = config.sourceConfigs?.find(sc =>
         sc.sourceUrl === source.url || sc.source === source.source
       );
       if (sourceConfig) {
@@ -253,8 +257,8 @@ export function getSourcesFromEsriMap(
     });
   }
 
-  logger.debug(`${LOG_EXTRACTED_SOURCES} ${sources.length} sources from map`);
-  return sources;
+  logger.debug(`Extracted ${pairs.length} sources from map`);
+  return pairs;
 }
 
 /**
@@ -305,15 +309,12 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     enabled?: boolean;
   }> = [];
 
-  // Get sources from map (without config, so no rules merged)
-  const layerSources = getSourcesFromEsriMap(jimuMapView);
-  
-  layerSources.forEach(source => {
-    // Find the corresponding layer to get visibility and timeExtent
-    const layer = view.map.allLayers.find(l => 
-      l.id === source.source || l.id === source.source.split('_')[0]
-    );
-    
+  // Get sources from map (without config, so no rules merged) — paired with
+  // their originating layer so we can read visibility/timeExtent without a
+  // second pass over allLayers.
+  const sourceLayerPairs = getSourceLayerPairsFromEsriMap(jimuMapView);
+
+  sourceLayerPairs.forEach(({ source, layer }) => {
     const filters: IFilterConfig[] = []
     if (source.where) {
       const expr = toEsriSql(source.where)
@@ -353,7 +354,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
 }
 
 function processLayer(layer: __esri.Layer): AudiomSource[] {
-  logger.debug(`${LOG_PROCESSING_LAYER} ${layer.title} (type: ${layer.type})`);
+  logger.debug(`Processing layer: ${layer.title} (type: ${layer.type})`);
 
   let source: AudiomSource | null = null;
 
@@ -391,7 +392,7 @@ function processFeatureLayer(layer: FeatureLayer | null): AudiomSource | null {
     where: layer.definitionExpression ? raw(layer.definitionExpression) : undefined
   });
 
-  logger.debug(`${LOG_FOUND_FEATURE_LAYER} ${layer.title} - ${layer.url}`);
+  logger.debug(`Found FeatureLayer: ${layer.title} - ${layer.url}`);
   return source;
 }
 
@@ -405,7 +406,7 @@ function processCSVLayer(layer: CSVLayer | null): AudiomSource | null {
     layer.title || DEFAULT_CSV_LAYER_NAME
   );
 
-  logger.debug(`${LOG_FOUND_CSV_LAYER} ${layer.title} - ${layer.url}`);
+  logger.debug(`Found CSV layer: ${layer.title} - ${layer.url}`);
   return source;
 }
 
@@ -419,7 +420,7 @@ function processGeoJSONLayer(layer: GeoJSONLayer | null): AudiomSource | null {
     layer.title || DEFAULT_GEOJSON_LAYER_NAME
   );
   
-  logger.debug(`${LOG_FOUND_GEOJSON_LAYER} ${layer.title} - ${layer.url}`);
+  logger.debug(`Found GeoJSON layer: ${layer.title} - ${layer.url}`);
   return source;
 }
 
@@ -444,7 +445,7 @@ function processMapImageLayer(layer: MapImageLayer | null): AudiomSource[] {
     });
 
     sources.push(source);
-    logger.debug(`${LOG_FOUND_SUBLAYER} ${sublayer.title} - ${sublayer.url}`);
+    logger.debug(`Found sublayer: ${sublayer.title} - ${sublayer.url}`);
   });
 
   return sources;

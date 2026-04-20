@@ -1,10 +1,9 @@
-import { React, css } from 'jimu-core'
+import { React } from 'jimu-core'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
-import { NumericInput, Label, Button, Tooltip, TextInput } from 'jimu-ui'
-import { LockOutlined } from 'jimu-icons/outlined/editor/lock'
-import { UnlockOutlined } from 'jimu-icons/outlined/editor/unlock'
+import { NumericInput, Label, TextInput } from 'jimu-ui'
 import CopyableLabel from './CopyableLabel'
-import { ButtonSize, ButtonType, FlowType } from '../enums'
+import LockToggle from './LockToggle'
+import { FlowType } from '../enums'
 
 /** Field type for lockable fields */
 export enum LockableFieldType {
@@ -34,13 +33,6 @@ export interface LockableFieldProps {
   /** Max value for number inputs */
   max?: number
 }
-
-const lockButtonStyle = css({
-  padding: '2px',
-  minWidth: 'auto',
-  background: 'transparent',
-  border: 'none'
-})
 
 const labelRowStyle: React.CSSProperties = {
   display: 'flex',
@@ -103,25 +95,16 @@ const LockableField = (props: LockableFieldProps) => {
   }
 
   // Synced to a map - show lock/unlock button
-  const lockTooltip = locked
-    ? `Unlock to edit ${label.toLowerCase()} manually`
-    : `Lock to sync with map`
-
   return (
     <SettingRow flow={FlowType.Wrap}>
       <div style={labelRowStyle}>
         <Label style={labelStyle}>{label}</Label>
-        <Tooltip title={lockTooltip}>
-          <Button
-            type={ButtonType.Tertiary}
-            size={ButtonSize.Small}
-            onClick={onLockToggle}
-            aria-label={locked ? `Unlock ${label.toLowerCase()}` : `Lock ${label.toLowerCase()}`}
-            css={lockButtonStyle}
-          >
-            {locked ? <LockOutlined size={12} /> : <UnlockOutlined size={12} />}
-          </Button>
-        </Tooltip>
+        <LockToggle
+          locked={locked}
+          onToggle={onLockToggle}
+          unlockTooltip={`Unlock to edit ${label.toLowerCase()} manually`}
+          lockTooltip="Lock to sync with map"
+        />
         <CopyableLabel label="" copyValue={stringValue} style={{ width: 'auto', marginBottom: 0 }} />
       </div>
       {type === LockableFieldType.Text ? (

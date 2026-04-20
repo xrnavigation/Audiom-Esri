@@ -1,15 +1,3 @@
-export enum FieldConfigKey {
-  Key = 'key',
-  Label = 'label',
-  Type = 'type',
-  Placeholder = 'placeholder',
-  Min = 'min',
-  Max = 'max',
-  DefaultValue = 'defaultValue',
-  ShowWhen = 'showWhen',
-  EnumOptions = 'enumOptions'
-}
-
 export enum SourceConfigKey {
   Source = 'source',
   Name = 'name',

@@ -1,13 +1,21 @@
 import { JimuMapView, JimuLayerView, MapViewManager } from 'jimu-arcgis'
 import { getJimuMapViewById, extractMapConfigFromEsriMap } from './mapUtils'
 import { ISourceConfig } from '../setting/configs'
-import { getLockedSources, getUnlockedSourceIds, excludeSourcesByIds, stripUserControlledProperties } from './sourceConfigUtils'
+import { getUnlockedSourceIds, serializeLockedForDiff } from './sourceConfigUtils'
 import { createLogger } from './logger'
 
 const logger = createLogger('MapSyncManager')
 
 // Auto-sync layers with ESRI map - hidden config for now, always enabled
 export const AUTO_SYNC_LAYERS = true
+
+/**
+ * Trailing-edge debounce window for notifyChange. Esri layer events often
+ * fire in bursts (a single user toggle may emit visibility + loaded events,
+ * a WebMap load fires N "created" events back-to-back, etc.) and we don't
+ * want to recompute the diff and re-render every single one.
+ */
+const NOTIFY_DEBOUNCE_MS = 100
 
 export interface MapSyncConfig {
   title?: string
@@ -35,6 +43,9 @@ export class MapSyncManager {
   private boundOnLayerCreated: ((jlv: JimuLayerView) => void) | null = null
   private boundOnLayerRemoved: ((jlv: JimuLayerView) => void) | null = null
   private boundOnVisibilityChanged: ((jlvs: JimuLayerView[]) => void) | null = null
+
+  // Pending debounced notify timer; cleared on detach / coalesced on rapid bursts.
+  private notifyTimer: ReturnType<typeof setTimeout> | null = null
 
   /**
    * Initialize the sync manager with a map widget ID.
@@ -67,17 +78,17 @@ export class MapSyncManager {
     // Create bound listener functions
     this.boundOnLayerCreated = (jimuLayerView: JimuLayerView) => {
       logger.debug('Layer created', jimuLayerView.layer?.title)
-      this.notifyChange()
+      this.scheduleNotify()
     }
 
     this.boundOnLayerRemoved = (jimuLayerView: JimuLayerView) => {
       logger.debug('Layer removed', jimuLayerView.layer?.title)
-      this.notifyChange()
+      this.scheduleNotify()
     }
 
     this.boundOnVisibilityChanged = (jimuLayerViews: JimuLayerView[]) => {
       logger.debug('Layer visibility changed', jimuLayerViews.map(v => v.layer?.title))
-      this.notifyChange()
+      this.scheduleNotify()
     }
 
     // Add listeners
@@ -112,6 +123,10 @@ export class MapSyncManager {
     this.boundOnVisibilityChanged = null
     this.initialized = false
     this.lastConfigJson = ''
+    if (this.notifyTimer !== null) {
+      clearTimeout(this.notifyTimer)
+      this.notifyTimer = null
+    }
   }
 
   /**
@@ -183,17 +198,25 @@ export class MapSyncManager {
     const newConfig = this.getCurrentConfig(mapId)
     if (!newConfig) return false
 
-    // Get IDs of unlocked sources from current config
     const unlockedIds = getUnlockedSourceIds(currentConfig.sourceConfigs || [])
+    return serializeLockedForDiff(currentConfig.sourceConfigs) !==
+      serializeLockedForDiff(newConfig.sourceConfigs, unlockedIds)
+  }
 
-    // Filter to only compare locked sources, then strip user-controlled properties
-    const lockedCurrentSources = getLockedSources(currentConfig.sourceConfigs || [])
-    const lockedNewSources = excludeSourcesByIds(newConfig.sourceConfigs || [], unlockedIds)
-
-    const currentJson = JSON.stringify(lockedCurrentSources.map(stripUserControlledProperties))
-    const newJson = JSON.stringify(lockedNewSources.map(stripUserControlledProperties))
-
-    return currentJson !== newJson
+  /**
+   * Schedule a debounced call to notifyChange. Multiple calls inside
+   * NOTIFY_DEBOUNCE_MS coalesce into a single notification on the trailing
+   * edge. Used in place of direct notifyChange() so layer-event bursts and
+   * the initial-mismatch case both go through one path.
+   */
+  private scheduleNotify(): void {
+    if (this.notifyTimer !== null) {
+      clearTimeout(this.notifyTimer)
+    }
+    this.notifyTimer = setTimeout(() => {
+      this.notifyTimer = null
+      this.notifyChange()
+    }, NOTIFY_DEBOUNCE_MS)
   }
 
   /**
@@ -236,26 +259,23 @@ export class MapSyncManager {
     if (!mapConfig) return
 
     const mapConfigJson = JSON.stringify(mapConfig.sourceConfigs || [])
-    
+
     // Check for initial mismatch if current config provided
     if (currentConfig) {
-      // Get IDs of unlocked sources from current config
       const unlockedIds = getUnlockedSourceIds(currentConfig.sourceConfigs || [])
-      
-      // Filter to only compare locked sources
-      const lockedCurrentSources = getLockedSources(currentConfig.sourceConfigs || [])
-      const lockedMapSources = excludeSourcesByIds(mapConfig.sourceConfigs || [], unlockedIds)
-      
-      const currentConfigJson = JSON.stringify(lockedCurrentSources)
-      const mapLockedJson = JSON.stringify(lockedMapSources)
-      const hasMismatch = currentConfigJson !== mapLockedJson
-      
+      const hasMismatch =
+        serializeLockedForDiff(currentConfig.sourceConfigs) !==
+        serializeLockedForDiff(mapConfig.sourceConfigs, unlockedIds)
+
       this.initialized = true
-      
+
       if (hasMismatch) {
         logger.debug('Initial config mismatch detected on attach')
-        // Defer notification to next tick to allow listeners to be added
-        setTimeout(() => this.notifyChange(), 0)
+        // Schedule notify so listeners attached after attach() still receive
+        // the initial mismatch event. The debounce window also lets us
+        // coalesce with any layer-created bursts that fire right after a
+        // WebMap finishes loading.
+        this.scheduleNotify()
       } else {
         // Configs match, store baseline
         this.lastConfigJson = mapConfigJson
@@ -268,20 +288,45 @@ export class MapSyncManager {
   }
 }
 
-// Singleton instance for sharing between settings and widget
-let sharedInstance: MapSyncManager | null = null
+// Per-widget instances. Each audiom widget on a page gets its own
+// MapSyncManager so two widgets can't accidentally share initial-sync state,
+// listeners, or debounce timers. The map is keyed by widget id and outlives
+// component remounts (ExB remounts the settings panel when the user switches
+// between widget settings tabs), which is what lets initial-sync tracking
+// persist across remounts for the same widget.
+const instances: Map<string, MapSyncManager> = new Map()
 
-export function getMapSyncManager(): MapSyncManager {
-  if (!sharedInstance) {
-    sharedInstance = new MapSyncManager()
+/**
+ * Get (or lazily create) the MapSyncManager for a given widget id.
+ *
+ * Pass `props.id` from the consuming widget — both the settings panel and
+ * the runtime view of a single widget should pass the same id so they share
+ * an instance.
+ */
+export function getMapSyncManager(widgetId: string): MapSyncManager {
+  let inst = instances.get(widgetId)
+  if (!inst) {
+    inst = new MapSyncManager()
+    instances.set(widgetId, inst)
   }
-  return sharedInstance
+  return inst
 }
 
 /**
- * React hook for using the MapSyncManager in components.
- * Returns the manager instance and a function to force re-render on changes.
+ * Dispose the MapSyncManager for a widget. Detaches listeners and removes
+ * the entry from the registry. Safe to call when no instance exists.
  */
-export function useMapSyncManager() {
-  return getMapSyncManager()
+export function disposeMapSyncManager(widgetId: string): void {
+  const inst = instances.get(widgetId)
+  if (inst) {
+    inst.detach()
+    instances.delete(widgetId)
+  }
+}
+
+/**
+ * React hook for using the per-widget MapSyncManager in components.
+ */
+export function useMapSyncManager(widgetId: string) {
+  return getMapSyncManager(widgetId)
 }

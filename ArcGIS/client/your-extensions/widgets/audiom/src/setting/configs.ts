@@ -1,5 +1,5 @@
 import type { ValidityResult } from 'jimu-ui'
-import type { React } from 'jimu-core'
+import type { React, ImmutableObject } from 'jimu-core'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import { VisualStyle } from '../../../../shared/audiom-client/AudiomEmbedConfig'
@@ -10,6 +10,14 @@ import type { LockableFieldName } from './configKeys'
  * Centralized default configuration values for the Audiom widget.
  * Use these constants throughout the codebase to ensure consistency.
  */
+
+/** Map Type select options - shared between SourceConfigList and SourceConfigCard */
+export const MAP_TYPE_OPTIONS = [
+  { label: 'Indoor', value: MapType.Indoor },
+  { label: 'Heatmap', value: MapType.Heatmap },
+  { label: 'Travel', value: MapType.Travel }
+] as const
+
 export const DEFAULT_CONFIG = {
   baseUrl: 'https://audiom-staging.herokuapp.com',
   stepSize: 1,
@@ -146,8 +154,21 @@ export interface IAudiomConfig {
   zoomLocked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual value.
   useExistingMap?: boolean
   existingMapId?: string
-  // Jimu ImmutableObject methods - these are added by the framework
-  set?: <K extends keyof IAudiomConfig>(key: K, value: IAudiomConfig[K]) => IAudiomConfig
+}
+
+/**
+ * Type-safe wrapper around `ImmutableObject<IAudiomConfig>.set()`.
+ *
+ * The Experience Builder framework types `props.config` as plain `IAudiomConfig`,
+ * but at runtime it is always an ImmutableObject with a typed `.set(key, value)`
+ * method. Use this helper instead of casting at every call site.
+ */
+export function setConfigValue<K extends keyof IAudiomConfig>(
+  config: IAudiomConfig,
+  key: K,
+  value: IAudiomConfig[K]
+): IAudiomConfig {
+  return (config as unknown as ImmutableObject<IAudiomConfig>).set(key, value) as unknown as IAudiomConfig
 }
 
 /**

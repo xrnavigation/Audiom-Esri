@@ -1,5 +1,6 @@
 import { React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
+import { JimuMapViewComponent, type JimuMapView } from 'jimu-arcgis'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
 import { NumericInput, Switch, Button, ButtonGroup, Collapse, Tooltip, Label } from 'jimu-ui'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
@@ -14,9 +15,9 @@ import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/mapUtil
 import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { mergeSourcesPreservingUnlocked } from '../utils/sourceConfigUtils'
 import { createLogger } from '../utils/logger'
-import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
+import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig, setConfigValue } from './configs'
 import { ButtonType, FieldType, FlowType, Colors } from './enums'
-import { Padding } from './paddings'
+import { Padding } from './enums'
 import { AudiomConfigKey, LockableFieldName } from './configKeys'
 import { validateUrl, VALIDATION } from './validation/validation'
 
@@ -24,13 +25,18 @@ const { useEffect, useCallback, useState, useRef } = React
 
 const logger = createLogger('Setting')
 
-/** Retry interval in milliseconds for map attachment */
-const RETRY_INTERVAL_MS = 500
-
 const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
-  const mapSyncManager = getMapSyncManager()
+  // Each widget id gets its own MapSyncManager instance — two audiom widgets
+  // on the same page won't share listeners / initial-sync state / debounce
+  // timers. The instance survives the settings panel being remounted
+  // (e.g. switching widget tabs) because the registry is keyed by widget id.
+  const mapSyncManager = getMapSyncManager(props.id)
   const [mapSettingsOpen, setMapSettingsOpen] = useState(true)
+  // Bumps each time JimuMapViewComponent reports the active JimuMapView is
+  // ready (or that the map id changed). Used to (re)trigger the
+  // attach-to-map effect below — replaces the old setInterval-based polling.
+  const [mapViewReadyTick, setMapViewReadyTick] = useState(0)
 
   // Helper to update config
   const updateConfig = useCallback((newConfig: IAudiomConfig) => {
@@ -42,7 +48,6 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
   // Use the map sync state hook for lockable fields
   const {
-    mapValues,
     updateMapValues,
     isFieldLocked,
     createLockToggleHandler,
@@ -74,7 +79,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
     if (needsUpdate) {
       // Sync source configs
-      let newConfig = config.set(AudiomConfigKey.SourceConfigs, mergedSources)
+      let newConfig = setConfigValue(config, AudiomConfigKey.SourceConfigs, mergedSources)
       
       // Sync all locked fields using the helper
       newConfig = syncLockedFieldsToConfig(newConfig, newMapConfig)
@@ -96,7 +101,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       logger.debug('Auto-syncing existingMapId from useMapWidgetIds:', mapIdFromProps)
       props.onSettingChange({
         id: props.id,
-        config: config.set(AudiomConfigKey.ExistingMapId, mapIdFromProps)
+        config: setConfigValue(config, AudiomConfigKey.ExistingMapId, mapIdFromProps)
       })
     }
   }, [props.useMapWidgetIds, config?.existingMapId, props, config])
@@ -105,8 +110,16 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   // first enabled for a given map, but only subscribe to ongoing layer/zoom
   // changes when AUTO_SYNC_LAYERS is on.
   //
-  // Initial sync tracking lives in the singleton MapSyncManager so it persists
-  // across component remounts (ExB remounts settings when switching widgets).
+  // Initial sync tracking lives on the per-widget MapSyncManager instance, so
+  // it persists across component remounts (ExB remounts settings when
+  // switching widgets) without leaking state to other widgets.
+  //
+  // applyConfigFromMap depends on `config`, which changes on every edit. We
+  // intentionally do NOT want this effect to re-run (re-attach, re-do initial
+  // sync, etc.) every time the user changes a setting — only when the map id
+  // or useExistingMap toggles. We pin the latest callback into a ref and read
+  // it from inside the effect / from the change listener; this is the
+  // "useEvent" / "useLatest" pattern (see RFC: react-events).
   const applyConfigFromMapRef = useRef(applyConfigFromMap)
   applyConfigFromMapRef.current = applyConfigFromMap
 
@@ -130,75 +143,68 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       }
     }
 
-    let retryInterval: ReturnType<typeof setInterval> | null = null
-    let isCleanedUp = false
-
-    const tryAttachAndSync = () => {
-      // Attach to the map and pass current config to detect initial mismatches
-      const attached = mapSyncManager.attach(effectiveMapId, config)
-      if (!attached) {
-        return false
-      }
-
-      // Do initial sync (once per map ID, tracked in singleton)
+    // Try to attach. If the JimuMapView isn't registered yet (it hasn't been
+    // created by the map widget) the JimuMapViewComponent rendered below
+    // will fire onActiveViewChange once it is — that bumps mapViewReadyTick
+    // and re-runs this effect.
+    const attached = mapSyncManager.attach(effectiveMapId, config)
+    if (attached) {
       const initialConfig = mapSyncManager.getCurrentConfig(effectiveMapId)
       if (initialConfig) {
         applyConfigFromMapRef.current(initialConfig)
       }
       mapSyncManager.markInitialSyncDone(effectiveMapId)
 
-      // Only listen for ongoing changes when auto-sync is enabled
       if (AUTO_SYNC_LAYERS) {
         mapSyncManager.addChangeListener(applyConfigFromMapRef.current)
       }
-      return true
-    }
-
-    // Try to attach immediately
-    const attachedImmediately = tryAttachAndSync()
-
-    // If not attached, retry periodically until successful or cleaned up
-    if (!attachedImmediately) {
-      retryInterval = setInterval(() => {
-        if (isCleanedUp) {
-          if (retryInterval) clearInterval(retryInterval)
-          return
-        }
-        const attached = tryAttachAndSync()
-        if (attached && retryInterval) {
-          clearInterval(retryInterval)
-        }
-      }, RETRY_INTERVAL_MS)
     }
 
     // Cleanup
     return () => {
-      isCleanedUp = true
-      if (retryInterval) clearInterval(retryInterval)
       mapSyncManager.removeChangeListener(applyConfigFromMapRef.current)
     }
+  // exhaustive-deps disabled intentionally: `config` is read inside the effect
+  // (via applyConfigFromMapRef.current → applyConfigFromMap closure) but we do
+  // not want a re-run on every config change — only on map id / toggle change.
+  // mapViewReadyTick is included so the effect retries once the underlying
+  // JimuMapView becomes available.
+  // See the useRef + ref-pinning pattern above.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config?.useExistingMap, effectiveMapId, mapSyncManager])
+  }, [config?.useExistingMap, effectiveMapId, mapSyncManager, mapViewReadyTick])
+
+  /**
+   * Fired by JimuMapViewComponent whenever the active JimuMapView for the
+   * selected map widget becomes available (or changes). We just bump a tick
+   * so the attach-to-map effect re-runs and tryAttach succeeds without any
+   * polling.
+   */
+  const handleActiveViewChange = useCallback((activeView: JimuMapView) => {
+    if (activeView) {
+      logger.debug('JimuMapViewComponent: active view ready', activeView.id)
+      setMapViewReadyTick(t => t + 1)
+    }
+  }, [])
 
   const onMapWidgetSelected = (useMapWidgetIds: string[]) => {
     props.onSettingChange({
       id: props.id,
       useMapWidgetIds: useMapWidgetIds,
-      config: config.set(AudiomConfigKey.ExistingMapId, useMapWidgetIds[0] || '')
+      config: setConfigValue(config, AudiomConfigKey.ExistingMapId, useMapWidgetIds[0] || '')
     })
   }
 
   const onPropertyChange = (property: string, value: unknown) => {
     props.onSettingChange({
       id: props.id,
-      config: config.set(property as keyof IAudiomConfig, value as IAudiomConfig[keyof IAudiomConfig])
+      config: setConfigValue(config, property as keyof IAudiomConfig, value as IAudiomConfig[keyof IAudiomConfig])
     })
   }
 
   const onSourceConfigsChange = (sourceConfigs: ISourceConfig[]) => {
     props.onSettingChange({
       id: props.id,
-      config: config.set(AudiomConfigKey.SourceConfigs, sourceConfigs)
+      config: setConfigValue(config, AudiomConfigKey.SourceConfigs, sourceConfigs)
     })
   }
 
@@ -208,7 +214,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     const embedConfig = audiomConfigToEmbedConfig(plainConfig, undefined)
 
     const previewUrl = embedConfig.toUrl(plainConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
-    window.open(previewUrl, '_blank')
+    window.open(previewUrl, '_blank', 'noopener,noreferrer')
   }
 
   const renderStepSizeUnitSelector = () => {
@@ -325,6 +331,17 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
   return (
     <div className="widget-setting-demo">
+      {/*
+        Invisible bridge: subscribes to the selected map widget so we get a
+        callback the moment the JimuMapView becomes available. Drives the
+        attach-to-map effect via mapViewReadyTick (replaces setInterval).
+      */}
+      {effectiveMapId ? (
+        <JimuMapViewComponent
+          useMapWidgetId={effectiveMapId}
+          onActiveViewChange={handleActiveViewChange}
+        />
+      ) : null}
       <SettingSection title="Connection">
         {connectionFields.map((field) => renderField(field, false))}
       </SettingSection>

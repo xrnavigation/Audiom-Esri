@@ -73,30 +73,36 @@ export enum FilterType {
 /**
  * Uses CSS custom properties where available for theme consistency.
  */
-export enum Colors {
-  HeaderBackground = 'rgb(88, 88, 88)',
-  Transparent = 'transparent',
-  
-  PrimaryMain = 'var(--sys-color-primary-main, #0079c1)',
-  FocusOutline = 'var(--sys-color-primary-main, #0079c1)',
-  
-  TextMuted = 'var(--ref-palette-neutral-700, #6b7280)',
-  TextBlack = '#000',
-  TextWhite = '#fff',
-  
-  Success = '#10b981',
-  WarningBackground = 'rgba(255, 193, 7, 0.95)',
-  InfoBackground = 'rgba(33, 150, 243, 0.95)',
-  ErrorBackground = 'rgba(244, 67, 54, 0.95)',
-  
-  BoxShadow = '0 2px 6px rgba(0, 0, 0, 0.2)'
+export const Colors = {
+  HeaderBackground: 'rgb(88, 88, 88)',
+  Transparent: 'transparent',
+
+  PrimaryMain: 'var(--sys-color-primary-main, #0079c1)',
+  FocusOutline: 'var(--sys-color-primary-main, #0079c1)',
+
+  TextMuted: 'var(--ref-palette-neutral-700, #6b7280)',
+  TextBlack: '#000',
+  TextWhite: '#fff',
+
+  Success: '#10b981',
+  WarningBackground: 'rgba(255, 193, 7, 0.95)',
+  InfoBackground: 'rgba(33, 150, 243, 0.95)',
+  ErrorBackground: 'rgba(244, 67, 54, 0.95)',
+
+  BoxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)'
+} as const
+export type ColorValue = typeof Colors[keyof typeof Colors]
+
+/**
+ * Standardized padding values for consistent UI spacing.
+ */
+export enum Padding {
+  /** Standard left padding for nested content sections */
+  SectionContent = '20px',
+  /** Padding inside cards */
+  CardContent = '12px',
+  /** Small spacing between elements */
+  ElementGap = '8px',
+  /** Bottom padding for field groups */
+  FieldGroupBottom = '12px'
 }
-
-// Map Type Options - shared between SourceConfigList and SourceConfigCard
-import { MapType } from '../../../../shared/audiom-client/AudiomSource'
-
-export const MAP_TYPE_OPTIONS = [
-  { label: 'Indoor', value: MapType.Indoor },
-  { label: 'Heatmap', value: MapType.Heatmap },
-  { label: 'Travel', value: MapType.Travel }
-] as const
