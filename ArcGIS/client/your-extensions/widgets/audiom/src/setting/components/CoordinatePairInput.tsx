@@ -1,14 +1,10 @@
-import { React, css } from 'jimu-core'
-import { NumericInput, Label, Button, Tooltip } from 'jimu-ui'
-import { LockOutlined } from 'jimu-icons/outlined/editor/lock'
-import { UnlockOutlined } from 'jimu-icons/outlined/editor/unlock'
-import { CopyOutlined } from 'jimu-icons/outlined/editor/copy'
+import { React } from 'jimu-core'
+import { NumericInput, Label, Tooltip } from 'jimu-ui'
 import { VALIDATION } from '../validation/validation'
-import { ButtonSize, ButtonType, Colors } from '../enums'
+import { Colors } from '../enums'
 import { Padding } from '../paddings'
-import { useCopyToClipboard, TOOLTIP_COPY, TOOLTIP_COPIED } from '../useCopyToClipboard'
-
-const { useCallback } = React
+import CopyButton from './CopyButton'
+import LockToggle from './LockToggle'
 
 const DEFAULT_LAT_LABEL = 'Lat'
 const DEFAULT_LNG_LABEL = 'Lng'
@@ -70,29 +66,6 @@ const iconGroupStyle: React.CSSProperties = {
   gap: '2px'
 }
 
-const lockButtonStyle = css({
-  padding: '2px',
-  minWidth: 'auto',
-  background: 'transparent',
-  border: 'none'
-})
-
-const copyButtonStyle = css({
-  padding: '2px',
-  background: Colors.Transparent,
-  border: 'none',
-  cursor: 'pointer',
-  color: Colors.TextMuted,
-  opacity: 0.6,
-  transition: 'opacity 0.15s ease',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  '&:hover': {
-    opacity: 1
-  }
-})
-
 /**
  * A reusable coordinate pair input that renders latitude and longitude
  * side-by-side in a 2-column grid. UI always shows lat before lng.
@@ -111,46 +84,7 @@ const CoordinatePairInput = (props: CoordinatePairInputProps) => {
     compact = false
   } = props
 
-  const { copied: latCopied, copyToClipboard: copyLat } = useCopyToClipboard()
-  const { copied: lngCopied, copyToClipboard: copyLng } = useCopyToClipboard()
-
   const gap = compact ? '4px' : Padding.ElementGap
-
-  const renderLockButton = (lock: CoordinateLockProps, fieldLabel: string) => {
-    const tooltip = lock.locked
-      ? TOOLTIP_UNLOCK_TEMPLATE(fieldLabel.toLowerCase())
-      : TOOLTIP_LOCK
-    return (
-      <Tooltip title={tooltip}>
-        <Button
-          type={ButtonType.Tertiary}
-          size={ButtonSize.Small}
-          onClick={lock.onToggle}
-          aria-label={lock.locked ? `Unlock ${fieldLabel}` : `Lock ${fieldLabel}`}
-          css={lockButtonStyle}
-        >
-          {lock.locked ? <LockOutlined size={ICON_SIZE_LOCK} /> : <UnlockOutlined size={ICON_SIZE_LOCK} />}
-        </Button>
-      </Tooltip>
-    )
-  }
-
-  const renderCopyButton = (field: 'lat' | 'lng', value: number) => {
-    const isCopied = field === 'lat' ? latCopied : lngCopied
-    const copy = field === 'lat' ? copyLat : copyLng
-    return (
-      <Tooltip title={isCopied ? TOOLTIP_COPIED : TOOLTIP_COPY} placement="top">
-        <button
-          type="button"
-          onClick={() => copy(String(value))}
-          aria-label={`Copy ${field === 'lat' ? 'latitude' : 'longitude'} value`}
-          css={copyButtonStyle}
-        >
-          <CopyOutlined size={ICON_SIZE_COPY} color={isCopied ? Colors.Success : undefined} />
-        </button>
-      </Tooltip>
-    )
-  }
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap, width: '100%' }}>
@@ -158,8 +92,18 @@ const CoordinatePairInput = (props: CoordinatePairInputProps) => {
         <div style={labelRowStyle}>
           <Label style={sublabelStyle}>{latLabel}</Label>
           <div style={iconGroupStyle}>
-            {latLock && renderLockButton(latLock, 'latitude')}
-            {showCopyButton && renderCopyButton('lat', latitude)}
+            {latLock && (
+              <LockToggle
+                locked={latLock.locked}
+                onToggle={latLock.onToggle}
+                unlockTooltip={TOOLTIP_UNLOCK_TEMPLATE('latitude')}
+                lockTooltip={TOOLTIP_LOCK}
+                iconSize={ICON_SIZE_LOCK}
+              />
+            )}
+            {showCopyButton && (
+              <CopyButton value={String(latitude)} ariaLabel="Copy latitude value" iconSize={ICON_SIZE_COPY} />
+            )}
           </div>
         </div>
         <Tooltip title={String(latitude)} placement="bottom">
@@ -180,8 +124,18 @@ const CoordinatePairInput = (props: CoordinatePairInputProps) => {
         <div style={labelRowStyle}>
           <Label style={sublabelStyle}>{lngLabel}</Label>
           <div style={iconGroupStyle}>
-            {lngLock && renderLockButton(lngLock, 'longitude')}
-            {showCopyButton && renderCopyButton('lng', longitude)}
+            {lngLock && (
+              <LockToggle
+                locked={lngLock.locked}
+                onToggle={lngLock.onToggle}
+                unlockTooltip={TOOLTIP_UNLOCK_TEMPLATE('longitude')}
+                lockTooltip={TOOLTIP_LOCK}
+                iconSize={ICON_SIZE_LOCK}
+              />
+            )}
+            {showCopyButton && (
+              <CopyButton value={String(longitude)} ariaLabel="Copy longitude value" iconSize={ICON_SIZE_COPY} />
+            )}
           </div>
         </div>
         <Tooltip title={String(longitude)} placement="bottom">
@@ -203,3 +157,4 @@ const CoordinatePairInput = (props: CoordinatePairInputProps) => {
 }
 
 export default CoordinatePairInput
+

@@ -1,13 +1,12 @@
 import { React, css } from 'jimu-core'
 import { Label, Collapse, TextInput, Button, Tooltip } from 'jimu-ui'
-import { CopyOutlined } from 'jimu-icons/outlined/editor/copy'
 import CoordinatePairInput from './CoordinatePairInput'
 import CollapsibleHeader from './CollapsibleHeader'
+import CopyButton from './CopyButton'
 import { ButtonSize, ButtonType, Colors } from '../enums'
 import { Padding } from '../paddings'
-import { useCopyToClipboard, TOOLTIP_COPY, TOOLTIP_COPIED } from '../useCopyToClipboard'
 
-const { useState, useCallback } = React
+const { useState } = React
 
 const HEADER_LABEL = 'Layer Position'
 const TEXT_PLACEHOLDER = '[[lng,lat],[lng,lat],[lng,lat],[lng,lat]]'
@@ -104,7 +103,6 @@ const GeoQuadEditor = (props: GeoQuadEditorProps) => {
   const { value, onChange, disabled = false } = props
   const [isOpen, setIsOpen] = useState(false)
   const [textMode, setTextMode] = useState(false)
-  const { copied, copyToClipboard } = useCopyToClipboard()
 
   const corners = parseCorners(value)
   // corners: [TL, TR, BR, BL] — matches GeoQuad array order
@@ -114,11 +112,6 @@ const GeoQuadEditor = (props: GeoQuadEditorProps) => {
     updated[index] = { ...updated[index], [field]: newValue }
     onChange(serializeCorners(updated))
   }
-
-  const handleCopy = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    copyToClipboard(value || '')
-  }, [value, copyToClipboard])
 
   // Visual layout: top row = TL(0), TR(1); bottom row = BL(3), BR(2)
   const layout = [
@@ -131,17 +124,11 @@ const GeoQuadEditor = (props: GeoQuadEditorProps) => {
   const headerActions = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
       {value && (
-        <Tooltip title={copied ? TOOLTIP_COPIED : TOOLTIP_COPY_POSITION}>
-          <Button
-            type={ButtonType.Tertiary}
-            size={ButtonSize.Small}
-            onClick={handleCopy}
-            aria-label={TOOLTIP_COPY_POSITION}
-            css={modeButtonStyle}
-          >
-            <CopyOutlined size={12} color={copied ? Colors.Success : undefined} />
-          </Button>
-        </Tooltip>
+        <CopyButton
+          value={value || ''}
+          ariaLabel={TOOLTIP_COPY_POSITION}
+          stopPropagation
+        />
       )}
       <Tooltip title={textMode ? TOOLTIP_VISUAL_MODE : TOOLTIP_TEXT_MODE}>
         <Button

@@ -3,10 +3,7 @@ import { Card, Collapse, Button, ButtonGroup, Tooltip, TextInput } from 'jimu-ui
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
 import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
 import { InvisibleOutlined } from 'jimu-icons/outlined/application/invisible'
-import { LockOutlined } from 'jimu-icons/outlined/editor/lock'
-import { UnlockOutlined } from 'jimu-icons/outlined/editor/unlock'
 import { TrashOutlined } from 'jimu-icons/outlined/editor/trash'
-import { CopyOutlined } from 'jimu-icons/outlined/editor/copy'
 import { PlusOutlined } from 'jimu-icons/outlined/editor/plus'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
 import { DEFAULT_SOURCE_CONFIG, DEFAULT_FILTER_CONFIG, FieldConfig, ISourceConfig, IFilterConfig } from '../configs'
@@ -14,9 +11,10 @@ import { ButtonSize, ButtonType, FieldType, FlowType, Colors, MAP_TYPE_OPTIONS, 
 import { SourceConfigKey } from '../configKeys'
 import { validateUrl } from '../validation/validation'
 import { replaceAt } from '../../utils/sourceConfigUtils'
-import { useCopyToClipboard, TOOLTIP_COPY, TOOLTIP_COPIED } from '../useCopyToClipboard'
 import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 import CopyableLabel from './CopyableLabel'
+import CopyButton from './CopyButton'
+import LockToggle from './LockToggle'
 import FieldRenderer from './FieldRenderer'
 
 // Typed styles with full key/value validation
@@ -74,32 +72,6 @@ const filterActionDisabledStyle = css({
   '& svg': {
     width: 12,
     height: 12
-  }
-})
-
-/** Copy button style matching CopyableLabel's native button */
-const filterCopyButtonStyle = css({
-  padding: 2,
-  background: Colors.Transparent,
-  border: 'none',
-  cursor: 'pointer',
-  color: Colors.TextMuted,
-  opacity: 0.6,
-  transition: 'opacity 0.15s ease',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  '&:hover': {
-    opacity: 1
-  },
-  '&:focus-visible': {
-    outline: `2px solid ${Colors.FocusOutline}`,
-    outlineOffset: 1,
-    borderRadius: 2
-  },
-  '&:disabled': {
-    opacity: 0.3,
-    cursor: 'not-allowed'
   }
 })
 
@@ -163,7 +135,6 @@ const FilterItem = (props: {
     filterIndex, expression, filterType, isFilterLocked, isFilterDisabled, filtersLocked, fromMap, readOnly,
     onExpressionChange, onFilterTypeChange, onToggleLocked, onRemove
   } = props
-  const { copied, copyToClipboard } = useCopyToClipboard()
 
   const canDelete = !(readOnly && (isFilterLocked || filtersLocked))
   const placeholder = filterType === FilterType.When ? PLACEHOLDER_TIME_FILTER : PLACEHOLDER_FILTER
@@ -189,31 +160,19 @@ const FilterItem = (props: {
         </ButtonGroup>
         {/* Lock/Unlock (only for map-synced filters in readOnly mode) */}
         {readOnly && fromMap && (
-          <Tooltip title={isFilterLocked ? TOOLTIP_UNLOCK_FILTER : TOOLTIP_LOCK_FILTER}>
-            <Button
-              size={ButtonSize.Small}
-              type={ButtonType.Tertiary}
-              icon
-              css={filterActionButtonStyle}
-              onClick={() => onToggleLocked(filterIndex)}
-              aria-label={isFilterLocked ? TOOLTIP_UNLOCK_FILTER : TOOLTIP_LOCK_FILTER}
-            >
-              {isFilterLocked ? <LockOutlined /> : <UnlockOutlined />}
-            </Button>
-          </Tooltip>
+          <LockToggle
+            locked={isFilterLocked}
+            onToggle={() => onToggleLocked(filterIndex)}
+            unlockTooltip={TOOLTIP_UNLOCK_FILTER}
+            lockTooltip={TOOLTIP_LOCK_FILTER}
+          />
         )}
-        {/* Copy — native button matching CopyableLabel style */}
-        <Tooltip title={copied ? TOOLTIP_COPIED : TOOLTIP_COPY}>
-          <button
-            type="button"
-            css={filterCopyButtonStyle}
-            onClick={() => copyToClipboard(expression)}
-            aria-label={`Copy filter ${filterIndex + 1} to clipboard`}
-            disabled={!expression}
-          >
-            <CopyOutlined size={12} color={copied ? Colors.Success : undefined} />
-          </button>
-        </Tooltip>
+        {/* Copy */}
+        <CopyButton
+          value={expression}
+          ariaLabel={`Copy filter ${filterIndex + 1} to clipboard`}
+          disabled={!expression}
+        />
         {/* Delete */}
         <Tooltip title={TOOLTIP_REMOVE_FILTER}>
           <Button
@@ -338,21 +297,15 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
     if (readOnly) {
       return (
         <>
-          <Tooltip title={isLocked ? TOOLTIP_UNLOCK : TOOLTIP_LOCK}>
-            <Button
-              size={ButtonSize.Small}
-              type={ButtonType.Tertiary}
-              icon
-              onClick={(e: React.MouseEvent) => {
-                e.stopPropagation()
-                onToggleLocked()
-              }}
-              aria-label={isLocked ? TOOLTIP_UNLOCK : TOOLTIP_LOCK}
-              style={{ marginLeft: '4px' }}
-            >
-              {isLocked ? <LockOutlined /> : <UnlockOutlined />}
-            </Button>
-          </Tooltip>
+          <span style={{ marginLeft: '4px', display: 'inline-flex' }}>
+            <LockToggle
+              locked={isLocked}
+              onToggle={onToggleLocked}
+              unlockTooltip={TOOLTIP_UNLOCK}
+              lockTooltip={TOOLTIP_LOCK}
+              stopPropagation
+            />
+          </span>
           <Tooltip title={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}>
             <Button
               size={ButtonSize.Small}
@@ -467,18 +420,13 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
     const filterActions = (
       <div style={styles.filtersHeaderActions}>
         {readOnly && (
-          <Tooltip title={filtersLocked ? TOOLTIP_UNLOCK_FILTERS : TOOLTIP_LOCK_FILTERS}>
-            <Button
-              size={ButtonSize.Small}
-              type={ButtonType.Tertiary}
-              icon
-              css={filterActionButtonStyle}
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFiltersLocked() }}
-              aria-label={filtersLocked ? TOOLTIP_UNLOCK_FILTERS : TOOLTIP_LOCK_FILTERS}
-            >
-              {filtersLocked ? <LockOutlined /> : <UnlockOutlined />}
-            </Button>
-          </Tooltip>
+          <LockToggle
+            locked={filtersLocked}
+            onToggle={onToggleFiltersLocked}
+            unlockTooltip={TOOLTIP_UNLOCK_FILTERS}
+            lockTooltip={TOOLTIP_LOCK_FILTERS}
+            stopPropagation
+          />
         )}
         <Tooltip title={TOOLTIP_ADD_FILTER}>
           <Button
