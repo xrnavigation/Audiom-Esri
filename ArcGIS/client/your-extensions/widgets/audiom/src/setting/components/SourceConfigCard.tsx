@@ -75,35 +75,34 @@ const filterActionDisabledStyle = css({
   }
 })
 
-// UI Text Constants
-const SOURCE_PREFIX = 'Source '
-const TOOLTIP_REMOVE = 'Remove source'
-const TOOLTIP_SHOW = 'Show source'
-const TOOLTIP_HIDE = 'Hide source'
-const TOOLTIP_LOCK = 'Lock to sync with map'
-const TOOLTIP_UNLOCK = 'Unlock to manually control visibility'
+// UI text — see ../strings.ts for the canonical home of these strings.
+import {
+  SOURCE_PREFIX,
+  TOOLTIP_REMOVE_SOURCE as TOOLTIP_REMOVE,
+  TOOLTIP_SHOW_SOURCE as TOOLTIP_SHOW,
+  TOOLTIP_HIDE_SOURCE as TOOLTIP_HIDE,
+  TOOLTIP_LOCK,
+  TOOLTIP_UNLOCK_SOURCE_VISIBILITY as TOOLTIP_UNLOCK,
+  FIELD_LABEL_NAME,
+  FIELD_LABEL_SOURCE_URL,
+  FIELD_LABEL_RULES_URL,
+  FIELD_LABEL_SOURCE,
+  FIELD_LABEL_MAP_TYPE,
+  FIELD_LABEL_FILTER,
+  PLACEHOLDER_NAME,
+  PLACEHOLDER_SOURCE_URL,
+  PLACEHOLDER_RULES_URL,
+  PLACEHOLDER_SOURCE,
+  PLACEHOLDER_FILTER,
+  PLACEHOLDER_TIME_FILTER,
+  TOOLTIP_LOCK_FILTER,
+  TOOLTIP_UNLOCK_FILTER,
+  TOOLTIP_REMOVE_FILTER,
+  TOOLTIP_ADD_FILTER,
+  TOOLTIP_LOCK_FILTERS,
+  TOOLTIP_UNLOCK_FILTERS
+} from '../strings'
 
-// Field Labels
-const FIELD_LABEL_NAME = 'Name'
-const FIELD_LABEL_SOURCE_URL = 'Source URL'
-const FIELD_LABEL_RULES_URL = 'Rules File URL'
-const FIELD_LABEL_SOURCE = 'Source'
-const FIELD_LABEL_MAP_TYPE = 'Map Type'
-const FIELD_LABEL_FILTER = 'Filters'
-
-const PLACEHOLDER_NAME = 'Enter source display name'
-const PLACEHOLDER_SOURCE_URL = 'Enter map source URL'
-const PLACEHOLDER_RULES_URL = 'Enter rules file URL'
-const PLACEHOLDER_SOURCE = 'Enter source identifier (e.g., units)'
-const PLACEHOLDER_FILTER = 'e.g., population > 1000'
-const PLACEHOLDER_TIME_FILTER = 'e.g., 2024-01-01/2024-12-31'
-
-const TOOLTIP_LOCK_FILTER = 'Lock to sync filter from map'
-const TOOLTIP_UNLOCK_FILTER = 'Unlock to manually edit filter'
-const TOOLTIP_REMOVE_FILTER = 'Remove filter'
-const TOOLTIP_ADD_FILTER = 'Add filter'
-const TOOLTIP_LOCK_FILTERS = 'Lock filters to sync from map'
-const TOOLTIP_UNLOCK_FILTERS = 'Unlock to add/remove filters'
 const TOOLTIP_FILTER_TYPE_WHERE = 'Definition expression (WHERE)'
 const TOOLTIP_FILTER_TYPE_WHEN = 'Time extent filter (WHEN)'
 

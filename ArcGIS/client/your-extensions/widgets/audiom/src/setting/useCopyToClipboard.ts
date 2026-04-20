@@ -4,8 +4,8 @@ import { createLogger } from '../utils/logger'
 const { useState, useCallback } = React
 const logger = createLogger('useCopyToClipboard')
 
-export const TOOLTIP_COPY = 'Copy to clipboard'
-export const TOOLTIP_COPIED = 'Copied!'
+// Re-exported for backward compatibility — the canonical home is now strings.ts
+export { TOOLTIP_COPY, TOOLTIP_COPIED } from './strings'
 
 const DEFAULT_RESET_DELAY = 1000
 

@@ -43,7 +43,8 @@ const TOOLTIP_COLLAPSE_ALL = 'Collapse all sources'
 const BUTTON_ADD = 'Add Source Configuration'
 const FIELD_LABEL_ALL_MAP_TYPE = 'Map Type (All)'
 const FIELD_LABEL_ALL_RULES_FILE = 'Rules File (All)'
-const MIXED_VALUE_PLACEHOLDER = '-'
+// MIXED_VALUE_PLACEHOLDER is now imported from ../strings
+import { MIXED_VALUE_PLACEHOLDER } from '../strings'
 const EMPTY_STATE_MESSAGE = 'No sources could be extracted from the ESRI map.'
 
 interface SourceConfigListProps {

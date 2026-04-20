@@ -4,16 +4,18 @@ import CoordinatePairInput from './CoordinatePairInput'
 import CollapsibleHeader from './CollapsibleHeader'
 import CopyButton from './CopyButton'
 import { ButtonSize, ButtonType, Colors, Padding } from '../enums'
+import {
+  HEADER_LABEL_LAYER_POSITION as HEADER_LABEL,
+  TEXT_PLACEHOLDER_GEOQUAD as TEXT_PLACEHOLDER,
+  TOOLTIP_VISUAL_MODE,
+  TOOLTIP_TEXT_MODE,
+  TOOLTIP_COPY_POSITION
+} from '../strings'
 
 const { useState } = React
 
-const HEADER_LABEL = 'Layer Position'
-const TEXT_PLACEHOLDER = '[[lng,lat],[lng,lat],[lng,lat],[lng,lat]]'
-const TOOLTIP_VISUAL_MODE = 'Switch to visual editor'
-const TOOLTIP_TEXT_MODE = 'Switch to text input'
 const ICON_VISUAL = '⊞'
 const ICON_TEXT = '{ }'
-const TOOLTIP_COPY_POSITION = 'Copy position array'
 
 const CORNER_LABELS = {
   TOP_LEFT: 'Top Left',

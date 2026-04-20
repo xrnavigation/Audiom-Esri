@@ -2,7 +2,8 @@ import { React, css } from 'jimu-core'
 import { Tooltip } from 'jimu-ui'
 import { CopyOutlined } from 'jimu-icons/outlined/editor/copy'
 import { Colors } from '../enums'
-import { useCopyToClipboard, TOOLTIP_COPY, TOOLTIP_COPIED } from '../useCopyToClipboard'
+import { useCopyToClipboard } from '../useCopyToClipboard'
+import { TOOLTIP_COPY, TOOLTIP_COPIED } from '../strings'
 
 const copyButtonStyle = css({
   padding: 2,

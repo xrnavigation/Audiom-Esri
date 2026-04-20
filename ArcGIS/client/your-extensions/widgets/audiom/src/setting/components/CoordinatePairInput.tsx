@@ -4,11 +4,8 @@ import { VALIDATION } from '../validation/validation'
 import { Colors, Padding } from '../enums'
 import CopyButton from './CopyButton'
 import LockToggle from './LockToggle'
+import { DEFAULT_LAT_LABEL, DEFAULT_LNG_LABEL, TOOLTIP_LOCK, tooltipUnlockField } from '../strings'
 
-const DEFAULT_LAT_LABEL = 'Lat'
-const DEFAULT_LNG_LABEL = 'Lng'
-const TOOLTIP_LOCK = 'Lock to sync with map'
-const TOOLTIP_UNLOCK_TEMPLATE = (field: string) => `Unlock to edit ${field} manually`
 const ICON_SIZE_LOCK = 12
 const ICON_SIZE_COPY = 10
 
@@ -95,7 +92,7 @@ const CoordinatePairInput = (props: CoordinatePairInputProps) => {
               <LockToggle
                 locked={latLock.locked}
                 onToggle={latLock.onToggle}
-                unlockTooltip={TOOLTIP_UNLOCK_TEMPLATE('latitude')}
+                unlockTooltip={tooltipUnlockField('latitude')}
                 lockTooltip={TOOLTIP_LOCK}
                 iconSize={ICON_SIZE_LOCK}
               />
@@ -127,7 +124,7 @@ const CoordinatePairInput = (props: CoordinatePairInputProps) => {
               <LockToggle
                 locked={lngLock.locked}
                 onToggle={lngLock.onToggle}
-                unlockTooltip={TOOLTIP_UNLOCK_TEMPLATE('longitude')}
+                unlockTooltip={tooltipUnlockField('longitude')}
                 lockTooltip={TOOLTIP_LOCK}
                 iconSize={ICON_SIZE_LOCK}
               />
