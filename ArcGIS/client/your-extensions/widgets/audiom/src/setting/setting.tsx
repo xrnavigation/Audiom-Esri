@@ -14,9 +14,9 @@ import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/mapUtil
 import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { mergeSourcesPreservingUnlocked } from '../utils/sourceConfigUtils'
 import { createLogger } from '../utils/logger'
-import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig } from './configs'
+import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig, setConfigValue } from './configs'
 import { ButtonType, FieldType, FlowType, Colors } from './enums'
-import { Padding } from './paddings'
+import { Padding } from './enums'
 import { AudiomConfigKey, LockableFieldName } from './configKeys'
 import { validateUrl, VALIDATION } from './validation/validation'
 
@@ -73,7 +73,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
     if (needsUpdate) {
       // Sync source configs
-      let newConfig = config.set(AudiomConfigKey.SourceConfigs, mergedSources)
+      let newConfig = setConfigValue(config, AudiomConfigKey.SourceConfigs, mergedSources)
       
       // Sync all locked fields using the helper
       newConfig = syncLockedFieldsToConfig(newConfig, newMapConfig)
@@ -95,7 +95,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       logger.debug('Auto-syncing existingMapId from useMapWidgetIds:', mapIdFromProps)
       props.onSettingChange({
         id: props.id,
-        config: config.set(AudiomConfigKey.ExistingMapId, mapIdFromProps)
+        config: setConfigValue(config, AudiomConfigKey.ExistingMapId, mapIdFromProps)
       })
     }
   }, [props.useMapWidgetIds, config?.existingMapId, props, config])
@@ -183,21 +183,21 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     props.onSettingChange({
       id: props.id,
       useMapWidgetIds: useMapWidgetIds,
-      config: config.set(AudiomConfigKey.ExistingMapId, useMapWidgetIds[0] || '')
+      config: setConfigValue(config, AudiomConfigKey.ExistingMapId, useMapWidgetIds[0] || '')
     })
   }
 
   const onPropertyChange = (property: string, value: unknown) => {
     props.onSettingChange({
       id: props.id,
-      config: config.set(property as keyof IAudiomConfig, value as IAudiomConfig[keyof IAudiomConfig])
+      config: setConfigValue(config, property as keyof IAudiomConfig, value as IAudiomConfig[keyof IAudiomConfig])
     })
   }
 
   const onSourceConfigsChange = (sourceConfigs: ISourceConfig[]) => {
     props.onSettingChange({
       id: props.id,
-      config: config.set(AudiomConfigKey.SourceConfigs, sourceConfigs)
+      config: setConfigValue(config, AudiomConfigKey.SourceConfigs, sourceConfigs)
     })
   }
 

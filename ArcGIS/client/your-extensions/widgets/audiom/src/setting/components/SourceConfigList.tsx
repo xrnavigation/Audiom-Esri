@@ -4,9 +4,8 @@ import { Select, Option, Collapse, Button, Tooltip, TextInput } from 'jimu-ui'
 import { ExpandAllOutlined } from 'jimu-icons/outlined/directional/expand-all'
 import { CollapseAllOutlined } from 'jimu-icons/outlined/directional/collapse-all'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
-import { DEFAULT_SOURCE_CONFIG, ISourceConfig } from '../configs'
-import { ButtonSize, ButtonType, FlowType, Colors, MAP_TYPE_OPTIONS } from '../enums'
-import { Padding } from '../paddings'
+import { ButtonSize, ButtonType, FlowType, Colors, Padding } from '../enums'
+import { DEFAULT_SOURCE_CONFIG, ISourceConfig, MAP_TYPE_OPTIONS } from '../configs'
 import { replaceAt } from '../../utils/sourceConfigUtils'
 import CopyableLabel from './CopyableLabel'
 import CollapsibleHeader from './CollapsibleHeader'
@@ -127,17 +126,17 @@ const SourceConfigList = (props: SourceConfigListProps) => {
     onChange(newSourceConfigs)
   }
 
-  // Check if sources have different rules files
-  const hasMixedRulesFiles = (): boolean => {
+  // Check if sources have different rules files (memoized — recomputes only when sourceConfigs changes)
+  const hasMixedRulesFiles = useMemo<boolean>(() => {
     if (sourceConfigs.length === 0) return false
     const firstRulesFile = sourceConfigs[0]?.rulesFileUrl ?? ''
     return sourceConfigs.some(config => (config.rulesFileUrl ?? '') !== firstRulesFile)
-  }
+  }, [sourceConfigs])
 
   // Get the current rules file value for display
   const getAllRulesFileValue = (): string => {
     if (sourceConfigs.length === 0) return ''
-    if (hasMixedRulesFiles()) return MIXED_VALUE_PLACEHOLDER
+    if (hasMixedRulesFiles) return MIXED_VALUE_PLACEHOLDER
     return sourceConfigs[0]?.rulesFileUrl ?? ''
   }
 

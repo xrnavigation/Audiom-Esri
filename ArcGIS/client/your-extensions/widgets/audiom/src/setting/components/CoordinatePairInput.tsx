@@ -1,8 +1,7 @@
 import { React } from 'jimu-core'
 import { NumericInput, Label, Tooltip } from 'jimu-ui'
 import { VALIDATION } from '../validation/validation'
-import { Colors } from '../enums'
-import { Padding } from '../paddings'
+import { Colors, Padding } from '../enums'
 import CopyButton from './CopyButton'
 import LockToggle from './LockToggle'
 

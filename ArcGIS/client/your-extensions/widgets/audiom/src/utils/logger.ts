@@ -4,7 +4,7 @@
  * In production/runtime mode, all logging is suppressed.
  */
 
-import { getAppStore } from 'jimu-core'
+import { JimuConfig } from './JimuConfig'
 
 export enum LogLevel {
   Debug = 'debug',
@@ -17,16 +17,13 @@ const LOG_PREFIX = '[Audiom]'
 
 /**
  * Check if we're in builder/development mode.
- * Uses Jimu's app store to determine the current mode.
+ * Delegates to JimuConfig so the source of truth lives in one place.
+ * Returns false on any access failure (e.g. test environments).
  */
 function isDevMode(): boolean {
   try {
-    const appStore = getAppStore()
-    const state = appStore?.getState()
-    // In builder mode, appContext.isInBuilder is true
-    return state?.appContext?.isInBuilder === true
+    return JimuConfig.getInstance().isInBuilder()
   } catch {
-    // If we can't access the store, assume production
     return false
   }
 }

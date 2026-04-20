@@ -3,8 +3,7 @@ import { Label, Collapse, TextInput, Button, Tooltip } from 'jimu-ui'
 import CoordinatePairInput from './CoordinatePairInput'
 import CollapsibleHeader from './CollapsibleHeader'
 import CopyButton from './CopyButton'
-import { ButtonSize, ButtonType, Colors } from '../enums'
-import { Padding } from '../paddings'
+import { ButtonSize, ButtonType, Colors, Padding } from '../enums'
 
 const { useState } = React
 
