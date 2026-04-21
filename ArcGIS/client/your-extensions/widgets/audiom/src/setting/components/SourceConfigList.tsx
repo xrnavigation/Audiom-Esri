@@ -1,6 +1,6 @@
 import { React } from 'jimu-core'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
-import { Select, Option, Collapse, Button, Tooltip, TextInput } from 'jimu-ui'
+import { Select, Option, Collapse, Button, TextInput } from 'jimu-ui'
 import { ExpandAllOutlined } from 'jimu-icons/outlined/directional/expand-all'
 import { CollapseAllOutlined } from 'jimu-icons/outlined/directional/collapse-all'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
@@ -9,6 +9,7 @@ import { DEFAULT_SOURCE_CONFIG, ISourceConfig, MAP_TYPE_OPTIONS } from '../confi
 import { replaceAt } from '../../utils/sourceConfigUtils'
 import CopyableLabel from './CopyableLabel'
 import CollapsibleHeader from './CollapsibleHeader'
+import IconActionButton from './IconActionButton'
 import SourceConfigCard from './SourceConfigCard'
 
 const { useState, useEffect, useMemo } = React
@@ -201,28 +202,20 @@ const SourceConfigList = (props: SourceConfigListProps) => {
             <div style={styles.mapTypeRow}>
               <CopyableLabel label={FIELD_LABEL_ALL_MAP_TYPE} copyValue={''} showCopyButton={false} />
               <div style={styles.buttonGroup}>
-                <Tooltip title={TOOLTIP_EXPAND_ALL}>
-                  <Button
-                    size={ButtonSize.Small}
-                    type={ButtonType.Tertiary}
-                    icon
-                    onClick={expandAllSources}
-                    aria-label={TOOLTIP_EXPAND_ALL}
-                  >
-                    <ExpandAllOutlined />
-                  </Button>
-                </Tooltip>
-                <Tooltip title={TOOLTIP_COLLAPSE_ALL}>
-                  <Button
-                    size={ButtonSize.Small}
-                    type={ButtonType.Tertiary}
-                    icon
-                    onClick={collapseAllSources}
-                    aria-label={TOOLTIP_COLLAPSE_ALL}
-                  >
-                    <CollapseAllOutlined />
-                  </Button>
-                </Tooltip>
+                <IconActionButton
+                  tooltip={TOOLTIP_EXPAND_ALL}
+                  ariaLabel={TOOLTIP_EXPAND_ALL}
+                  onClick={expandAllSources}
+                >
+                  <ExpandAllOutlined />
+                </IconActionButton>
+                <IconActionButton
+                  tooltip={TOOLTIP_COLLAPSE_ALL}
+                  ariaLabel={TOOLTIP_COLLAPSE_ALL}
+                  onClick={collapseAllSources}
+                >
+                  <CollapseAllOutlined />
+                </IconActionButton>
               </div>
             </div>
             <Select

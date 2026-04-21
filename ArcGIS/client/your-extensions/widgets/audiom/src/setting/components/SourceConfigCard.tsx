@@ -1,4 +1,4 @@
-import { React, css } from 'jimu-core'
+import { React } from 'jimu-core'
 import { Card, Collapse, Button, ButtonGroup, Tooltip, TextInput } from 'jimu-ui'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
 import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
@@ -7,7 +7,7 @@ import { TrashOutlined } from 'jimu-icons/outlined/editor/trash'
 import { PlusOutlined } from 'jimu-icons/outlined/editor/plus'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
 import { DEFAULT_SOURCE_CONFIG, DEFAULT_FILTER_CONFIG, FieldConfig, ISourceConfig, IFilterConfig, MAP_TYPE_OPTIONS } from '../configs'
-import { ButtonSize, ButtonType, FieldType, FlowType, Colors, FilterType } from '../enums'
+import { ButtonSize, FieldType, FlowType, Colors, FilterType } from '../enums'
 import { SourceConfigKey } from '../configKeys'
 import { validateUrl } from '../validation/validation'
 import { replaceAt } from '../../utils/sourceConfigUtils'
@@ -15,6 +15,7 @@ import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 import CopyableLabel from './CopyableLabel'
 import CopyButton from './CopyButton'
 import LockToggle from './LockToggle'
+import IconActionButton from './IconActionButton'
 import FieldRenderer from './FieldRenderer'
 
 // Typed styles with full key/value validation
@@ -52,28 +53,6 @@ const styles = {
     marginBottom: 2
   }
 } as const satisfies Record<string, React.CSSProperties>
-
-const filterActionButtonStyle = css({
-  padding: 2,
-  minWidth: 20,
-  minHeight: 20,
-  '& svg': {
-    width: 12,
-    height: 12
-  }
-})
-
-const filterActionDisabledStyle = css({
-  padding: 2,
-  minWidth: 20,
-  minHeight: 20,
-  opacity: 0.3,
-  cursor: 'not-allowed',
-  '& svg': {
-    width: 12,
-    height: 12
-  }
-})
 
 // UI text — see ../strings.ts for the canonical home of these strings.
 import {
@@ -173,19 +152,14 @@ const FilterItem = (props: {
           disabled={!expression}
         />
         {/* Delete */}
-        <Tooltip title={TOOLTIP_REMOVE_FILTER}>
-          <Button
-            size={ButtonSize.Small}
-            type={ButtonType.Tertiary}
-            icon
-            css={canDelete ? filterActionButtonStyle : filterActionDisabledStyle}
-            onClick={() => canDelete && onRemove(filterIndex)}
-            aria-label={`${TOOLTIP_REMOVE_FILTER} ${filterIndex + 1}`}
-            aria-disabled={!canDelete}
-          >
-            <TrashOutlined />
-          </Button>
-        </Tooltip>
+        <IconActionButton
+          tooltip={TOOLTIP_REMOVE_FILTER}
+          ariaLabel={`${TOOLTIP_REMOVE_FILTER} ${filterIndex + 1}`}
+          onClick={() => onRemove(filterIndex)}
+          disabled={!canDelete}
+        >
+          <TrashOutlined />
+        </IconActionButton>
       </div>
       <TextInput
         style={{ width: '100%' }}
@@ -305,56 +279,42 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
               stopPropagation
             />
           </span>
-          <Tooltip title={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}>
-            <Button
-              size={ButtonSize.Small}
-              type={ButtonType.Tertiary}
-              icon
-              onClick={(e: React.MouseEvent) => {
-                e.stopPropagation()
-                onToggleEnabled()
-              }}
-              aria-label={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}
-              style={{ marginLeft: '4px' }}
+          <span style={{ marginLeft: '4px', display: 'inline-flex' }}>
+            <IconActionButton
+              tooltip={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}
+              ariaLabel={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}
+              onClick={onToggleEnabled}
+              stopPropagation
+              active={!isEnabled}
             >
               {isEnabled ? <VisibleOutlined /> : <InvisibleOutlined />}
-            </Button>
-          </Tooltip>
+            </IconActionButton>
+          </span>
         </>
       )
     }
 
     return (
       <>
-        <Tooltip title={TOOLTIP_REMOVE}>
-          <Button
-            size={ButtonSize.Small}
-            type={ButtonType.Tertiary}
-            icon
-            onClick={(e: React.MouseEvent) => {
-              e.stopPropagation()
-              onRemove()
-            }}
-            aria-label={`${TOOLTIP_REMOVE} ${sourceName}`}
-          >
-            <TrashOutlined />
-          </Button>
-        </Tooltip>
-        <Tooltip title={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}>
-          <Button
-            size={ButtonSize.Small}
-            type={ButtonType.Tertiary}
-            icon
-            onClick={(e: React.MouseEvent) => {
-              e.stopPropagation()
-              onToggleEnabled()
-            }}
-            aria-label={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}
-            style={{ marginLeft: '4px' }}
+        <IconActionButton
+          tooltip={TOOLTIP_REMOVE}
+          ariaLabel={`${TOOLTIP_REMOVE} ${sourceName}`}
+          onClick={onRemove}
+          stopPropagation
+        >
+          <TrashOutlined />
+        </IconActionButton>
+        <span style={{ marginLeft: '4px', display: 'inline-flex' }}>
+          <IconActionButton
+            tooltip={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}
+            ariaLabel={isEnabled ? TOOLTIP_HIDE : TOOLTIP_SHOW}
+            onClick={onToggleEnabled}
+            stopPropagation
+            active={!isEnabled}
           >
             {isEnabled ? <VisibleOutlined /> : <InvisibleOutlined />}
-          </Button>
-        </Tooltip>
+          </IconActionButton>
+        </span>
       </>
     )
   }
@@ -427,19 +387,15 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
             stopPropagation
           />
         )}
-        <Tooltip title={TOOLTIP_ADD_FILTER}>
-          <Button
-            size={ButtonSize.Small}
-            type={ButtonType.Tertiary}
-            icon
-            css={canAdd ? filterActionButtonStyle : filterActionDisabledStyle}
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); canAdd && onAddFilter() }}
-            aria-label={TOOLTIP_ADD_FILTER}
-            aria-disabled={!canAdd}
-          >
-            <PlusOutlined />
-          </Button>
-        </Tooltip>
+        <IconActionButton
+          tooltip={TOOLTIP_ADD_FILTER}
+          ariaLabel={TOOLTIP_ADD_FILTER}
+          onClick={onAddFilter}
+          disabled={!canAdd}
+          stopPropagation
+        >
+          <PlusOutlined />
+        </IconActionButton>
       </div>
     )
 
