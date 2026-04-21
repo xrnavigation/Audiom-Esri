@@ -99,6 +99,14 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
 
   const sources = resolveSources(config, jmv);
 
+  // When runtime auto-sync is enabled, expose the parent origin to the embed
+  // so the Audiom postMessage API is enabled. Without this query param Audiom
+  // rejects all inbound commands. Defaults to true when the field is absent.
+  const runtimeAutoSync = config.runtimeAutoSync ?? DEFAULT_CONFIG.runtimeAutoSync;
+  const allowedOrigins = runtimeAutoSync && typeof window !== 'undefined'
+    ? window.location.origin
+    : undefined;
+
   return AudiomEmbedConfig.dynamic({
     apiKey: config.apiKey || '',
     sources: sources,
@@ -117,6 +125,7 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
           position: layer.position ? GeoQuad.parse(layer.position) : undefined,
         }))
       : undefined,
+    allowedOrigins,
   });
 }
 

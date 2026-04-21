@@ -362,6 +362,18 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
           </SettingRow>
         ) : null}
 
+        {useExistingMap ? (
+          <SettingRow flow={FlowType.Wrap}>
+            <Tooltip title="When on, layer visibility toggles in the ESRI map are pushed to the Audiom embed via postMessage without reloading the iframe. Note: the Audiom embed filters by feature *type*, so this only affects sources whose emitted feature type matches the source name.">
+              <Label style={{ marginBottom: 0 }}>Sync layer visibility at runtime</Label>
+            </Tooltip>
+            <Switch
+              checked={config?.runtimeAutoSync ?? DEFAULT_CONFIG.runtimeAutoSync}
+              onChange={(e) => onPropertyChange(AudiomConfigKey.RuntimeAutoSync, e.target.checked)}
+            />
+          </SettingRow>
+        ) : null}
+
         <CollapsibleHeader
           label="Map Settings"
           isOpen={mapSettingsOpen}

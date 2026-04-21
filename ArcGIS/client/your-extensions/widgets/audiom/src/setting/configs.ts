@@ -34,6 +34,7 @@ export const DEFAULT_CONFIG = {
   centerLatitudeLocked: true,
   centerLongitudeLocked: true,
   zoomLocked: true,
+  runtimeAutoSync: true,
 } as const satisfies Partial<IAudiomConfig>
 
 export const DEFAULT_SOURCE_CONFIG: ISourceConfig = {
@@ -154,6 +155,20 @@ export interface IAudiomConfig {
   zoomLocked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual value.
   useExistingMap?: boolean
   existingMapId?: string
+  /**
+   * When true (default), the runtime widget pushes ESRI map layer-visibility
+   * changes to the embedded Audiom map via the postMessage API instead of
+   * forcing an iframe reload. Visibility-only deltas are translated into
+   * Audiom `setFilters` commands, mapping ESRI source names to Audiom feature
+   * type filters. Deltas that cannot be expressed via the postMessage API
+   * (e.g. adding/removing a layer, changing a layer URL) still trigger a
+   * reload, with a brief "Map updated" notice.
+   *
+   * Note: `setFilters` filters by feature *type*. If an Audiom source's
+   * emitted feature type does not match its name, that source's filter will
+   * silently no-op and the source will remain in its prior visibility state.
+   */
+  runtimeAutoSync?: boolean
 }
 
 /**

@@ -196,4 +196,58 @@ describe('Audiom setting panel', () => {
     )
     expect(setExistingMapIdCall).toBeDefined()
   })
+
+  describe('runtimeAutoSync checkbox', () => {
+    it('renders the checkbox when useExistingMap is true', () => {
+      const Setting = wrapWidgetSetting(_Setting, {
+        config: makeImmutableConfig({ useExistingMap: true, existingMapId: 'map-w' }) as any,
+        onSettingChange: jest.fn(),
+        useMapWidgetIds: ['map-w']
+      } as any)
+      const { container } = render(<Setting widgetId="audiom-set-runtime-1" />)
+      // The "Sync layer visibility at runtime" Switch is the second checkbox
+      // (the first is the "Use Existing Map Widget" toggle).
+      const checkboxes = container.querySelectorAll('input[type="checkbox"]')
+      expect(checkboxes.length).toBeGreaterThanOrEqual(2)
+    })
+
+    it('does not render the checkbox when useExistingMap is false', () => {
+      const Setting = wrapWidgetSetting(_Setting, {
+        config: makeImmutableConfig({ useExistingMap: false }) as any,
+        onSettingChange: jest.fn()
+      } as any)
+      const { container } = render(<Setting widgetId="audiom-set-runtime-2" />)
+      // Only the "Use Existing Map Widget" toggle is present.
+      const checkboxes = container.querySelectorAll('input[type="checkbox"]')
+      expect(checkboxes.length).toBe(1)
+    })
+
+    it('reflects the config value (defaults to true)', () => {
+      const Setting = wrapWidgetSetting(_Setting, {
+        // omit runtimeAutoSync → falls back to DEFAULT_CONFIG.runtimeAutoSync (true)
+        config: makeImmutableConfig({ useExistingMap: true, existingMapId: 'map-w' }) as any,
+        onSettingChange: jest.fn(),
+        useMapWidgetIds: ['map-w']
+      } as any)
+      const { container } = render(<Setting widgetId="audiom-set-runtime-3" />)
+      const checkboxes = container.querySelectorAll('input[type="checkbox"]')
+      // The runtime-sync switch is the second checkbox.
+      expect((checkboxes[1] as HTMLInputElement).checked).toBe(true)
+    })
+
+    it('reflects an explicit `false` config value', () => {
+      const Setting = wrapWidgetSetting(_Setting, {
+        config: makeImmutableConfig({
+          useExistingMap: true,
+          existingMapId: 'map-w',
+          runtimeAutoSync: false
+        }) as any,
+        onSettingChange: jest.fn(),
+        useMapWidgetIds: ['map-w']
+      } as any)
+      const { container } = render(<Setting widgetId="audiom-set-runtime-4" />)
+      const checkboxes = container.querySelectorAll('input[type="checkbox"]')
+      expect((checkboxes[1] as HTMLInputElement).checked).toBe(false)
+    })
+  })
 })
