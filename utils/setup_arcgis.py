@@ -16,7 +16,7 @@ from typing import Optional
 from download_arcgis import download_arcgis_builder
 
 # Global configuration
-DEFAULT_VERSION = "1.19"
+DEFAULT_VERSION = "1.20"
 DEFAULT_TARGET_DIR = "ArcGIS"
 PRESERVED_FOLDERS = [
     "client/your-extensions",

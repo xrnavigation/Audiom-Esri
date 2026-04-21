@@ -3,7 +3,7 @@ import sys
 from typing import Optional
 
 
-def download_arcgis_builder(version: str = "1.19") -> bool:
+def download_arcgis_builder(version: str = "1.20") -> bool:
     """
     Download ArcGIS Experience Builder for a specific version.
 
