@@ -258,16 +258,16 @@
           "widgetId": "widget_1",
           "bbox": {
             "left": "0.0%",
-            "right": "50.00%",
+            "right": "0.0%",
             "top": "0.0%",
             "bottom": "0.0%",
-            "width": "100.0%",
+            "width": "50.00%",
             "height": "100.0%"
           },
           "setting": {
             "autoProps": {
-              "right": false,
-              "left": true,
+              "right": true,
+              "left": false,
               "top": true,
               "bottom": false
             },
@@ -1082,42 +1082,74 @@
             "source": "19c06d1cbae-layer-3",
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/4",
             "mapType": "indoor",
-            "enabled": false
+            "filters": [],
+            "enabled": false,
+            "rulesFileUrl": "/rules/esri-indoor.json",
+            "locked": true
           },
           {
             "name": "Facilities",
             "source": "19c06d1cbaf-layer-4",
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/3",
             "mapType": "indoor",
-            "enabled": false
+            "filters": [],
+            "enabled": false,
+            "rulesFileUrl": "/rules/esri-indoor.json"
           },
           {
             "name": "Levels",
             "source": "19c06d1cbaf-layer-5",
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/2",
             "mapType": "indoor",
-            "enabled": true
+            "filters": [
+              {
+                "expression": "LEVEL_ID = '{BAE9BBC5-D74F-4B7A-9904-9763AE70CCF2}'",
+                "mapExpression": "LEVEL_ID = '{BAE9BBC5-D74F-4B7A-9904-9763AE70CCF2}'",
+                "filterType": "where",
+                "mapFilterType": "where",
+                "locked": true,
+                "fromMap": true
+              }
+            ],
+            "enabled": true,
+            "rulesFileUrl": "/rules/esri-indoor.json",
+            "filtersLocked": true
           },
           {
             "name": "Units",
             "source": "19c06d1cbaf-layer-6",
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
             "mapType": "indoor",
-            "enabled": true
+            "filters": [
+              {
+                "expression": "LEVEL_ID = '{BAE9BBC5-D74F-4B7A-9904-9763AE70CCF2}'",
+                "mapExpression": "LEVEL_ID = '{BAE9BBC5-D74F-4B7A-9904-9763AE70CCF2}'",
+                "filterType": "where",
+                "mapFilterType": "where",
+                "locked": true,
+                "fromMap": true
+              }
+            ],
+            "enabled": true,
+            "rulesFileUrl": "/rules/esri-indoor.json"
           },
           {
             "name": "Details",
             "source": "19c06d1cbb0-layer-7",
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/0",
             "mapType": "indoor",
-            "enabled": false
+            "filters": [],
+            "enabled": false,
+            "rulesFileUrl": "/rules/esri-indoor.json"
           }
         ],
         "title": "Esri Building",
-        "centerLatitude": 34.056702128522275,
-        "centerLongitude": -117.19503563211973,
-        "zoom": 21,
-        "apiKey": "wO35blaGsjJREGuXehqWU"
+        "centerLatitude": 34.05669873354544,
+        "centerLongitude": -117.19468783901752,
+        "zoom": 19.91935483870236,
+        "apiKey": "wO35blaGsjJREGuXehqWU",
+        "titleLocked": true,
+        "centerLongitudeLocked": true
       },
       "id": "widget_23",
       "useMapWidgetIds": [
@@ -1321,9 +1353,10 @@
   },
   "publishTimestamp": 1761630908582,
   "attributes": {
-    "portalUrl": "https://xrnavigation.maps.arcgis.com"
+    "portalUrl": "https://xrnavigation.maps.arcgis.com",
+    "enableA11yForWidgetSettings": false
   },
-  "timestamp": 1770164865193,
+  "timestamp": 1776808443494,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {

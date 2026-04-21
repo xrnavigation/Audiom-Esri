@@ -1,15 +1,7 @@
-import { React, css } from 'jimu-core'
-import { Button, Tooltip } from 'jimu-ui'
+import { React } from 'jimu-core'
 import { LockOutlined } from 'jimu-icons/outlined/editor/lock'
 import { UnlockOutlined } from 'jimu-icons/outlined/editor/unlock'
-import { ButtonSize, ButtonType } from '../enums'
-
-const lockButtonStyle = css({
-  padding: 2,
-  minWidth: 'auto',
-  background: 'transparent',
-  border: 'none'
-})
+import IconActionButton from './IconActionButton'
 
 export interface LockToggleProps {
   /** Whether the field is currently locked (synced with map) */
@@ -27,34 +19,27 @@ export interface LockToggleProps {
 }
 
 /**
- * Lock/Unlock toggle button shared across settings UI.
- * Tooltip + aria-label switch with state. Caller supplies both strings
- * so different contexts (latitude, filter, source visibility) can localize.
+ * Lock/Unlock toggle button shared across the settings UI.
+ * Built on IconActionButton so the locked and unlocked glyphs share the
+ * same square footprint (eliminating the rectangular look caused by the
+ * wider unlock icon) and match other small action buttons.
  */
 const LockToggle = (props: LockToggleProps) => {
-  const { locked, onToggle, unlockTooltip, lockTooltip, iconSize = 12, stopPropagation = false } = props
+  const { locked, onToggle, unlockTooltip, lockTooltip, iconSize, stopPropagation = false } = props
   const tooltip = locked ? unlockTooltip : lockTooltip
   const Icon = locked ? LockOutlined : UnlockOutlined
 
-  const handleClick = (e: React.MouseEvent) => {
-    if (stopPropagation) {
-      e.stopPropagation()
-    }
-    onToggle()
-  }
-
   return (
-    <Tooltip title={tooltip}>
-      <Button
-        type={ButtonType.Tertiary}
-        size={ButtonSize.Small}
-        onClick={handleClick}
-        aria-label={tooltip}
-        css={lockButtonStyle}
-      >
-        <Icon size={iconSize} />
-      </Button>
-    </Tooltip>
+    <IconActionButton
+      tooltip={tooltip}
+      ariaLabel={tooltip}
+      onClick={onToggle}
+      stopPropagation={stopPropagation}
+      active={locked}
+      iconSize={iconSize}
+    >
+      <Icon />
+    </IconActionButton>
   )
 }
 

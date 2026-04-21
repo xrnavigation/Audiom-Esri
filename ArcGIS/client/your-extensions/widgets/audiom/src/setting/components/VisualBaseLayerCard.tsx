@@ -1,13 +1,13 @@
 import { React } from 'jimu-core'
-import { Card, Collapse, TextInput, Tooltip, Button } from 'jimu-ui'
+import { Card, Collapse, TextInput } from 'jimu-ui'
 import { TrashOutlined } from 'jimu-icons/outlined/editor/trash'
 import { IVisualBaseLayerConfig } from '../configs'
-import { ButtonSize, ButtonType, Colors } from '../enums'
 import { Padding } from '../enums'
 import { validateUrl } from '../validation/validation'
 import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 import CopyableLabel from './CopyableLabel'
 import GeoQuadEditor from './GeoQuadEditor'
+import IconActionButton from './IconActionButton'
 
 const { useCallback } = React
 
@@ -65,16 +65,14 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
 
   const actions = (
     <div style={styles.actions}>
-      <Tooltip title={TOOLTIP_REMOVE}>
-        <Button
-          type={ButtonType.Tertiary}
-          size={ButtonSize.Small}
-          onClick={(e: React.MouseEvent) => { e.stopPropagation(); onRemove() }}
-          aria-label={`${TOOLTIP_REMOVE} ${index + 1}`}
-        >
-          <TrashOutlined size={12} />
-        </Button>
-      </Tooltip>
+      <IconActionButton
+        tooltip={TOOLTIP_REMOVE}
+        ariaLabel={`${TOOLTIP_REMOVE} ${index + 1}`}
+        onClick={onRemove}
+        stopPropagation
+      >
+        <TrashOutlined />
+      </IconActionButton>
     </div>
   )
 
