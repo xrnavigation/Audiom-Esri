@@ -2,7 +2,7 @@
   "created": 1770161674847,
   "description": "",
   "id": "5",
-  "modified": 1770164865242,
+  "modified": 1776808443531,
   "owner": "scionofdesign@gmail.com",
   "tags": [],
   "thumbnail": null,
@@ -15,10 +15,10 @@
     "JavaScript",
     "status: Draft",
     "version:1.19.0",
-    "modified: 1770164865241"
+    "modified: 1776808443529"
   ],
   "portalUrl": "https://xrnavigation.maps.arcgis.com",
   "username": "scionofdesign@gmail.com",
-  "name": "Untitled experience 1",
+  "name": "My Audiom Map",
   "isLocalApp": true
 }
