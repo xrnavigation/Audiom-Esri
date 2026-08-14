@@ -11,6 +11,13 @@ This page provides a list of different maps made using the Audiom widget for ESR
 - [Map of the ESRI Building](./samples/esri-building/)
 - [Census of Hawaii](./samples/census/)
 
+## 🏗️ Supported Experience Builder Builds
+
+The Audiom widget is packaged for the following ArcGIS Experience Builder versions:
+
+- [Experience Builder 1.20 build manifest](./builder-versions/1.20/audiom/manifest.json)
+- [Experience Builder 1.19 build manifest](./builder-versions/1.19/audiom/manifest.json)
+- [Experience Builder 1.18 build manifest](./builder-versions/1.18/audiom/manifest.json)
 
 ## 📦 Installing the Audiom Widget
 
