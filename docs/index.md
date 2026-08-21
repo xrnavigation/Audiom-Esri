@@ -33,7 +33,9 @@ You must register each custom widget in your portal. Portal administrator privil
 2. Click the **My Content** tab of the content page.
 3. Click **Add Item** and choose *An application.*
 4. Choose *Experience Builder widget,* and provide the URL to your manifest file.
-5. [The Audiom manifest file is located here.](./audiom/manifest.json)
+5. Select the manifest file for your version of Experience Builder from the links in the section above.
+	- For ArcGIS Enterprise v12.1 this is [Experience Builder 1.20](./builder-versions/1.20/audiom/manifest.json).
+	- For ArcGIS Enterprise v12.0 this is [Experience Builder 1.18](./builder-versions/1.18/audiom/manifest.json).
 6. Click the *Title box.*
 7. The title of the item automatically populates from the manifest file. Optionally, you can manually edit the title.
 8. Add tags in the *Tags box.*
