@@ -10,6 +10,8 @@ on:
     branches: [main, master]
     paths:
     - 'ArcGIS/client/your-extensions/widgets/audiom/**'
+  workflow_run:
+    
 
 # Least privilege by default; the publish job elevates to `write` where needed.
 permissions:
