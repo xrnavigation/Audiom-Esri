@@ -31,8 +31,7 @@ jobs:
       fail-fast: false
       matrix:
         # =====================================================================
-        # Requirement 1: easily configurable matrix of Experience Builder
-        # versions. Add or remove an entry to build for that release, setting
+        # Add or remove an entry to build for that release, setting
         # `node-version` to the recommended Node.js major from Esri's table:
         # https://developers.arcgis.com/experience-builder/guide/release-versions/
         # The docs folder `docs/builder-versions/<exb-version>/audiom` is derived
@@ -95,13 +94,22 @@ jobs:
     - name: Verify build output
       run: |
         OUT="ArcGIS/client/dist/widgets/audiom"
-        if [ ! -f "$OUT/manifest.json" ] || [ ! -f "$OUT/dist/runtime/widget.js" ]; then
-          echo "::error::Expected build output not found at $OUT" >&2
-          ls -la ArcGIS/client/dist/widgets || true
+        # Fail the build if any essential file is missing or empty (an empty build).
+        for f in "manifest.json" "dist/runtime/widget.js" "dist/setting/setting.js"; do
+          if [ ! -s "$OUT/$f" ]; then
+            echo "::error::Missing or empty build output: $OUT/$f" >&2
+            ls -laR "$OUT" 2>/dev/null || ls -la ArcGIS/client/dist/widgets || true
+            exit 1
+          fi
+        done
+        # Fail the build if the manifest wasn't stamped with the target version.
+        built="$(jq -r '.exbVersion' "$OUT/manifest.json")"
+        if [ "$built" != "${{ matrix.exb-version }}" ]; then
+          echo "::error::Built manifest exbVersion is '$built', expected '${{ matrix.exb-version }}'" >&2
           exit 1
         fi
 
-    # Upload each version's build as an artifact.
+    # Upload each version's build as an artifact; fail if there are no files.
     - name: Upload built widget artifact
       uses: actions/upload-artifact@v4
       with:
@@ -129,6 +137,31 @@ jobs:
       with:
         path: artifacts
         pattern: audiom-*
+
+    # Fail if nothing was uploaded, or any artifact is empty / stamped wrong.
+    - name: Verify downloaded artifacts
+      run: |
+        shopt -s nullglob
+        dirs=(artifacts/audiom-*/)
+        if [ ${#dirs[@]} -eq 0 ]; then
+          echo "::error::No build artifacts were downloaded; nothing was uploaded to publish." >&2
+          exit 1
+        fi
+        for dir in "${dirs[@]}"; do
+          version="$(basename "$dir")"
+          version="${version#audiom-}"
+          if [ ! -s "${dir}manifest.json" ] || [ ! -s "${dir}dist/runtime/widget.js" ]; then
+            echo "::error::Artifact '${dir}' is empty or incomplete." >&2
+            ls -laR "${dir}" || true
+            exit 1
+          fi
+          mver="$(jq -r '.exbVersion' "${dir}manifest.json")"
+          if [ "${mver}" != "${version}" ]; then
+            echo "::error::Artifact '${dir}' manifest exbVersion '${mver}' != '${version}'." >&2
+            exit 1
+          fi
+        done
+        echo "Verified ${#dirs[@]} artifact(s)."
 
     # Map each `audiom-<version>` artifact into its versioned docs folder.
     - name: Copy builds into docs
