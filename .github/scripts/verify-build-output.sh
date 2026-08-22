@@ -6,28 +6,28 @@
 # Usage: verify-build-output.sh <output-dir> <expected-exb-version> [forbidden-string]
 set -euo pipefail
 
-out="${1:?usage: verify-build-output.sh <output-dir> <expected-exb-version> [forbidden-string]}"
-expected_version="${2:?usage: verify-build-output.sh <output-dir> <expected-exb-version> [forbidden-string]}"
-forbidden="${3:-}"
+OUT="${1:?usage: verify-build-output.sh <output-dir> <expected-exb-version> [forbidden-string]}"
+EXPECTED_VERSION="${2:?usage: verify-build-output.sh <output-dir> <expected-exb-version> [forbidden-string]}"
+FORBIDDEN="${3:-}"
 
 fail() { echo "::error::$1" >&2; exit 1; }
 
-for f in "manifest.json" "dist/runtime/widget.js" "dist/setting/setting.js"; do
-  if [ ! -s "$out/$f" ]; then
-    ls -laR "$out" 2>/dev/null || true
-    fail "missing or empty build output: $out/$f"
+for FILE in "manifest.json" "dist/runtime/widget.js" "dist/setting/setting.js"; do
+  if [ ! -s "$OUT/$FILE" ]; then
+    ls -laR "$OUT" 2>/dev/null || true
+    fail "missing or empty build output: $OUT/$FILE"
   fi
 done
 
-built="$(jq -r '.exbVersion' "$out/manifest.json")"
-if [ "$built" != "$expected_version" ]; then
-  fail "manifest exbVersion is '$built', expected '$expected_version'"
+BUILT="$(jq -r '.exbVersion' "$OUT/manifest.json")"
+if [ "$BUILT" != "$EXPECTED_VERSION" ]; then
+  fail "manifest exbVersion is '$BUILT', expected '$EXPECTED_VERSION'"
 fi
 
-if [ -n "$forbidden" ] && grep -rqF -- "$forbidden" "$out"; then
-  echo "Files still containing '$forbidden':" >&2
-  grep -rlF -- "$forbidden" "$out" >&2 || true
-  fail "forbidden string '$forbidden' found in build output"
+if [ -n "$FORBIDDEN" ] && grep -rqF -- "$FORBIDDEN" "$OUT"; then
+  echo "Files still containing '$FORBIDDEN':" >&2
+  grep -rlF -- "$FORBIDDEN" "$OUT" >&2 || true
+  fail "forbidden string '$FORBIDDEN' found in build output"
 fi
 
-echo "Build output at '$out' verified (exbVersion=$built)."
+echo "Build output at '$OUT' verified (exbVersion=$BUILT)."

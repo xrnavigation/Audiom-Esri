@@ -7,26 +7,26 @@
 set -euo pipefail
 shopt -s nullglob
 
-artifacts_dir="${1:?usage: verify-artifacts.sh <artifacts-dir>}"
+ARTIFACTS_DIR="${1:?usage: verify-artifacts.sh <artifacts-dir>}"
+DIRS=("$ARTIFACTS_DIR"/audiom-*/)
 
 fail() { echo "::error::$1" >&2; exit 1; }
 
-dirs=("$artifacts_dir"/audiom-*/)
-if [ "${#dirs[@]}" -eq 0 ]; then
-  fail "no build artifacts found under '$artifacts_dir'; nothing was uploaded to publish"
+if [ "${#DIRS[@]}" -eq 0 ]; then
+  fail "no build artifacts found under '$ARTIFACTS_DIR'; nothing was uploaded to publish"
 fi
 
-for dir in "${dirs[@]}"; do
-  version="$(basename "$dir")"
-  version="${version#audiom-}"
-  if [ ! -s "${dir}manifest.json" ] || [ ! -s "${dir}dist/runtime/widget.js" ]; then
-    ls -laR "$dir" || true
-    fail "artifact '$dir' is empty or incomplete"
+for DIR in "${DIRS[@]}"; do
+  VERSION="$(basename "$DIR")"
+  VERSION="${VERSION#audiom-}"
+  if [ ! -s "${DIR}manifest.json" ] || [ ! -s "${DIR}dist/runtime/widget.js" ]; then
+    ls -laR "$DIR" || true
+    fail "artifact '$DIR' is empty or incomplete"
   fi
-  mver="$(jq -r '.exbVersion' "${dir}manifest.json")"
-  if [ "$mver" != "$version" ]; then
-    fail "artifact '$dir' manifest exbVersion '$mver' != '$version'"
+  MVER="$(jq -r '.exbVersion' "${DIR}manifest.json")"
+  if [ "$MVER" != "$VERSION" ]; then
+    fail "artifact '$DIR' manifest exbVersion '$MVER' != '$VERSION'"
   fi
 done
 
-echo "Verified ${#dirs[@]} artifact(s) under '$artifacts_dir'."
+echo "Verified ${#DIRS[@]} artifact(s) under '$ARTIFACTS_DIR'."

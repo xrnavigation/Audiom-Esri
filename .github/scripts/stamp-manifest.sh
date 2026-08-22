@@ -3,22 +3,23 @@
 # Usage: stamp-manifest.sh <manifest-path> <exb-version>
 set -euo pipefail
 
-manifest="${1:?usage: stamp-manifest.sh <manifest-path> <exb-version>}"
-version="${2:?usage: stamp-manifest.sh <manifest-path> <exb-version>}"
+MANIFEST="${1:?usage: stamp-manifest.sh <manifest-path> <exb-version>}"
+VERSION="${2:?usage: stamp-manifest.sh <manifest-path> <exb-version>}"
+TMP="$(mktemp)"
+trap 'rm -f "$TMP"' EXIT
 
-if [ ! -f "$manifest" ]; then
-  echo "::error::manifest not found: $manifest" >&2
+if [ ! -f "$MANIFEST" ]; then
+  echo "::error::manifest not found: $MANIFEST" >&2
   exit 1
 fi
 
-tmp="$(mktemp)"
-jq --arg v "$version" '.exbVersion = $v' "$manifest" > "$tmp"
-mv "$tmp" "$manifest"
+jq --arg v "$VERSION" '.exbVersion = $v' "$MANIFEST" > "$TMP"
+mv "$TMP" "$MANIFEST"
 
-got="$(jq -r '.exbVersion' "$manifest")"
-if [ "$got" != "$version" ]; then
-  echo "::error::failed to stamp exbVersion (got '$got', expected '$version')" >&2
+GOT="$(jq -r '.exbVersion' "$MANIFEST")"
+if [ "$GOT" != "$VERSION" ]; then
+  echo "::error::failed to stamp exbVersion (got '$GOT', expected '$VERSION')" >&2
   exit 1
 fi
 
-echo "Stamped $manifest with exbVersion=$version"
+echo "Stamped $MANIFEST with exbVersion=$VERSION"

@@ -5,23 +5,23 @@
 set -euo pipefail
 shopt -s nullglob
 
-artifacts_dir="${1:?usage: copy-to-docs.sh <artifacts-dir> <docs-base-dir>}"
-docs_base="${2:?usage: copy-to-docs.sh <artifacts-dir> <docs-base-dir>}"
+ARTIFACTS_DIR="${1:?usage: copy-to-docs.sh <artifacts-dir> <docs-base-dir>}"
+DOCS_BASE="${2:?usage: copy-to-docs.sh <artifacts-dir> <docs-base-dir>}"
+DIRS=("$ARTIFACTS_DIR"/audiom-*/)
 
-dirs=("$artifacts_dir"/audiom-*/)
-if [ "${#dirs[@]}" -eq 0 ]; then
-  echo "::error::no artifacts found under '$artifacts_dir'" >&2
+if [ "${#DIRS[@]}" -eq 0 ]; then
+  echo "::error::no artifacts found under '$ARTIFACTS_DIR'" >&2
   exit 1
 fi
 
-for dir in "${dirs[@]}"; do
-  version="$(basename "$dir")"
-  version="${version#audiom-}"
-  target="${docs_base}/${version}/audiom"
-  echo "Updating ${target} from ${dir}"
-  rm -rf "$target"
-  mkdir -p "$target"
-  cp -R "${dir}." "$target/"
+for DIR in "${DIRS[@]}"; do
+  VERSION="$(basename "$DIR")"
+  VERSION="${VERSION#audiom-}"
+  TARGET="${DOCS_BASE}/${VERSION}/audiom"
+  echo "Updating ${TARGET} from ${DIR}"
+  rm -rf "$TARGET"
+  mkdir -p "$TARGET"
+  cp -R "${DIR}." "$TARGET/"
 done
 
-echo "Copied ${#dirs[@]} build(s) into '$docs_base'."
+echo "Copied ${#DIRS[@]} build(s) into '$DOCS_BASE'."
