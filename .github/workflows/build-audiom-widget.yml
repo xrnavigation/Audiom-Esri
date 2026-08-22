@@ -17,6 +17,15 @@ on:
 permissions:
   contents: read
 
+# =====================================================================
+# Audiom base URL rewrite. Before every build the widget source has all
+# occurrences of AUDIOM_ORIGINAL_URL replaced with AUDIOM_REPLACEMENT_URL.
+# Edit these two values to change the search/replacement URLs.
+# =====================================================================
+env:
+  AUDIOM_ORIGINAL_URL: 'https://audiom-staging.herokuapp.com'
+  AUDIOM_REPLACEMENT_URL: 'https://audiom.net'
+
 # Serialize runs on the same branch so the docs-publishing commit never races.
 concurrency:
   group: build-audiom-${{ github.ref }}
@@ -76,6 +85,31 @@ jobs:
         tmp="$(mktemp)"
         jq --arg v '${{ matrix.exb-version }}' '.exbVersion = $v' "$MANIFEST" > "$tmp"
         mv "$tmp" "$MANIFEST"
+
+    # Rewrite the Audiom base URL (e.g. staging -> production) across the widget
+    # source before building. Configure the URLs via the top-level `env` block.
+    - name: Rewrite Audiom base URL for production
+      run: |
+        python - <<'PY'
+        import os, pathlib, sys
+        frm = os.environ["AUDIOM_ORIGINAL_URL"]
+        to = os.environ["AUDIOM_REPLACEMENT_URL"]
+        if not frm:
+            sys.exit("::error::AUDIOM_ORIGINAL_URL must not be empty")
+        root = pathlib.Path("ArcGIS/client/your-extensions")
+        exts = {".ts", ".tsx", ".js", ".jsx", ".json", ".html", ".css", ".scss", ".md"}
+        total = 0
+        for path in root.rglob("*"):
+            if "node_modules" in path.parts or not path.is_file() or path.suffix.lower() not in exts:
+                continue
+            text = path.read_text(encoding="utf-8")
+            occurrences = text.count(frm)
+            if occurrences:
+                path.write_text(text.replace(frm, to), encoding="utf-8")
+                total += occurrences
+                print(f"  {occurrences}x  {path}")
+        print(f"Replaced {total} occurrence(s) of '{frm}' with '{to}'.")
+        PY
 
     # Install dependencies for both the client and the server.
     - name: Install client dependencies
