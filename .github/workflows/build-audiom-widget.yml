@@ -25,6 +25,9 @@ permissions:
 env:
   AUDIOM_ORIGINAL_URL: 'https://audiom-staging.herokuapp.com'
   AUDIOM_REPLACEMENT_URL: 'https://audiom.net'
+  # Absolute path to the workflow helper scripts, anchored to the repo root so
+  # every step calls the same location regardless of its working directory.
+  SCRIPTS_DIR: ${{ github.workspace }}/.github/scripts
 
 # Serialize runs on the same branch so the docs-publishing commit never races.
 concurrency:
@@ -80,36 +83,13 @@ jobs:
     # `properties`), so stamp the target version to keep each published build's
     # `exbVersion` accurate.
     - name: Stamp widget manifest with target ExB version
-      run: |
-        MANIFEST="ArcGIS/client/your-extensions/widgets/audiom/manifest.json"
-        tmp="$(mktemp)"
-        jq --arg v '${{ matrix.exb-version }}' '.exbVersion = $v' "$MANIFEST" > "$tmp"
-        mv "$tmp" "$MANIFEST"
+      run: bash "$SCRIPTS_DIR/stamp-manifest.sh" "ArcGIS/client/your-extensions/widgets/audiom/manifest.json" "${{ matrix.exb-version }}"
 
-    # Rewrite the Audiom base URL (e.g. staging -> production) across the widget
-    # source before building. Configure the URLs via the top-level `env` block.
+    # Rewrite the Audiom base URL (staging -> production) across the widget source
+    # before building. URLs come from the top-level `env` block; --require-match
+    # fails the build if the original URL is not found (so it can't silently skip).
     - name: Rewrite Audiom base URL for production
-      run: |
-        python - <<'PY'
-        import os, pathlib, sys
-        frm = os.environ["AUDIOM_ORIGINAL_URL"]
-        to = os.environ["AUDIOM_REPLACEMENT_URL"]
-        if not frm:
-            sys.exit("::error::AUDIOM_ORIGINAL_URL must not be empty")
-        root = pathlib.Path("ArcGIS/client/your-extensions")
-        exts = {".ts", ".tsx", ".js", ".jsx", ".json", ".html", ".css", ".scss", ".md"}
-        total = 0
-        for path in root.rglob("*"):
-            if "node_modules" in path.parts or not path.is_file() or path.suffix.lower() not in exts:
-                continue
-            text = path.read_text(encoding="utf-8")
-            occurrences = text.count(frm)
-            if occurrences:
-                path.write_text(text.replace(frm, to), encoding="utf-8")
-                total += occurrences
-                print(f"  {occurrences}x  {path}")
-        print(f"Replaced {total} occurrence(s) of '{frm}' with '{to}'.")
-        PY
+      run: python "$SCRIPTS_DIR/rewrite-url.py" "ArcGIS/client/your-extensions" --require-match
 
     # Install dependencies for both the client and the server.
     - name: Install client dependencies
@@ -125,23 +105,10 @@ jobs:
       working-directory: ArcGIS/client
       run: npm run build:prod
 
+    # Verify files are non-empty, the manifest is stamped, and the original
+    # (staging) URL did not leak into the production bundle.
     - name: Verify build output
-      run: |
-        OUT="ArcGIS/client/dist/widgets/audiom"
-        # Fail the build if any essential file is missing or empty (an empty build).
-        for f in "manifest.json" "dist/runtime/widget.js" "dist/setting/setting.js"; do
-          if [ ! -s "$OUT/$f" ]; then
-            echo "::error::Missing or empty build output: $OUT/$f" >&2
-            ls -laR "$OUT" 2>/dev/null || ls -la ArcGIS/client/dist/widgets || true
-            exit 1
-          fi
-        done
-        # Fail the build if the manifest wasn't stamped with the target version.
-        built="$(jq -r '.exbVersion' "$OUT/manifest.json")"
-        if [ "$built" != "${{ matrix.exb-version }}" ]; then
-          echo "::error::Built manifest exbVersion is '$built', expected '${{ matrix.exb-version }}'" >&2
-          exit 1
-        fi
+      run: bash "$SCRIPTS_DIR/verify-build-output.sh" "ArcGIS/client/dist/widgets/audiom" "${{ matrix.exb-version }}" "$AUDIOM_ORIGINAL_URL"
 
     # Upload each version's build as an artifact; fail if there are no files.
     - name: Upload built widget artifact
@@ -174,42 +141,11 @@ jobs:
 
     # Fail if nothing was uploaded, or any artifact is empty / stamped wrong.
     - name: Verify downloaded artifacts
-      run: |
-        shopt -s nullglob
-        dirs=(artifacts/audiom-*/)
-        if [ ${#dirs[@]} -eq 0 ]; then
-          echo "::error::No build artifacts were downloaded; nothing was uploaded to publish." >&2
-          exit 1
-        fi
-        for dir in "${dirs[@]}"; do
-          version="$(basename "$dir")"
-          version="${version#audiom-}"
-          if [ ! -s "${dir}manifest.json" ] || [ ! -s "${dir}dist/runtime/widget.js" ]; then
-            echo "::error::Artifact '${dir}' is empty or incomplete." >&2
-            ls -laR "${dir}" || true
-            exit 1
-          fi
-          mver="$(jq -r '.exbVersion' "${dir}manifest.json")"
-          if [ "${mver}" != "${version}" ]; then
-            echo "::error::Artifact '${dir}' manifest exbVersion '${mver}' != '${version}'." >&2
-            exit 1
-          fi
-        done
-        echo "Verified ${#dirs[@]} artifact(s)."
+      run: bash "$SCRIPTS_DIR/verify-artifacts.sh" artifacts
 
     # Map each `audiom-<version>` artifact into its versioned docs folder.
     - name: Copy builds into docs
-      run: |
-        shopt -s nullglob
-        for dir in artifacts/audiom-*/; do
-          version="$(basename "$dir")"
-          version="${version#audiom-}"
-          target="docs/builder-versions/${version}/audiom"
-          echo "Updating ${target} from ${dir}"
-          rm -rf "$target"
-          mkdir -p "$target"
-          cp -R "${dir}." "$target/"
-        done
+      run: bash "$SCRIPTS_DIR/copy-to-docs.sh" artifacts docs/builder-versions
 
     # Commit the refreshed builds and push the commit.
     - name: Commit and push documentation updates
