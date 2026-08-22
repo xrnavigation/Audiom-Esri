@@ -1,0 +1,152 @@
+name: Build & Publish Audiom Widget
+
+# Requirement 3: only run on pushes to main/master.
+# Requirement 2: only build when the `audiom` widget itself changed. Scoping the
+# trigger to the widget's source folder means the workflow runs *if and only if*
+# the Audiom widget was modified. (Docs commits made by this workflow touch only
+# `docs/**`, so they never re-trigger it.)
+on:
+  push:
+    branches: [main, master]
+    paths:
+    - 'ArcGIS/client/your-extensions/widgets/audiom/**'
+
+# Least privilege by default; the publish job elevates to `write` where needed.
+permissions:
+  contents: read
+
+# Serialize runs on the same branch so the docs-publishing commit never races.
+concurrency:
+  group: build-audiom-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Audiom (ExB ${{ matrix.exb-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Build every version independently; one failure shouldn't cancel the rest.
+      fail-fast: false
+      matrix:
+        exb-version:
+        - '1.18'
+        - '1.19'
+        - '1.20'
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Python dependencies for setup scripts
+      run: pip install requests beautifulsoup4
+
+    - name: Resolve required Node.js version
+      id: node
+      run: |
+        NODE_MAJOR="$(python utils/exb_versions.py '${{ matrix.exb-version }}' --node-version)"
+        echo "Experience Builder ${{ matrix.exb-version }} -> Node.js ${NODE_MAJOR}"
+        echo "version=${NODE_MAJOR}" >> "$GITHUB_OUTPUT"
+
+    - name: Set up Node.js ${{ steps.node.outputs.version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ steps.node.outputs.version }}
+
+    # Use the project script to pull the right ExB version.
+    # This preserves `your-extensions` (the Audiom widget) while replacing the
+    # rest of the Experience Builder client/server with the requested release.
+    - name: Download & extract Experience Builder ${{ matrix.exb-version }}
+      run: python utils/setup_arcgis.py '${{ matrix.exb-version }}'
+
+    # The build tooling copies the manifest verbatim (aside from computed
+    # `properties`), so stamp the target version to keep each published build's
+    # `exbVersion` accurate.
+    - name: Stamp widget manifest with target ExB version
+      run: |
+        MANIFEST="ArcGIS/client/your-extensions/widgets/audiom/manifest.json"
+        tmp="$(mktemp)"
+        jq --arg v '${{ matrix.exb-version }}' '.exbVersion = $v' "$MANIFEST" > "$tmp"
+        mv "$tmp" "$MANIFEST"
+
+    # Install dependencies for both the client and the server.
+    - name: Install client dependencies
+      working-directory: ArcGIS/client
+      run: npm ci
+
+    - name: Install server dependencies
+      working-directory: ArcGIS/server
+      run: npm ci
+
+    # Produce the production build of the widget.
+    - name: Build Audiom widget (production)
+      working-directory: ArcGIS/client
+      run: npm run build:prod
+
+    - name: Verify build output
+      run: |
+        OUT="ArcGIS/client/dist/widgets/audiom"
+        if [ ! -f "$OUT/manifest.json" ] || [ ! -f "$OUT/dist/runtime/widget.js" ]; then
+          echo "::error::Expected build output not found at $OUT" >&2
+          ls -la ArcGIS/client/dist/widgets || true
+          exit 1
+        fi
+
+    # Upload each version's build as an artifact.
+    - name: Upload built widget artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: audiom-${{ matrix.exb-version }}
+        path: ArcGIS/client/dist/widgets/audiom
+        if-no-files-found: error
+
+  publish-docs:
+    name: Publish builds to docs
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    # Check out the branch tip (not the detached trigger SHA) so we can commit
+    # and push the documentation update back to it.
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref_name }}
+
+    # Download every version's build artifact.
+    - name: Download all widget build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+        pattern: audiom-*
+
+    # Map each `audiom-<version>` artifact into its versioned docs folder.
+    - name: Copy builds into docs
+      run: |
+        shopt -s nullglob
+        for dir in artifacts/audiom-*/; do
+          version="$(basename "$dir")"
+          version="${version#audiom-}"
+          target="docs/builder-versions/${version}/audiom"
+          echo "Updating ${target} from ${dir}"
+          rm -rf "$target"
+          mkdir -p "$target"
+          cp -R "${dir}." "$target/"
+        done
+
+    # Commit the refreshed builds and push the commit.
+    - name: Commit and push documentation updates
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add docs/builder-versions
+        if git diff --cached --quiet; then
+          echo "No documentation changes to commit."
+        else
+          git commit -m "docs: Update Audiom widget builds."
+          git push
+        fi
