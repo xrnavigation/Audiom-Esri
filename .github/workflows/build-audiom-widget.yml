@@ -30,10 +30,21 @@ jobs:
       # Build every version independently; one failure shouldn't cancel the rest.
       fail-fast: false
       matrix:
-        exb-version:
-        - '1.18'
-        - '1.19'
-        - '1.20'
+        # =====================================================================
+        # Requirement 1: easily configurable matrix of Experience Builder
+        # versions. Add or remove an entry to build for that release, setting
+        # `node-version` to the recommended Node.js major from Esri's table:
+        # https://developers.arcgis.com/experience-builder/guide/release-versions/
+        # The docs folder `docs/builder-versions/<exb-version>/audiom` is derived
+        # from `exb-version`.
+        # =====================================================================
+        include:
+        - exb-version: '1.18'
+          node-version: '22'
+        - exb-version: '1.19'
+          node-version: '22'
+        - exb-version: '1.20'
+          node-version: '24'
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -44,19 +55,12 @@ jobs:
         python-version: '3.11'
 
     - name: Install Python dependencies for setup scripts
-      run: pip install requests beautifulsoup4
+      run: pip install requests
 
-    - name: Resolve required Node.js version
-      id: node
-      run: |
-        NODE_MAJOR="$(python utils/exb_versions.py '${{ matrix.exb-version }}' --node-version)"
-        echo "Experience Builder ${{ matrix.exb-version }} -> Node.js ${NODE_MAJOR}"
-        echo "version=${NODE_MAJOR}" >> "$GITHUB_OUTPUT"
-
-    - name: Set up Node.js ${{ steps.node.outputs.version }}
+    - name: Set up Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ steps.node.outputs.version }}
+        node-version: ${{ matrix.node-version }}
 
     # Use the project script to pull the right ExB version.
     # This preserves `your-extensions` (the Audiom widget) while replacing the
