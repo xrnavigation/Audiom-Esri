@@ -26,6 +26,8 @@ PRESERVED_FILES = [
     "client/start-client.bat",
     "server/start-server.bat"
 ]
+# Older ExB zips wrap client/server in this directory; newer zips extract at the root.
+NESTED_EXTRACT_DIR = "ArcGISExperienceBuilder"
 
 
 def get_base_path(target_dir: str) -> Path:
@@ -173,6 +175,21 @@ def restore_custom_folders_and_files(
             shutil.move(str(temp_path), str(full_path))
 
 
+def resolve_extracted_root(temp_extract: Path) -> Path:
+    """
+    Return the directory that actually contains ExB files.
+
+    Older Experience Builder zips extract to a single ArcGISExperienceBuilder/
+    subdirectory. Newer zips place client/ and server/ at the zip root.
+    """
+    nested = temp_extract / NESTED_EXTRACT_DIR
+    root_has_product = (temp_extract / "client").is_dir() or (temp_extract / "server").is_dir()
+    if nested.is_dir() and not root_has_product:
+        print(f"  Detected nested '{NESTED_EXTRACT_DIR}/'; flattening to target root")
+        return nested
+    return temp_extract
+
+
 def extract_and_move_files(zip_path: Path, base_path: Path) -> bool:
     """
     Extract zip file and move contents to target directory.
@@ -199,8 +216,7 @@ def extract_and_move_files(zip_path: Path, base_path: Path) -> bool:
             print(f"  Extracting to: {temp_extract}")
             zip_ref.extractall(temp_extract)
             
-            # Files are always at the root of the extracted zip
-            source_dir = temp_extract
+            source_dir = resolve_extracted_root(temp_extract)
             
             # Move contents to target directory
             print(f"  Moving contents from {source_dir} to {base_path}")
