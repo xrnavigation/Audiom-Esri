@@ -35,9 +35,10 @@ interface CollapsibleHeaderProps {
 }
 
 // Native <button> picks up Calcite/UA defaults (column flex + white fill)
-// on EXB 1.18–1.20. Jimu Button (tertiary + unstyled) owns the chrome;
-// inline styles plus a doubled-class Emotion reset keep the chevron in a
-// row even if Calcite uses !important.
+// on EXB 1.13–1.20. Jimu Button (tertiary) owns the chrome; inline styles
+// plus a doubled-class Emotion reset keep the chevron in a row even if
+// Calcite uses !important. Avoid unstyled/disableHoverEffect — those
+// Button props are missing on ExB 1.13.
 const styles = {
   base: {
     display: 'flex',
@@ -128,7 +129,7 @@ const toggleButtonResetStyle = css`
 
 /**
  * A reusable collapsible header component following WCAG 2.1 accessibility guidelines.
- * Uses Jimu's Button so EXB 1.18–1.20 Calcite styles cannot restyle the
+ * Uses Jimu's Button so EXB 1.13–1.20 Calcite styles cannot restyle the
  * toggle into a white column button.
  *
  * Accessibility features:
@@ -152,8 +153,6 @@ const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
     >
       <Button
         type={ButtonType.Tertiary}
-        unstyled
-        disableHoverEffect
         htmlType={HtmlButtonType.Button}
         onClick={onToggle}
         aria-expanded={isOpen}
