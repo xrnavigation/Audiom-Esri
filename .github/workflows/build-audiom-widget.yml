@@ -109,17 +109,25 @@ jobs:
       working-directory: ArcGIS/client
       run: npm run build:prod
 
+    # ExB 1.13 writes to dist-prod; 1.18+ write to dist.
+    - name: Locate widget build output
+      id: widget-out
+      run: |
+        OUT="$(bash "$SCRIPTS_DIR/resolve-widget-output.sh" "ArcGIS/client")"
+        echo "Found widget output at $OUT"
+        echo "path=$OUT" >> "$GITHUB_OUTPUT"
+
     # Verify files are non-empty, the manifest is stamped, and the original
     # (staging) URL did not leak into the production bundle.
     - name: Verify build output
-      run: bash "$SCRIPTS_DIR/verify-build-output.sh" "ArcGIS/client/dist/widgets/audiom" "${{ matrix.exb-version }}" "$AUDIOM_ORIGINAL_URL"
+      run: bash "$SCRIPTS_DIR/verify-build-output.sh" "${{ steps.widget-out.outputs.path }}" "${{ matrix.exb-version }}" "$AUDIOM_ORIGINAL_URL"
 
     # Upload each version's build as an artifact; fail if there are no files.
     - name: Upload built widget artifact
       uses: actions/upload-artifact@v4
       with:
         name: audiom-${{ matrix.exb-version }}
-        path: ArcGIS/client/dist/widgets/audiom
+        path: ${{ steps.widget-out.outputs.path }}
         if-no-files-found: error
 
   publish-docs:
