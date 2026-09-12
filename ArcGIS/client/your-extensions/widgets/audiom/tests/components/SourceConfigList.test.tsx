@@ -53,16 +53,18 @@ describe('SourceConfigList', () => {
     const { getByLabelText, getByTestId } = render(
       <SourceConfigList sourceConfigs={sources} onChange={() => undefined} />
     )
+    const isExpanded = (index: number): boolean =>
+      getByTestId(`source-card-${index}`).getAttribute('data-expanded') === 'true'
 
-    expect(getByTestId('source-card-0').getAttribute('data-expanded')).toBe('true')
-    expect(getByTestId('source-card-1').getAttribute('data-expanded')).toBe('true')
+    expect(isExpanded(0)).toBe(true)
+    expect(isExpanded(1)).toBe(true)
 
     fireEvent.click(getByLabelText('Collapse all sources'))
-    expect(getByTestId('source-card-0').getAttribute('data-expanded')).toBe('false')
-    expect(getByTestId('source-card-1').getAttribute('data-expanded')).toBe('false')
+    expect(isExpanded(0)).toBe(false)
+    expect(isExpanded(1)).toBe(false)
 
     fireEvent.click(getByLabelText('Expand all sources'))
-    expect(getByTestId('source-card-0').getAttribute('data-expanded')).toBe('true')
-    expect(getByTestId('source-card-1').getAttribute('data-expanded')).toBe('true')
+    expect(isExpanded(0)).toBe(true)
+    expect(isExpanded(1)).toBe(true)
   })
 })

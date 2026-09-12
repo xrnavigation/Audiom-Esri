@@ -38,6 +38,10 @@ function asLayerLifecycleApi(view: JimuMapView): JimuLayerLifecycleApi {
   return view as JimuMapView & JimuLayerLifecycleApi
 }
 
+function isFunction<T>(value: T): value is Extract<T, Function> {
+  return typeof value === 'function'
+}
+
 // Auto-sync layers with ESRI map - hidden config for now, always enabled
 export const AUTO_SYNC_LAYERS = true
 
@@ -133,8 +137,8 @@ export class MapSyncManager {
     jimuMapView.addJimuLayerViewCreatedListener(this.boundOnLayerCreated)
 
     const lifecycleApi = asLayerLifecycleApi(jimuMapView)
-    const hasRemovedListener = typeof lifecycleApi.addJimuLayerViewRemovedListener === 'function'
-    const hasVisibilityListener = typeof lifecycleApi.addJimuLayerViewsVisibleChangeListener === 'function'
+    const hasRemovedListener = isFunction(lifecycleApi.addJimuLayerViewRemovedListener)
+    const hasVisibilityListener = isFunction(lifecycleApi.addJimuLayerViewsVisibleChangeListener)
 
     if (hasRemovedListener) {
       lifecycleApi.addJimuLayerViewRemovedListener(this.boundOnLayerRemoved)
@@ -161,10 +165,10 @@ export class MapSyncManager {
         this.jimuMapView.removeJimuLayerViewCreatedListener(this.boundOnLayerCreated)
       }
       const lifecycleApi = asLayerLifecycleApi(this.jimuMapView)
-      if (this.boundOnLayerRemoved && typeof lifecycleApi.removeJimuLayerViewRemovedListener === 'function') {
+      if (this.boundOnLayerRemoved && isFunction(lifecycleApi.removeJimuLayerViewRemovedListener)) {
         lifecycleApi.removeJimuLayerViewRemovedListener(this.boundOnLayerRemoved)
       }
-      if (this.boundOnVisibilityChanged && typeof lifecycleApi.removeJimuLayerViewsVisibleChangeListener === 'function') {
+      if (this.boundOnVisibilityChanged && isFunction(lifecycleApi.removeJimuLayerViewsVisibleChangeListener)) {
         lifecycleApi.removeJimuLayerViewsVisibleChangeListener(this.boundOnVisibilityChanged)
       }
       logger.debug('Detached')
@@ -193,11 +197,11 @@ export class MapSyncManager {
       return
     }
 
-    if (typeof layers.forEach === 'function') {
+    if (isFunction(layers.forEach)) {
       layers.forEach(layer => this.watchLayerVisibility(layer))
     }
 
-    if (typeof layers.on !== 'function') {
+    if (!isFunction(layers.on)) {
       return
     }
 
@@ -219,14 +223,14 @@ export class MapSyncManager {
     if (!layer || this.layerWatchHandles.has(layer)) {
       return
     }
-    if (typeof layer.watch === 'function') {
+    if (isFunction(layer.watch)) {
       const handle = layer.watch('visible', () => {
         logger.debug('Layer visibility changed', layer.title)
         this.scheduleNotify()
       })
       this.layerWatchHandles.set(layer, handle)
     }
-    if (layer.layers && typeof layer.layers.forEach === 'function') {
+    if (layer.layers && isFunction(layer.layers.forEach)) {
       layer.layers.forEach(child => this.watchLayerVisibility(child))
     }
   }
@@ -240,7 +244,7 @@ export class MapSyncManager {
       handle.remove()
       this.layerWatchHandles.delete(layer)
     }
-    if (layer.layers && typeof layer.layers.forEach === 'function') {
+    if (layer.layers && isFunction(layer.layers.forEach)) {
       layer.layers.forEach(child => this.unwatchLayerVisibility(child))
     }
   }
