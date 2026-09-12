@@ -73,6 +73,25 @@ expect_failure "no artifacts fails" bash "$SCRIPTS_DIR/verify-artifacts.sh" "$WO
 printf '{ "exbVersion": "9.9" }\n' > "$ARTIFACTS/audiom-1.20/manifest.json"
 expect_failure "version mismatch fails" bash "$SCRIPTS_DIR/verify-artifacts.sh" "$ARTIFACTS"
 
+echo "== resolve-widget-output.sh =="
+CLIENT="$WORK/client"
+mkdir -p "$CLIENT/dist/widgets/audiom" "$CLIENT/dist-prod/widgets/audiom"
+printf '{ "exbVersion": "1.18" }\n' > "$CLIENT/dist/widgets/audiom/manifest.json"
+printf '{ "exbVersion": "1.13" }\n' > "$CLIENT/dist-prod/widgets/audiom/manifest.json"
+if [ "$(bash "$SCRIPTS_DIR/resolve-widget-output.sh" "$CLIENT")" = "$CLIENT/dist/widgets/audiom" ]; then
+  ok "prefers dist when both exist"
+else
+  bad "prefers dist when both exist"
+fi
+rm -rf "$CLIENT/dist"
+if [ "$(bash "$SCRIPTS_DIR/resolve-widget-output.sh" "$CLIENT")" = "$CLIENT/dist-prod/widgets/audiom" ]; then
+  ok "falls back to dist-prod"
+else
+  bad "falls back to dist-prod"
+fi
+rm -rf "$CLIENT/dist-prod"
+expect_failure "missing output fails" bash "$SCRIPTS_DIR/resolve-widget-output.sh" "$CLIENT"
+
 echo "== copy-to-docs.sh =="
 mkdir -p "$ARTIFACTS_COPY/audiom-1.18/dist/runtime"
 printf '{ "exbVersion": "1.18" }\n' > "$ARTIFACTS_COPY/audiom-1.18/manifest.json"
