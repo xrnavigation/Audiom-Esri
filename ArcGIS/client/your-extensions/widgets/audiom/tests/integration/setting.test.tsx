@@ -24,17 +24,8 @@ jest.mock('jimu-arcgis', () => ({
  * exercised.
  */
 jest.mock('jimu-ui/advanced/setting-components', () => {
-  const React = require('jimu-core').React
-  const passthrough = (p: any) => React.createElement('div', null, p?.children)
-  return {
-    __esModule: true,
-    MapWidgetSelector: (p: any) => React.createElement('div', {
-      'data-testid': 'map-widget-selector',
-      onClick: () => p.onSelect?.(['picked-map'])
-    }),
-    SettingSection: passthrough,
-    SettingRow: passthrough
-  }
+  const { createSettingComponentsStubs } = require('../helpers/stubComponents')
+  return createSettingComponentsStubs()
 })
 
 /**
@@ -44,29 +35,8 @@ jest.mock('jimu-ui/advanced/setting-components', () => {
  * functional components — we are testing audiom's wiring, not jimu-ui.
  */
 jest.mock('jimu-ui', () => {
-  const React = require('jimu-core').React
-  const passthrough = (p: any) => React.createElement('div', null, p?.children)
-  const inputLike = (p: any) => React.createElement('input', {
-    onChange: (e: any) => p.onChange?.(e?.target?.value),
-    value: p?.value ?? ''
-  })
-  return {
-    __esModule: true,
-    NumericInput: inputLike,
-    Switch: (p: any) => React.createElement('input', {
-      type: 'checkbox',
-      checked: !!p.checked,
-      onChange: (e: any) => p.onChange?.(e?.target?.checked, e)
-    }),
-    Button: (p: any) => React.createElement('button', { onClick: p.onClick }, p?.children),
-    ButtonGroup: passthrough,
-    Collapse: (p: any) => React.createElement('div', null, p?.isOpen ? p?.children : null),
-    Tooltip: passthrough,
-    Label: passthrough,
-    Select: inputLike,
-    Option: (p: any) => React.createElement('option', null, p?.children),
-    TextInput: inputLike
-  }
+  const { createJimuUiStubs } = require('../helpers/stubComponents')
+  return createJimuUiStubs()
 })
 
 /**
@@ -82,10 +52,10 @@ jest.mock('../../src/setting/components/VisualBaseLayerList', () => ({
 jest.mock('../../src/setting/components/FieldRenderer', () => ({
   __esModule: true, default: (): null => null
 }))
-jest.mock('../../src/setting/components/CollapsibleHeader', () => ({
-  __esModule: true,
-  default: ({ children }: any) => children ?? null
-}))
+jest.mock('../../src/setting/components/CollapsibleHeader', () => {
+  const { passthroughChildren } = require('../helpers/stubComponents')
+  return { __esModule: true, default: passthroughChildren }
+})
 jest.mock('../../src/setting/components/CopyableLabel', () => ({
   __esModule: true, default: (): null => null
 }))

@@ -82,6 +82,7 @@ describe('MapSyncManager', () => {
       expect(counts.created).toBe(1)
       expect(counts.removed).toBe(1)
       expect(counts.visibility).toBe(1)
+      expect(fakeJmv._jsApiListenerCounts()).toEqual({ afterAdd: 0, afterRemove: 0 })
     })
 
     it('detach removes all listeners', () => {
@@ -91,6 +92,29 @@ describe('MapSyncManager', () => {
       expect(counts.created).toBe(0)
       expect(counts.removed).toBe(0)
       expect(counts.visibility).toBe(0)
+    })
+
+    it('uses JS API fallbacks when Jimu remove/visibility listeners are missing (ExB 1.13)', () => {
+      const layer = makeFakeLayer({ title: 'Existing' })
+      const legacy = makeFakeJimuMapView({
+        mapId: 'map-1',
+        layers: [layer],
+        includeModernLayerListeners: false
+      })
+      ;(getJimuMapViewById as jest.Mock).mockReturnValue(legacy)
+
+      expect(mgr.attach('map-1')).toBe(true)
+      const counts = legacy._listenerCounts()
+      expect(counts.created).toBe(1)
+      expect(counts.removed).toBe(0)
+      expect(counts.visibility).toBe(0)
+      expect(legacy._jsApiListenerCounts()).toEqual({ afterAdd: 1, afterRemove: 1 })
+      expect(layer._watchCounts()).toBe(1)
+
+      mgr.detach()
+      expect(legacy._listenerCounts().created).toBe(0)
+      expect(legacy._jsApiListenerCounts()).toEqual({ afterAdd: 0, afterRemove: 0 })
+      expect(layer._watchCounts()).toBe(0)
     })
 
     it('re-attaching detaches the previous map first', () => {
@@ -193,6 +217,44 @@ describe('MapSyncManager', () => {
       jest.advanceTimersByTime(NOTIFY_DEBOUNCE_MS)
       expect(bad).toHaveBeenCalled()
       expect(good).toHaveBeenCalled()
+    })
+
+    it('notifies on JS API layer remove and visibility fallbacks (ExB 1.13)', () => {
+      const existing = makeFakeLayer({ title: 'Existing' })
+      const legacy = makeFakeJimuMapView({
+        mapId: 'map-1',
+        layers: [existing],
+        includeModernLayerListeners: false
+      })
+      ;(getJimuMapViewById as jest.Mock).mockReturnValue(legacy)
+      mgr.detach()
+      mgr.attach('map-1')
+
+      const listener = jest.fn()
+      mgr.addChangeListener(listener)
+      ;(extractMapConfigFromEsriMap as jest.Mock).mockReturnValue({
+        title: 'Map', centerLatitude: 0, centerLongitude: 0, zoom: 4,
+        sourceConfigs: [makeSource({ source: 'from-visibility' })]
+      })
+
+      existing._fireVisibleChange(false)
+      expect(listener).not.toHaveBeenCalled()
+      jest.advanceTimersByTime(NOTIFY_DEBOUNCE_MS)
+      expect(listener).toHaveBeenCalledTimes(1)
+
+      ;(extractMapConfigFromEsriMap as jest.Mock).mockReturnValue({
+        title: 'Map', centerLatitude: 0, centerLongitude: 0, zoom: 5,
+        sourceConfigs: [makeSource({ source: 'from-fallback' })]
+      })
+      legacy._fireJsApiLayerRemoved(existing)
+      jest.advanceTimersByTime(NOTIFY_DEBOUNCE_MS)
+      expect(listener).toHaveBeenCalledTimes(2)
+      expect(existing._watchCounts()).toBe(0)
+
+      const added = makeFakeLayer({ title: 'Added' })
+      legacy._fireJsApiLayerAdded(added)
+      expect(added._watchCounts()).toBe(1)
+      mgr.detach()
     })
   })
 

@@ -1,3 +1,4 @@
+import { React } from 'jimu-core'
 import { render } from '@testing-library/react'
 import MessagePopup, { MessageType, MessagePosition } from '../../src/runtime/components/MessagePopup'
 

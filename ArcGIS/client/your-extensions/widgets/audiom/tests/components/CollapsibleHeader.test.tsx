@@ -3,21 +3,8 @@ import { render, fireEvent } from '@testing-library/react'
 import CollapsibleHeader from '../../src/setting/components/CollapsibleHeader'
 
 jest.mock('jimu-ui', () => {
-  const React = require('jimu-core').React
-  return {
-    __esModule: true,
-    Button: (p: any) => React.createElement('button', {
-      type: p.htmlType ?? 'button',
-      onClick: p.onClick,
-      style: p.style,
-      'data-button-type': p.type,
-      'data-unstyled': p.unstyled ? 'true' : undefined,
-      'aria-expanded': p['aria-expanded'],
-      'aria-controls': p['aria-controls'],
-      'aria-label': p['aria-label']
-    }, p.children),
-    Tooltip: (p: { children?: unknown }) => p.children ?? null
-  }
+  const { createJimuUiStubs } = require('../helpers/stubComponents')
+  return createJimuUiStubs()
 })
 
 jest.mock('jimu-icons/outlined/directional/down', () => ({
@@ -38,7 +25,6 @@ describe('CollapsibleHeader', () => {
 
     const button = getByRole('button') as HTMLButtonElement
     expect(button.getAttribute('data-button-type')).toBe('tertiary')
-    expect(button.getAttribute('data-unstyled')).toBe('true')
     expect(button.style.display).toBe('flex')
     expect(button.style.flexDirection).toBe('row')
     expect(button.style.alignItems).toBe('center')

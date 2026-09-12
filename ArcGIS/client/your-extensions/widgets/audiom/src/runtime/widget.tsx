@@ -3,11 +3,12 @@ import { audiomConfigToEmbedConfig } from '../utils/mapUtils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { serializeLockedForDiff } from '../utils/sourceConfigUtils'
 import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis'
-import { useState, useEffect } from 'react'
 import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs'
 import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation'
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
+
+const { useState, useEffect } = React
 
 // Typed styles with full key/value validation
 const styles = {

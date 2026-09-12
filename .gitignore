@@ -14,5 +14,7 @@ ArcGIS/client/*
 ArcGIS/server/*
 !ArcGIS/server/start-server.bat
 !ArcGIS/server/public/
+# Local Developer Edition OAuth; not present on later ExB trees.
+ArcGIS/server/public/signin-info.json
 __pycache__
 /docs/_site

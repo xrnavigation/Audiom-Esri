@@ -6,6 +6,42 @@ import { createLogger } from './logger'
 
 const logger = createLogger('MapSyncManager')
 
+/** Handle-like object returned by JS API Collection#on and Accessor#watch. */
+interface RemovableHandle {
+  remove: () => void
+}
+
+/** Minimal layer surface used by JS API fallbacks (ExB 1.13). */
+interface LayerLike {
+  title?: string
+  watch?: (property: string, callback: (newValue: unknown, oldValue: unknown) => void) => RemovableHandle
+  layers?: { forEach: (fn: (layer: LayerLike) => void) => void }
+}
+
+interface LayerCollectionLike {
+  forEach: (fn: (layer: LayerLike) => void) => void
+  on?: (eventName: string, callback: (event: { item?: LayerLike }) => void) => RemovableHandle
+}
+
+/**
+ * Jimu 1.18+ layer-lifecycle APIs. Feature-detected at runtime so the
+ * widget compiles and runs on ExB 1.13, where these methods are absent.
+ */
+interface JimuLayerLifecycleApi {
+  addJimuLayerViewRemovedListener?: (listener: (jlv: JimuLayerView) => void) => void
+  removeJimuLayerViewRemovedListener?: (listener: (jlv: JimuLayerView) => void) => void
+  addJimuLayerViewsVisibleChangeListener?: (listener: (jlvs: JimuLayerView[]) => void) => void
+  removeJimuLayerViewsVisibleChangeListener?: (listener: (jlvs: JimuLayerView[]) => void) => void
+}
+
+function asLayerLifecycleApi(view: JimuMapView): JimuLayerLifecycleApi {
+  return view as JimuMapView & JimuLayerLifecycleApi
+}
+
+function isFunction<T>(value: T): value is Extract<T, Function> {
+  return typeof value === 'function'
+}
+
 // Auto-sync layers with ESRI map - hidden config for now, always enabled
 export const AUTO_SYNC_LAYERS = true
 
@@ -43,6 +79,10 @@ export class MapSyncManager {
   private boundOnLayerCreated: ((jlv: JimuLayerView) => void) | null = null
   private boundOnLayerRemoved: ((jlv: JimuLayerView) => void) | null = null
   private boundOnVisibilityChanged: ((jlvs: JimuLayerView[]) => void) | null = null
+
+  // JS API fallback handles used when Jimu 1.18+ layer-lifecycle APIs are missing (ExB 1.13).
+  private jsApiHandles: RemovableHandle[] = []
+  private layerWatchHandles: Map<LayerLike, RemovableHandle> = new Map()
 
   // Pending debounced notify timer; cleared on detach / coalesced on rapid bursts.
   private notifyTimer: ReturnType<typeof setTimeout> | null = null
@@ -91,10 +131,24 @@ export class MapSyncManager {
       this.scheduleNotify()
     }
 
-    // Add listeners
+    // Created listener exists on ExB 1.13+. Remove/visibility listeners were
+    // added in later Jimu versions — feature-detect and fall back to JS API
+    // collection/watch events when they are missing.
     jimuMapView.addJimuLayerViewCreatedListener(this.boundOnLayerCreated)
-    jimuMapView.addJimuLayerViewRemovedListener(this.boundOnLayerRemoved)
-    jimuMapView.addJimuLayerViewsVisibleChangeListener(this.boundOnVisibilityChanged)
+
+    const lifecycleApi = asLayerLifecycleApi(jimuMapView)
+    const hasRemovedListener = isFunction(lifecycleApi.addJimuLayerViewRemovedListener)
+    const hasVisibilityListener = isFunction(lifecycleApi.addJimuLayerViewsVisibleChangeListener)
+
+    if (hasRemovedListener) {
+      lifecycleApi.addJimuLayerViewRemovedListener(this.boundOnLayerRemoved)
+    }
+    if (hasVisibilityListener) {
+      lifecycleApi.addJimuLayerViewsVisibleChangeListener(this.boundOnVisibilityChanged)
+    }
+    if (!hasRemovedListener || !hasVisibilityListener) {
+      this.attachJsApiFallbacks(jimuMapView)
+    }
 
     logger.debug('Attached to map', mapId)
     return true
@@ -104,15 +158,18 @@ export class MapSyncManager {
    * Detach from the current map view and remove all listeners.
    */
   detach(): void {
+    this.removeJsApiFallbacks()
+
     if (this.jimuMapView) {
       if (this.boundOnLayerCreated) {
         this.jimuMapView.removeJimuLayerViewCreatedListener(this.boundOnLayerCreated)
       }
-      if (this.boundOnLayerRemoved) {
-        this.jimuMapView.removeJimuLayerViewRemovedListener(this.boundOnLayerRemoved)
+      const lifecycleApi = asLayerLifecycleApi(this.jimuMapView)
+      if (this.boundOnLayerRemoved && isFunction(lifecycleApi.removeJimuLayerViewRemovedListener)) {
+        lifecycleApi.removeJimuLayerViewRemovedListener(this.boundOnLayerRemoved)
       }
-      if (this.boundOnVisibilityChanged) {
-        this.jimuMapView.removeJimuLayerViewsVisibleChangeListener(this.boundOnVisibilityChanged)
+      if (this.boundOnVisibilityChanged && isFunction(lifecycleApi.removeJimuLayerViewsVisibleChangeListener)) {
+        lifecycleApi.removeJimuLayerViewsVisibleChangeListener(this.boundOnVisibilityChanged)
       }
       logger.debug('Detached')
     }
@@ -127,6 +184,76 @@ export class MapSyncManager {
       clearTimeout(this.notifyTimer)
       this.notifyTimer = null
     }
+  }
+
+  /**
+   * Subscribe to JS API layer collection and visibility events. Used on ExB
+   * 1.13 where JimuMapView has no remove/visibility listener APIs.
+   */
+  private attachJsApiFallbacks(jimuMapView: JimuMapView): void {
+    const layers = jimuMapView.view?.map?.layers as LayerCollectionLike | undefined
+    if (!layers) {
+      logger.debug('JS API fallbacks skipped - no map.layers')
+      return
+    }
+
+    if (isFunction(layers.forEach)) {
+      layers.forEach(layer => this.watchLayerVisibility(layer))
+    }
+
+    if (!isFunction(layers.on)) {
+      return
+    }
+
+    this.jsApiHandles.push(
+      layers.on('after-add', (event: { item?: LayerLike }) => {
+        logger.debug('Layer added', event?.item?.title)
+        this.watchLayerVisibility(event?.item)
+        this.scheduleNotify()
+      }),
+      layers.on('after-remove', (event: { item?: LayerLike }) => {
+        logger.debug('Layer removed', event?.item?.title)
+        this.unwatchLayerVisibility(event?.item)
+        this.scheduleNotify()
+      })
+    )
+  }
+
+  private watchLayerVisibility(layer: LayerLike | undefined): void {
+    if (!layer || this.layerWatchHandles.has(layer)) {
+      return
+    }
+    if (isFunction(layer.watch)) {
+      const handle = layer.watch('visible', () => {
+        logger.debug('Layer visibility changed', layer.title)
+        this.scheduleNotify()
+      })
+      this.layerWatchHandles.set(layer, handle)
+    }
+    if (layer.layers && isFunction(layer.layers.forEach)) {
+      layer.layers.forEach(child => this.watchLayerVisibility(child))
+    }
+  }
+
+  private unwatchLayerVisibility(layer: LayerLike | undefined): void {
+    if (!layer) {
+      return
+    }
+    const handle = this.layerWatchHandles.get(layer)
+    if (handle) {
+      handle.remove()
+      this.layerWatchHandles.delete(layer)
+    }
+    if (layer.layers && isFunction(layer.layers.forEach)) {
+      layer.layers.forEach(child => this.unwatchLayerVisibility(child))
+    }
+  }
+
+  private removeJsApiFallbacks(): void {
+    this.jsApiHandles.forEach(handle => handle.remove())
+    this.jsApiHandles = []
+    this.layerWatchHandles.forEach(handle => handle.remove())
+    this.layerWatchHandles.clear()
   }
 
   /**

@@ -1,8 +1,8 @@
 import { React } from 'jimu-core'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
 import { Select, Option, Collapse, Button, TextInput } from 'jimu-ui'
-import { ExpandAllOutlined } from 'jimu-icons/outlined/directional/expand-all'
-import { CollapseAllOutlined } from 'jimu-icons/outlined/directional/collapse-all'
+import { ExpandOutlined } from 'jimu-icons/outlined/directional/expand'
+import { CollapseOutlined } from 'jimu-icons/outlined/directional/collapse'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
 import { ButtonSize, ButtonType, FlowType, Colors, Padding } from '../enums'
 import { DEFAULT_SOURCE_CONFIG, ISourceConfig, MAP_TYPE_OPTIONS } from '../configs'
@@ -207,14 +207,14 @@ const SourceConfigList = (props: SourceConfigListProps) => {
                   ariaLabel={TOOLTIP_EXPAND_ALL}
                   onClick={expandAllSources}
                 >
-                  <ExpandAllOutlined />
+                  <ExpandOutlined />
                 </IconActionButton>
                 <IconActionButton
                   tooltip={TOOLTIP_COLLAPSE_ALL}
                   ariaLabel={TOOLTIP_COLLAPSE_ALL}
                   onClick={collapseAllSources}
                 >
-                  <CollapseAllOutlined />
+                  <CollapseOutlined />
                 </IconActionButton>
               </div>
             </div>
