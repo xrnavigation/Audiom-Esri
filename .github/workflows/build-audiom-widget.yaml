@@ -10,6 +10,7 @@ on:
     branches: [main, master]
     paths:
     - 'ArcGIS/client/your-extensions/widgets/audiom/**'
+    - 'workflows/build-audiom-widget.yaml'
   workflow_dispatch:
 
 
@@ -52,6 +53,8 @@ jobs:
         include:
         # Node 16 is EOL; Esri still lists it as the 1.13 recommended major.
         # Pin 16.20.x here only if ubuntu-latest + Node 16 fails npm ci.
+        - exb-version: '1.12'
+          node-version: '16'
         - exb-version: '1.13'
           node-version: '16'
         - exb-version: '1.18'
