@@ -16,11 +16,14 @@ This page provides a list of different maps made using the Audiom widget for ESR
 Please ensure that you select the manifest file appropriate to your version of ArcGIS Experience Builder in ArcGIS Enterprise. [Here is a link to the version matrix provided by Esri.](https://developers.arcgis.com/experience-builder/guide/release-versions/)
 The Audiom widget is packaged for the following ArcGIS Experience Builder versions:
 
-- [Experience Builder 1.20 build manifest](./builder-versions/1.20/audiom/manifest.json)
-- [Experience Builder 1.19 build manifest](./builder-versions/1.19/audiom/manifest.json)
-- [Experience Builder 1.18 build manifest](./builder-versions/1.18/audiom/manifest.json)
-- [Experience Builder 1.13 build manifest](./builder-versions/1.13/audiom/manifest.json)
-- [Experience Builder 1.12 build manifest](./builder-versions/1.12/audiom/manifest.json)
+| ArcGIS Enterprise | Build Manifest |
+| :--- | :--- |
+| 12.1 | **[Experience Builder 1.20 build manifest](./builder-versions/1.20/audiom/manifest.json)** |
+| 12.0 | [Experience Builder 1.19 build manifest](./builder-versions/1.19/audiom/manifest.json)<br>**[Experience Builder 1.18 build manifest](./builder-versions/1.18/audiom/manifest.json)** |
+| 11.5 | **[Experience Builder 1.17 build manifest](./builder-versions/1.17/audiom/manifest.json)** |
+| 11.4 | [Experience Builder 1.16 build manifest](./builder-versions/1.16/audiom/manifest.json)<br>**[Experience Builder 1.15 build manifest](./builder-versions/1.15/audiom/manifest.json)** |
+| 11.3 | **[Experience Builder 1.14 build manifest](./builder-versions/1.14/audiom/manifest.json)** |
+| 11.2 | [Experience Builder 1.13 build manifest](./builder-versions/1.13/audiom/manifest.json)<br>**[Experience Builder 1.12 build manifest](./builder-versions/1.12/audiom/manifest.json)** |
 
 ## 📦 Installing the Audiom Widget
 
