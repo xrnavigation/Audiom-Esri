@@ -61,6 +61,14 @@ printf 'baseUrl="%s"\n' "$STAGING_URL" > "$OUT/dist/runtime/widget.js"
 expect_failure "forbidden URL fails" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.20" "$STAGING_URL"
 : > "$OUT/dist/setting/setting.js"
 expect_failure "empty essential file fails" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.20" ""
+printf 'ok\n' > "$OUT/dist/setting/setting.js"
+printf 'baseUrl="%s"\n' "$PRODUCTION_URL" > "$OUT/dist/runtime/widget.js"
+printf '{ "eagerMinifiedBytes": 10, "ceilingBytes": 20, "forbiddenReached": [] }\n' > "$WORK/treeshake.json"
+expect_success "report under ceiling passes" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.20" "" "$WORK/treeshake.json"
+printf '{ "eagerMinifiedBytes": 30, "ceilingBytes": 20, "forbiddenReached": [] }\n' > "$WORK/treeshake.json"
+expect_failure "ceiling breach fails" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.20" "" "$WORK/treeshake.json"
+printf '{ "eagerMinifiedBytes": 10, "ceilingBytes": 20, "forbiddenReached": ["maplibre-gl"] }\n' > "$WORK/treeshake.json"
+expect_failure "forbidden package fails" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.20" "" "$WORK/treeshake.json"
 
 echo "== verify-artifacts.sh =="
 mkdir -p "$ARTIFACTS/audiom-1.18/dist/runtime" "$ARTIFACTS/audiom-1.20/dist/runtime"
@@ -75,7 +83,14 @@ expect_failure "version mismatch fails" bash "$SCRIPTS_DIR/verify-artifacts.sh" 
 
 echo "== resolve-widget-output.sh =="
 CLIENT="$WORK/client"
-mkdir -p "$CLIENT/dist/widgets/audiom" "$CLIENT/dist-prod/widgets/audiom"
+mkdir -p "$CLIENT/dist-download/widgets/audiom" "$CLIENT/dist/widgets/audiom" "$CLIENT/dist-prod/widgets/audiom"
+printf '{ "exbVersion": "1.18" }\n' > "$CLIENT/dist-download/widgets/audiom/manifest.json"
+if [ "$(bash "$SCRIPTS_DIR/resolve-widget-output.sh" "$CLIENT")" = "$CLIENT/dist-download/widgets/audiom" ]; then
+  ok "prefers dist-download"
+else
+  bad "prefers dist-download"
+fi
+rm -rf "$CLIENT/dist-download"
 printf '{ "exbVersion": "1.18" }\n' > "$CLIENT/dist/widgets/audiom/manifest.json"
 printf '{ "exbVersion": "1.13" }\n' > "$CLIENT/dist-prod/widgets/audiom/manifest.json"
 if [ "$(bash "$SCRIPTS_DIR/resolve-widget-output.sh" "$CLIENT")" = "$CLIENT/dist/widgets/audiom" ]; then
@@ -100,6 +115,10 @@ mkdir -p "$DOCS/1.18/audiom"; printf 'stale\n' > "$DOCS/1.18/audiom/STALE.txt"
 expect_success "copies into docs" bash "$SCRIPTS_DIR/copy-to-docs.sh" "$ARTIFACTS_COPY" "$DOCS"
 if [ -f "$DOCS/1.18/audiom/manifest.json" ]; then ok "manifest copied"; else bad "manifest copied"; fi
 if [ -f "$DOCS/1.18/audiom/STALE.txt" ]; then bad "stale file removed"; else ok "stale file removed"; fi
+mkdir -p "$ARTIFACTS_COPY/audiom-1.18/chunks"
+printf 'lazy\n' > "$ARTIFACTS_COPY/audiom-1.18/chunks/runtime.js"
+expect_success "copies chunks beside the widget" bash "$SCRIPTS_DIR/copy-to-docs.sh" "$ARTIFACTS_COPY" "$DOCS"
+if [ -f "$DOCS/1.18/chunks/runtime.js" ]; then ok "chunks copied"; else bad "chunks copied"; fi
 
 echo
 echo "TOTAL: $PASS passed, $FAIL failed"

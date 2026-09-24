@@ -1,0 +1,29 @@
+{
+  "created": 1789759747711,
+  "description": "",
+  "id": "8",
+  "modified": 1789760594394,
+  "owner": "scionofdesign@gmail.com",
+  "tags": [],
+  "thumbnail": null,
+  "title": "Manassas Park Landuse from NAIP",
+  "type": "Web Experience",
+  "snippet": "",
+  "typeKeywords": [
+    "EXB Experience",
+    "Ready To Use",
+    "JavaScript",
+    "status: Draft",
+    "version:1.20.0",
+    "modified: 1789760594388",
+    "template:billboard"
+  ],
+  "portalUrl": "https://xrnavigation.maps.arcgis.com",
+  "username": "scionofdesign@gmail.com",
+  "name": "Manassas Park Landuse from NAIP",
+  "isLocalApp": true,
+  "success": true,
+  "template": "5",
+  "url": "",
+  "clearEmptyFields": true
+}

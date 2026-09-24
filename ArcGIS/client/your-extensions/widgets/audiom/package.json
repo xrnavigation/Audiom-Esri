@@ -1,0 +1,8 @@
+{
+  "name": "audiom-widget",
+  "private": true,
+  "description": "Experience Builder widget dependencies. The runtime is installed from GitHub Packages; this folder is not published.",
+  "dependencies": {
+    "@xrnavigation/audiom-runtime": "file:../../shared/audiom-runtime"
+  }
+}

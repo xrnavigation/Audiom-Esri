@@ -1,0 +1,9 @@
+{
+  "eagerMinifiedBytes": 25000,
+  "forbiddenEagerPackages": [
+    "maplibre-gl",
+    "react-map-gl",
+    "next",
+    "hls.js"
+  ]
+}

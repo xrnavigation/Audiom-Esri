@@ -10,7 +10,8 @@ on:
     branches: [main, master]
     paths:
     - 'ArcGIS/client/your-extensions/widgets/audiom/**'
-    - 'workflows/build-audiom-widget.yaml'
+    - 'ArcGIS/client/your-extensions/shared/audiom-runtime/**'
+    - '.github/workflows/build-audiom-widget.yaml'
   workflow_dispatch:
 
 
@@ -106,32 +107,64 @@ jobs:
     - name: Rewrite Audiom base URL for production
       run: python "$SCRIPTS_DIR/rewrite-url.py" "ArcGIS/client/your-extensions" --require-match
 
-    # Install dependencies for both the client and the server.
-    - name: Install client dependencies
-      working-directory: ArcGIS/client
+    # Experience Builder installs a widget lockfile during extension bootstrap.
+    # Authenticate the @xrnavigation scope with this repository's own token.
+    - name: Install widget dependencies
+      working-directory: ArcGIS/client/your-extensions/widgets/audiom
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: npm ci
 
+    # Install dependencies for both the client and the server.
+    - Developer Edition 1.18+ emits the downloadable widget, including lazy
+    # import() chunks, with this script. Older releases keep build:prod.
+    - name: Build Audiom widget
+      working-directory: ArcGIS/client
+      run: |
+        if npm run | grep -q 'build:for-download'; then
+          npm run build:for-download
+        else
+          npm run build:prod
+        fi
     - name: Install server dependencies
       working-directory: ArcGIS/server
       run: npm ci
-
-    # Produce the production build of the widget.
-    - name: Build Audiom widget (production)
-      working-directory: ArcGIS/client
-      run: npm run build:prod
-
-    # ExB 1.13 writes to dist-prod; 1.18+ write to dist.
+build:for-download writes dist-download. Older build:prod writes dist
+    # or dist-prod. Lazy chunks live beside the widget folder.
     - name: Locate widget build output
       id: widget-out
       run: |
         OUT="$(bash "$SCRIPTS_DIR/resolve-widget-output.sh" "ArcGIS/client")"
         echo "Found widget output at $OUT"
         echo "path=$OUT" >> "$GITHUB_OUTPUT"
+        CHUNKS="$(dirname "$OUT")/../chunks"
+        if [ -d "$CHUNKS" ]; then
+          mkdir -p "$OUT/chunks"
+          cp -R "$CHUNKS/." "$OUT/chunks/" "ArcGIS/client/your-extensions/widgets/audiom/treeshake-report.json"
+        fiite to dist.
+    - name: Locate widget build output
+      id: widget-out
+      run: |
+        OUT="$(bash "$SCRIPTS_DIR/resolve-widget-output.sh" "ArcGIS/client")"
+        echo "Found widget output at $OUT"
+        echo "path=$OUT" >> "$GITHUB_OUTPUT"
+        CHUNKS="$(dirname "$OUT")/../chunks"
+        if [ -d "$CHUNKS" ]; then
+          mkdir -p "$OUT/chunks"
+          cp -R "$CHUNKS/." "$OUT/chunks/"
+        fi
 
     # Verify files are non-empty, the manifest is stamped, and the original
-    # (staging) URL did not leak into the production bundle.
+    # (staging) URL did not leak into the production bundle. The size gate runs
+    # only when the runtime package has emitted its tree-shaking report.
     - name: Verify build output
-      run: bash "$SCRIPTS_DIR/verify-build-output.sh" "${{ steps.widget-out.outputs.path }}" "${{ matrix.exb-version }}" "$AUDIOM_ORIGINAL_URL"
+      run: |
+        REPORT="ArcGIS/client/your-extensions/widgets/audiom/treeshake-report.json"
+        if [ -s "$REPORT" ]; then
+          bash "$SCRIPTS_DIR/verify-build-output.sh" "${{ steps.widget-out.outputs.path }}" "${{ matrix.exb-version }}" "$AUDIOM_ORIGINAL_URL" "$REPORT"
+        else
+          bash "$SCRIPTS_DIR/verify-build-output.sh" "${{ steps.widget-out.outputs.path }}" "${{ matrix.exb-version }}" "$AUDIOM_ORIGINAL_URL"
+        fi
 
     # Upload each version's build as an artifact; fail if there are no files.
     - name: Upload built widget artifact
