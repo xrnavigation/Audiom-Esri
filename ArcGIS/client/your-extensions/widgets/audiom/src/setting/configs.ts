@@ -5,6 +5,7 @@ import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import { VisualStyle } from '../../../../shared/audiom-client/AudiomEmbedConfig'
 import { FieldType, FilterType } from './enums'
 import type { LockableFieldName } from './configKeys'
+import { RuntimeLocation } from './runtimeLocation'
 
 /**
  * Centralized default configuration values for the Audiom widget.
@@ -34,6 +35,9 @@ export const DEFAULT_CONFIG = {
   centerLatitudeLocked: true,
   centerLongitudeLocked: true,
   zoomLocked: true,
+  runtimeLocation: RuntimeLocation.Legacy,
+  apiEndpoint: 'https://audiom.net',
+  assetBaseUrl: 'https://audiom.net',
 } as const satisfies Partial<IAudiomConfig>
 
 export const DEFAULT_SOURCE_CONFIG: ISourceConfig = {
@@ -154,6 +158,12 @@ export interface IAudiomConfig {
   zoomLocked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual value.
   useExistingMap?: boolean
   existingMapId?: string
+  /** Absent on configs saved before integrated modes. Those load as legacy. */
+  runtimeLocation?: RuntimeLocation
+  /** Bundled mode only. Ignored, not deleted, in the other modes. */
+  apiEndpoint?: string
+  /** Bundled mode only. Ignored, not deleted, in the other modes. */
+  assetBaseUrl?: string
 }
 
 /**

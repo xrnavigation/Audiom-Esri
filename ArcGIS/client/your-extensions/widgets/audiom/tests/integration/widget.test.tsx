@@ -39,6 +39,8 @@ import { widgetRender, wrapWidget } from 'jimu-for-test'
 import _Widget from '../../src/runtime/widget'
 import { JimuConfig } from '../../src/utils/JimuConfig'
 import { makeConfig } from '../helpers/configFactories'
+import { RuntimeLocation } from '../../src/setting/runtimeLocation'
+import { setMapModuleLoader } from '../../src/runtime/esriMapSurface'
 
 const render = widgetRender()
 
@@ -119,6 +121,40 @@ describe('Audiom runtime widget', () => {
     const { unmount } = render(<Widget widgetId="audiom-7" />)
     unmount()
     expect(fakeManager.removeChangeListener).toHaveBeenCalled()
+  })
+
+  it('renders an Esri map in the widget for bundled and hosted modes', async () => {
+    const created: Array<{ container: HTMLElement, map: unknown }> = []
+    setMapModuleLoader(async () => [
+      class Map { constructor (public properties: unknown) {} },
+      class MapView {
+        container: HTMLElement
+        map: unknown
+        constructor (properties: { container: HTMLElement, map: unknown }) {
+          this.container = properties.container
+          this.map = properties.map
+          created.push(properties)
+          properties.container.dataset.mapMounted = 'true'
+        }
+        destroy () {}
+      }
+    ] as any)
+
+    for (const location of [RuntimeLocation.Bundled, RuntimeLocation.Hosted]) {
+      const Widget = wrapWidget(_Widget, {
+        config: makeConfig({ runtimeLocation: location }) as any
+      })
+      const { container, unmount } = render(<Widget widgetId={`audiom-${location}`} />)
+      expect(container.querySelector('iframe')).toBeNull()
+      expect(container.querySelector('button')).toBeNull()
+      const map = container.querySelector('#audiom-esri-map')
+      expect(map).not.toBeNull()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(map!.getAttribute('data-map-mounted')).toBe('true')
+      unmount()
+    }
+    expect(created.length).toBe(2)
+    setMapModuleLoader(null)
   })
 
   it('encodes user-supplied title in the iframe src (no script tag injection)', () => {

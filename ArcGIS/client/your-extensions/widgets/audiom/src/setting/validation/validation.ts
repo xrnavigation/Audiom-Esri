@@ -1,6 +1,15 @@
 import type { ValidityResult } from 'jimu-ui'
 import { React } from 'jimu-core'
 import { DEFAULT_CONFIG, IAudiomConfig } from '../configs'
+import { AudiomConfigKey } from '../configKeys'
+import {
+  DEFAULT_API_ENDPOINT,
+  DEFAULT_ASSET_BASE_URL,
+  DEFAULT_RUNTIME_LOCATION,
+  ignoredSettingKeys,
+  RuntimeLocation,
+  runtimeLocationOf
+} from '../runtimeLocation'
 import { isNullish, isNullishOrWhiteSpace, validateAndClamp, validateAndReset, parseStepSize } from './validationUtils'
 import { createLogger } from '../../utils/logger'
 
@@ -181,6 +190,38 @@ export function sanitizeConfig(config: IAudiomConfig): SanitizeResult {
   )
   if (sanitizedBaseUrl !== undefined) {
     sanitized.baseUrl = sanitizedBaseUrl
+  }
+
+  const location = runtimeLocationOf(config)
+  if (config.runtimeLocation !== undefined && config.runtimeLocation !== location) {
+    warnings.push(`Runtime location '${String(config.runtimeLocation)}' is not recognized; using ${DEFAULT_RUNTIME_LOCATION}.`)
+    sanitized.runtimeLocation = location
+  }
+
+  if (location === RuntimeLocation.Bundled) {
+    const endpoint = validateAndReset(
+      config.apiEndpoint,
+      validateUrl,
+      DEFAULT_API_ENDPOINT,
+      'API endpoint',
+      warnings
+    )
+    sanitized.apiEndpoint = endpoint ?? config.apiEndpoint ?? DEFAULT_API_ENDPOINT
+    const assets = validateAndReset(
+      config.assetBaseUrl,
+      validateUrl,
+      DEFAULT_ASSET_BASE_URL,
+      'Asset base URL',
+      warnings
+    )
+    sanitized.assetBaseUrl = assets ?? config.assetBaseUrl ?? DEFAULT_ASSET_BASE_URL
+  }
+
+  for (const key of ignoredSettingKeys(config)) {
+    warnings.push(`${key} is ignored in ${location} mode and was kept.`)
+  }
+  if (location !== RuntimeLocation.Legacy && !config.existingMapId) {
+    warnings.push('Select Map Widget is required in integrated mode.')
   }
 
   return { config: sanitized, warnings }

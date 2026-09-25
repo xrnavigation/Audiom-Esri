@@ -1,4 +1,4 @@
-import { React } from 'jimu-core'
+﻿import { React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { JimuMapViewComponent, type JimuMapView } from 'jimu-arcgis'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
@@ -20,6 +20,13 @@ import { ButtonType, FieldType, FlowType, Colors } from './enums'
 import { Padding } from './enums'
 import { AudiomConfigKey, LockableFieldName } from './configKeys'
 import { validateUrl, VALIDATION } from './validation/validation'
+import {
+  hostedOriginDisclosure,
+  isIntegratedRuntime,
+  isSettingVisible,
+  RuntimeLocation,
+  runtimeLocationOf
+} from './runtimeLocation'
 
 const { useEffect, useCallback, useState, useRef } = React
 
@@ -27,7 +34,7 @@ const logger = createLogger('Setting')
 
 const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const { config } = props
-  // Each widget id gets its own MapSyncManager instance — two audiom widgets
+  // Each widget id gets its own MapSyncManager instance â€” two audiom widgets
   // on the same page won't share listeners / initial-sync state / debounce
   // timers. The instance survives the settings panel being remounted
   // (e.g. switching widget tabs) because the registry is keyed by widget id.
@@ -35,7 +42,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const [mapSettingsOpen, setMapSettingsOpen] = useState(true)
   // Bumps each time JimuMapViewComponent reports the active JimuMapView is
   // ready (or that the map id changed). Used to (re)trigger the
-  // attach-to-map effect below — replaces the old setInterval-based polling.
+  // attach-to-map effect below â€” replaces the old setInterval-based polling.
   const [mapViewReadyTick, setMapViewReadyTick] = useState(0)
 
   // Helper to update config
@@ -116,7 +123,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   //
   // applyConfigFromMap depends on `config`, which changes on every edit. We
   // intentionally do NOT want this effect to re-run (re-attach, re-do initial
-  // sync, etc.) every time the user changes a setting — only when the map id
+  // sync, etc.) every time the user changes a setting â€” only when the map id
   // or useExistingMap toggles. We pin the latest callback into a ref and read
   // it from inside the effect / from the change listener; this is the
   // "useEvent" / "useLatest" pattern (see RFC: react-events).
@@ -145,7 +152,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
     // Try to attach. If the JimuMapView isn't registered yet (it hasn't been
     // created by the map widget) the JimuMapViewComponent rendered below
-    // will fire onActiveViewChange once it is — that bumps mapViewReadyTick
+    // will fire onActiveViewChange once it is â€” that bumps mapViewReadyTick
     // and re-runs this effect.
     const attached = mapSyncManager.attach(effectiveMapId, config)
     if (attached) {
@@ -165,8 +172,8 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
       mapSyncManager.removeChangeListener(applyConfigFromMapRef.current)
     }
   // exhaustive-deps disabled intentionally: `config` is read inside the effect
-  // (via applyConfigFromMapRef.current → applyConfigFromMap closure) but we do
-  // not want a re-run on every config change — only on map id / toggle change.
+  // (via applyConfigFromMapRef.current â†’ applyConfigFromMap closure) but we do
+  // not want a re-run on every config change â€” only on map id / toggle change.
   // mapViewReadyTick is included so the effect retries once the underlying
   // JimuMapView becomes available.
   // See the useRef + ref-pinning pattern above.
@@ -259,10 +266,15 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     return `${currentStepSize} ${currentUnit}`
   }
 
-  // Connection fields - set once
+  const runtimeLocation = runtimeLocationOf(config)
+  const integrated = isIntegratedRuntime(runtimeLocation)
+
+  // Connection fields - set once. Visibility follows the runtime location.
   const connectionFields: FieldConfig[] = [
     { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Password, placeholder: 'Enter API key' },
-    { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl, validateOnAccept: (val) => validateUrl(String(val)) },
+    { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl, validateOnAccept: (val) => validateUrl(String(val)), showWhen: () => isSettingVisible(AudiomConfigKey.BaseUrl, runtimeLocation) },
+    { key: AudiomConfigKey.ApiEndpoint, label: 'API Endpoint', type: FieldType.Text, placeholder: 'https://audiom.net', defaultValue: DEFAULT_CONFIG.apiEndpoint, validateOnAccept: (val) => validateUrl(String(val)), showWhen: () => isSettingVisible(AudiomConfigKey.ApiEndpoint, runtimeLocation) },
+    { key: AudiomConfigKey.AssetBaseUrl, label: 'Asset Base URL', type: FieldType.Text, placeholder: 'https://audiom.net', defaultValue: DEFAULT_CONFIG.assetBaseUrl, validateOnAccept: (val) => validateUrl(String(val)), showWhen: () => isSettingVisible(AudiomConfigKey.AssetBaseUrl, runtimeLocation) },
     { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack name or URL' }
   ]
 
@@ -281,14 +293,14 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     { key: AudiomConfigKey.Zoom, label: 'Zoom Level', type: FieldType.Number, min: VALIDATION.ZOOM_MIN, max: VALIDATION.ZOOM_MAX, defaultValue: DEFAULT_CONFIG.zoom, lockable: true, lockableFieldName: LockableFieldName.Zoom }
   ]
 
-  // Display fields - appearance & behavior
+  // Display fields - appearance and behavior
   const displayFields: FieldConfig[] = [
     { key: AudiomConfigKey.Title, label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title', lockable: true, lockableFieldName: LockableFieldName.Title },
     { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Custom, showCopyButton: false, renderCustom: renderStepSizeUnitSelector },
-    { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
+    { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false, showWhen: () => isSettingVisible(AudiomConfigKey.ShowVisualMap, runtimeLocation) },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
-    { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
-    { key: AudiomConfigKey.VisualStyle, label: 'Visual Style', type: FieldType.Enum, enumOptions: [{ label: 'Default', value: '' }, { label: 'Geology', value: 'geology' }], showCopyButton: false }
+    { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 1, max: 6, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
+    { key: AudiomConfigKey.VisualStyle, label: 'Visual Style', type: FieldType.Enum, enumOptions: [{ label: 'Default', value: '' }, { label: 'Geology', value: 'geology' }], showCopyButton: false, showWhen: () => isSettingVisible(AudiomConfigKey.VisualStyle, runtimeLocation) }
   ]
 
   const useExistingMap = config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap
@@ -329,13 +341,17 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     )
   }
 
+  const visibleConnectionFields = connectionFields.filter((field) => field.showWhen?.(config) !== false)
+  const visibleDisplayFields = displayFields.filter((field) => {
+    if (field.showWhen && !field.showWhen(config)) return false
+    if (field.key === AudiomConfigKey.Heading) {
+      return config?.showHeading ?? DEFAULT_CONFIG.showHeading
+    }
+    return true
+  })
+
   return (
     <div className="widget-setting-demo">
-      {/*
-        Invisible bridge: subscribes to the selected map widget so we get a
-        callback the moment the JimuMapView becomes available. Drives the
-        attach-to-map effect via mapViewReadyTick (replaces setInterval).
-      */}
       {effectiveMapId ? (
         <JimuMapViewComponent
           useMapWidgetId={effectiveMapId}
@@ -343,73 +359,98 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         />
       ) : null}
       <SettingSection title="Connection">
-        {connectionFields.map((field) => renderField(field, false))}
+        <SettingRow flow={FlowType.Wrap}>
+          <Label>Runtime location</Label>
+          <ButtonGroup>
+            {([
+              [RuntimeLocation.Legacy, 'Standalone embed'],
+              [RuntimeLocation.Bundled, 'Bundled'],
+              [RuntimeLocation.Hosted, 'Hosted']
+            ] as const).map(([value, label]) => (
+              <Button
+                key={value}
+                active={runtimeLocation === value}
+                aria-pressed={runtimeLocation === value}
+                onClick={() => onPropertyChange(AudiomConfigKey.RuntimeLocation, value)}
+              >
+                {label}
+              </Button>
+            ))}
+          </ButtonGroup>
+        </SettingRow>
+        {runtimeLocation === RuntimeLocation.Hosted ? (
+          <SettingRow flow={FlowType.Wrap}>
+            <Label role="status">{hostedOriginDisclosure(config?.baseUrl)}</Label>
+          </SettingRow>
+        ) : null}
+        {visibleConnectionFields.map((field) => renderField(field, false))}
       </SettingSection>
 
       <SettingSection title="Map Configuration">
         <SettingRow flow={FlowType.Wrap}>
-          <CopyableLabel label="Use Existing Map Widget" copyValue={String(useExistingMap)} showCopyButton={false} />
+          <CopyableLabel label="Use Existing Map Widget" copyValue={String(integrated || useExistingMap)} showCopyButton={false} />
           <Switch
-            checked={useExistingMap}
+            checked={integrated || useExistingMap}
+            disabled={integrated}
             onChange={(e) => onPropertyChange('useExistingMap', e.target.checked)}
           />
         </SettingRow>
-
-        {useExistingMap ? (
+        {(integrated || useExistingMap) ? (
           <SettingRow flow={FlowType.Wrap}>
             <CopyableLabel label="Select Map Widget" copyValue={config?.existingMapId || ''} showCopyButton={false} />
             <MapWidgetSelector useMapWidgetIds={props.useMapWidgetIds} onSelect={onMapWidgetSelected} />
           </SettingRow>
         ) : null}
-
-        <CollapsibleHeader
-          label="Map Settings"
-          isOpen={mapSettingsOpen}
-          onToggle={() => setMapSettingsOpen(!mapSettingsOpen)}
-        />
-        <Collapse isOpen={mapSettingsOpen}>
-          <div style={{ paddingLeft: Padding.SectionContent }}>
-            {mapSettingsFields.map((field) => renderField(field, false))}
-          </div>
-        </Collapse>
-
+        {isSettingVisible(AudiomConfigKey.Zoom, runtimeLocation) ? (
+          <>
+            <CollapsibleHeader
+              label="Map Settings"
+              isOpen={mapSettingsOpen}
+              onToggle={() => setMapSettingsOpen(!mapSettingsOpen)}
+            />
+            <Collapse isOpen={mapSettingsOpen}>
+              <div style={{ paddingLeft: Padding.SectionContent }}>
+                {mapSettingsFields.map((field) => renderField(field, false))}
+              </div>
+            </Collapse>
+          </>
+        ) : null}
         <SourceConfigList
           sourceConfigs={config?.sourceConfigs || []}
           onChange={onSourceConfigsChange}
-          readOnly={useExistingMap}
+          readOnly={integrated || useExistingMap}
         />
       </SettingSection>
 
       <SettingSection title="Display">
-        {displayFields.map((field) => {
-          // Only show Heading Size if Show Heading is true
-          if (field.key === AudiomConfigKey.Heading) {
-            const showHeading = config?.showHeading ?? DEFAULT_CONFIG.showHeading
-            if (!showHeading) return null
-          }
-          return renderField(field, false)
-        })}
-        <VisualBaseLayerList
-          layers={config?.visualBaseLayers || []}
-          onChange={(layers) => onPropertyChange(AudiomConfigKey.VisualBaseLayers, layers)}
-        />
-        <SettingRow flow={FlowType.Wrap}>
-          <Button
-            type={ButtonType.Primary}
-            style={{ width: '100%' }}
-            onClick={onPreviewInAudiom}
-            disabled={!isAudiomConfigValid(config)}
-          >
-            Preview in Audiom
-          </Button>
-        </SettingRow>
-        <SettingRow flow={FlowType.Wrap}>
-          <Label style={{ width: '100%', color: Colors.TextMuted, fontSize: '12px' }}>
-            {(!isAudiomConfigValid(config))
-              ? 'API Key is required to preview in Audiom.'
-              : 'Opens the current configuration in a new tab.'}
-          </Label>
-        </SettingRow>
+        {visibleDisplayFields.map((field) => renderField(field, false))}
+        {isSettingVisible(AudiomConfigKey.VisualBaseLayers, runtimeLocation) ? (
+          <VisualBaseLayerList
+            layers={config?.visualBaseLayers || []}
+            onChange={(layers) => onPropertyChange(AudiomConfigKey.VisualBaseLayers, layers)}
+          />
+        ) : null}
+        {runtimeLocation === RuntimeLocation.Legacy ? (
+          <>
+            <SettingRow flow={FlowType.Wrap}>
+              <Button
+                type={ButtonType.Primary}
+                style={{ width: '100%' }}
+                onClick={onPreviewInAudiom}
+                disabled={!isAudiomConfigValid(config)}
+              >
+                Preview in Audiom
+              </Button>
+            </SettingRow>
+            <SettingRow flow={FlowType.Wrap}>
+              <Label style={{ width: '100%', color: Colors.TextMuted, fontSize: '12px' }}>
+                {(!isAudiomConfigValid(config))
+                  ? 'API Key is required to preview in Audiom.'
+                  : 'Opens the current configuration in a new tab.'}
+              </Label>
+            </SettingRow>
+          </>
+        ) : null}
       </SettingSection>
     </div>
   )

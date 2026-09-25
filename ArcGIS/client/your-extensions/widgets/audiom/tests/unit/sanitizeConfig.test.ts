@@ -44,4 +44,33 @@ describe('sanitizeConfig', () => {
     expect(config.baseUrl).toBe('https://example.com/embed')
     expect(warnings.filter(w => /url/i.test(w))).toEqual([])
   })
+
+  it('loads a config saved before runtime location as legacy and keeps its fields', () => {
+    const saved = makeConfig({ showVisualMap: false, zoom: 8 })
+    delete saved.runtimeLocation
+    const { config } = sanitizeConfig(saved)
+    expect(config.runtimeLocation).toBeUndefined()
+    expect(config.showVisualMap).toBe(false)
+    expect(config.zoom).toBe(8)
+  })
+
+  it('keeps legacy-only values when switching to bundled, and restores them', () => {
+    const saved = makeConfig({
+      runtimeLocation: 'bundled' as any,
+      showVisualMap: false,
+      visualStyle: 'geology' as any,
+      zoom: 8,
+      centerLatitude: 12,
+      centerLongitude: 34
+    })
+    const bundled = sanitizeConfig(saved)
+    expect(bundled.config.showVisualMap).toBe(false)
+    expect(bundled.config.zoom).toBe(8)
+    expect(bundled.warnings.some(w => /ignored in bundled/i.test(w))).toBe(true)
+
+    const restored = sanitizeConfig({ ...bundled.config, runtimeLocation: 'legacy' } as any)
+    expect(restored.config.showVisualMap).toBe(false)
+    expect(restored.config.zoom).toBe(8)
+    expect(restored.config.centerLatitude).toBe(12)
+  })
 })

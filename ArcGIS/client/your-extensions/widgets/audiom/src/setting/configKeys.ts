@@ -31,7 +31,10 @@ export enum AudiomConfigKey {
   Zoom = 'zoom',
   ZoomLocked = 'zoomLocked',
   UseExistingMap = 'useExistingMap',
-  ExistingMapId = 'existingMapId'
+  ExistingMapId = 'existingMapId',
+  RuntimeLocation = 'runtimeLocation',
+  ApiEndpoint = 'apiEndpoint',
+  AssetBaseUrl = 'assetBaseUrl'
 }
 
 /** Names of lockable fields that can sync with the map */

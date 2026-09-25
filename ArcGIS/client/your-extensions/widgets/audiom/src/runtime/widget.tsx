@@ -5,10 +5,22 @@ import { serializeLockedForDiff } from '../utils/sourceConfigUtils'
 import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis'
 import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs'
 import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation'
+import {
+  hostedOriginDisclosure,
+  isIntegratedRuntime,
+  RuntimeLocation,
+  runtimeLocationOf
+} from '../setting/runtimeLocation'
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
+import { bundledStatus, startBundledRuntime, type BundledRuntimeHandle } from './bundledRuntime'
+import {
+  destroyMapSurface,
+  mountEsriMap,
+  type MountedMapSurface
+} from './esriMapSurface'
 
-const { useState, useEffect } = React
+const { useState, useEffect, useRef } = React
 
 // Typed styles with full key/value validation
 const styles = {
@@ -26,6 +38,8 @@ const styles = {
 
 const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
   const [jimuMapView, setJimuMapView] = useState<JimuMapView>()
+  const [mapSurface, setMapSurface] = useState<MountedMapSurface | null>(null)
+  const [runtimeStatus, setRuntimeStatus] = useState('')
   const [hasChanges, setHasChanges] = useState(false)
   const [lastSyncedConfigJson, setLastSyncedConfigJson] = useState<string>('')
   // Per-widget MapSyncManager instance (shared with the same widget's
@@ -94,6 +108,46 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
 
   const mapConfig = audiomConfigToEmbedConfig(sanitizedConfig as IAudiomConfig, jimuMapView)
   const embedUrl = mapConfig.toUrl(sanitizedConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
+  const runtimeLocation = runtimeLocationOf(sanitizedConfig)
+  const title = props.config.title || 'Audiom'
+  const bundledHandle = useBundledRuntime(
+    runtimeLocation === RuntimeLocation.Bundled,
+    props.id,
+    jimuMapView,
+    setRuntimeStatus,
+    mapSurface
+  )
+
+  if (isIntegratedRuntime(runtimeLocation)) {
+    const mapWidgetId = props.useMapWidgetIds?.[0] || sanitizedConfig.existingMapId
+    const existingMap = (jimuMapView as { view?: { map?: unknown } } | undefined)?.view?.map
+    const mapLabel = runtimeLocation === RuntimeLocation.Bundled
+      ? bundledStatus(bundledHandle, false)
+      : 'Esri map'
+    return (
+      <div
+        className="jimu-widget"
+        role="region"
+        aria-label={title}
+        style={styles.container}
+      >
+        {mapWidgetId && (
+          <JimuMapViewComponent useMapWidgetId={mapWidgetId} onActiveViewChange={activeViewChangeHandler} />
+        )}
+        <EsriMapSurface
+          existingMap={existingMap}
+          longitude={sanitizedConfig.centerLongitude}
+          latitude={sanitizedConfig.centerLatitude}
+          zoom={sanitizedConfig.zoom}
+          onSurface={setMapSurface}
+        />
+        <p className="sr-only" role="status">{mapLabel}{runtimeStatus ? `. ${runtimeStatus}` : ''}</p>
+        {runtimeLocation === RuntimeLocation.Hosted ? (
+          <p role="status">{hostedOriginDisclosure(sanitizedConfig.baseUrl)}</p>
+        ) : null}
+      </div>
+    )
+  }
 
   return (
     <div className="jimu-widget" style={styles.container}>
@@ -115,6 +169,72 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
       />
     </div>
   )
+}
+
+function EsriMapSurface (props: {
+  existingMap?: unknown
+  longitude?: number
+  latitude?: number
+  zoom?: number
+  onSurface?: (surface: MountedMapSurface | null) => void
+}): JSX.Element {
+  const container = useRef<HTMLDivElement>(null)
+  const onSurface = props.onSurface
+  useEffect(() => {
+    const node = container.current
+    if (!node) return
+    let cancelled = false
+    let surface: MountedMapSurface | null = null
+    void mountEsriMap({
+      container: node,
+      existingMap: props.existingMap,
+      longitude: props.longitude,
+      latitude: props.latitude,
+      zoom: props.zoom
+    }).then((mounted) => {
+      if (cancelled) {
+        destroyMapSurface(mounted)
+        return
+      }
+      surface = mounted
+      onSurface?.(mounted)
+    }).catch(() => onSurface?.(null))
+    return () => {
+      cancelled = true
+      destroyMapSurface(surface)
+      onSurface?.(null)
+    }
+  }, [props.existingMap, props.longitude, props.latitude, props.zoom, onSurface])
+  return (
+    <div
+      id="audiom-esri-map"
+      ref={container}
+      className="widget-map mapview-container"
+      role="application"
+      aria-label="Esri map"
+      style={{ width: '100%', height: '100%' }}
+    />
+  )
+}
+
+function useBundledRuntime (
+  enabled: boolean,
+  instanceId: string,
+  jimuMapView: JimuMapView | undefined,
+  onStatus: (status: string) => void,
+  surface: MountedMapSurface | null
+): BundledRuntimeHandle | null {
+  const [handle, setHandle] = useState<BundledRuntimeHandle | null>(null)
+  useEffect(() => {
+    if (!enabled) {
+      setHandle(null)
+      return
+    }
+    const next = startBundledRuntime(instanceId, jimuMapView, onStatus, surface)
+    setHandle(next)
+    return () => { void next.runtime.dispose() }
+  }, [enabled, instanceId, jimuMapView, onStatus, surface])
+  return handle
 }
 
 export default Widget
