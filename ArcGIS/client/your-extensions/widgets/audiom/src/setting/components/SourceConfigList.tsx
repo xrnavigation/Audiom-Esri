@@ -1,6 +1,6 @@
 import { React } from 'jimu-core'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
-import { Select, Option, Collapse, Button, TextInput } from 'jimu-ui'
+import { Select, Option, Collapse, Button } from 'jimu-ui'
 import { ExpandOutlined } from 'jimu-icons/outlined/directional/expand'
 import { CollapseOutlined } from 'jimu-icons/outlined/directional/collapse'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
@@ -11,6 +11,8 @@ import CopyableLabel from './CopyableLabel'
 import CollapsibleHeader from './CollapsibleHeader'
 import IconActionButton from './IconActionButton'
 import SourceConfigCard from './SourceConfigCard'
+import RulesFilePicker from './RulesFilePicker'
+import { useRulesCatalog } from '../hooks/useRulesCatalog'
 
 const { useState, useEffect, useMemo } = React
 
@@ -49,6 +51,8 @@ import { MIXED_VALUE_PLACEHOLDER } from '../strings'
 const EMPTY_STATE_MESSAGE = 'No sources could be extracted from the ESRI map.'
 
 interface SourceConfigListProps {
+  apiKey?: string
+  baseUrl?: string
   sourceConfigs: ISourceConfig[]
   onChange: (sourceConfigs: ISourceConfig[]) => void
   readOnly?: boolean
@@ -69,7 +73,8 @@ interface SourceConfigListProps {
  * - Keyboard accessible navigation
  */
 const SourceConfigList = (props: SourceConfigListProps) => {
-  const { sourceConfigs, onChange, readOnly = false } = props
+  const { sourceConfigs, onChange, readOnly = false, apiKey = '', baseUrl = '' } = props
+  const catalog = useRulesCatalog(baseUrl, apiKey)
   
   // Auto-collapse Source Configurations if 3 or more sources
   const shouldAutoCollapse = useMemo(() => sourceConfigs.length >= MAX_DEFAULT_VISIBLE_SOURCES, [sourceConfigs.length])
@@ -232,13 +237,9 @@ const SourceConfigList = (props: SourceConfigListProps) => {
             </Select>
           </SettingRow>
           <SettingRow flow={FlowType.Wrap}>
-            <CopyableLabel label={FIELD_LABEL_ALL_RULES_FILE} copyValue={getAllRulesFileValue()} showCopyButton={true} />
-            <TextInput
-              style={{ width: '100%' }}
-              value={getAllRulesFileValue()}
-              onChange={(e) => onAllRulesFileChange(e.target.value)}
-              placeholder="Enter rules file URL"
-            />
+            {hasMixedRulesFiles && <div role="status">Sources use different rules files.</div>}
+            <RulesFilePicker label={FIELD_LABEL_ALL_RULES_FILE} value={hasMixedRulesFiles ? '' : getAllRulesFileValue()}
+              onChange={onAllRulesFileChange} catalog={catalog} />
           </SettingRow>
           </div>
         )}
@@ -257,6 +258,7 @@ const SourceConfigList = (props: SourceConfigListProps) => {
               onToggleEnabled={() => onToggleSourceEnabled(index)}
               onToggleLocked={() => onToggleLocked(index)}
               readOnly={readOnly}
+              catalog={catalog}
             />
           )
         })}

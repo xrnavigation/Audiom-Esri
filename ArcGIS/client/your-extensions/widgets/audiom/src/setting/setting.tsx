@@ -374,6 +374,8 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         </Collapse>
 
         <SourceConfigList
+          apiKey={config?.apiKey ?? ''}
+          baseUrl={config?.baseUrl || DEFAULT_CONFIG.baseUrl}
           sourceConfigs={config?.sourceConfigs || []}
           onChange={onSourceConfigsChange}
           readOnly={useExistingMap}

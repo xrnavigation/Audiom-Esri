@@ -17,6 +17,8 @@ import CopyButton from './CopyButton'
 import LockToggle from './LockToggle'
 import IconActionButton from './IconActionButton'
 import FieldRenderer from './FieldRenderer'
+import RulesFilePicker from './RulesFilePicker'
+import type { RulesCatalog } from '../hooks/useRulesCatalog'
 
 // Typed styles with full key/value validation
 const styles = {
@@ -174,6 +176,7 @@ const FilterItem = (props: {
 }
 
 interface SourceConfigCardProps {
+  catalog: RulesCatalog
   /** The source configuration data */
   sourceConfig: ISourceConfig
   /** The index of this source in the list */
@@ -248,6 +251,11 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
   ]
 
   const renderSourceField = (field: FieldConfig) => {
+    if (field.key === SourceConfigKey.RulesFileUrl) {
+      return <RulesFilePicker key={field.key} label={`${FIELD_LABEL_RULES_URL} (${sourceName})`}
+        value={sourceConfig.rulesFileUrl ?? ''} catalog={props.catalog}
+        onChange={rulesFileUrl => onFieldChange({ rulesFileUrl })} />
+    }
     const value = (sourceConfig as Record<string, unknown>)[field.key] ?? field.defaultValue
     
     // MapType and RulesFileUrl remain editable even when readOnly is true
