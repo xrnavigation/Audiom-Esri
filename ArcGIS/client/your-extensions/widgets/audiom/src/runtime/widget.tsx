@@ -13,7 +13,8 @@ import {
 } from '../setting/runtimeLocation'
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
-import { bundledFocusTarget, bundledStatus, startBundledRuntime, type BundledRuntimeHandle } from './bundledRuntime'
+import { patternLegend, patternTileUrl } from './audiomSymbols'
+import { bundledFocusTarget, bundledStatus, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
 import { StepSize, StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import {
   avatarScreenPoint,
@@ -125,7 +126,8 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
     setAvatar,
     sanitizedConfig.centerLongitude,
     sanitizedConfig.centerLatitude,
-    stepSizeMeters(sanitizedConfig.stepSize, sanitizedConfig.stepSizeUnit)
+    stepSizeMeters(sanitizedConfig.stepSize, sanitizedConfig.stepSizeUnit),
+    sanitizedConfig.soundpackUrl
   )
 
   if (isIntegratedRuntime(runtimeLocation)) {
@@ -167,9 +169,19 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
               ? (direction) => { void bundledHandle?.runtime.moveAvatar(direction) }
               : undefined}
             onSelect={runtimeLocation === RuntimeLocation.Bundled
-              ? () => { void bundledHandle?.runtime.focusRuntime(bundledFocusTarget) }
+              ? () => {
+                unlockBundledAudio(bundledHandle)
+                void bundledHandle?.runtime.focusRuntime(bundledFocusTarget)
+              }
               : undefined}
           />
+          {runtimeLocation === RuntimeLocation.Bundled && (
+            <AudiomSoundControl
+              soundpackUrl={sanitizedConfig.soundpackUrl}
+              onUnlock={() => { unlockBundledAudio(bundledHandle) }}
+            />
+          )}
+          {runtimeLocation === RuntimeLocation.Bundled && <AudiomPatternKey />}
         </div>
         <p className="sr-only" role="status">
           {avatar
@@ -284,13 +296,20 @@ function EsriMapSurface (props: {
         onScreen?.(point)
       })
     }
+    void surface.view.when?.().then(() => {
+      if (!cancelled) place()
+    })
     place()
-    const watch = surface.view.on?.('pointer-move', place)
-    const stationary = surface.view.on?.('stationary', place)
+    const watch = surface.view.watch?.('extent', place)
+    const stationary = surface.view.watch?.('stationary', place)
+    const resize = surface.view.watch?.('size', place)
+    const pointer = surface.view.on?.('pointer-move', place)
     return () => {
       cancelled = true
       watch?.remove?.()
       stationary?.remove?.()
+      resize?.remove?.()
+      pointer?.remove?.()
     }
   }, [avatar, surfaceReady, onScreen])
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -360,7 +379,7 @@ function AudiomIndicator (props: {
           border: 0,
           borderRadius: '50%',
           background: 'transparent',
-          zIndex: 2,
+          zIndex: 5,
           cursor: 'pointer',
           transform: `rotate(${avatar.heading}deg)`
         }}
@@ -369,6 +388,65 @@ function AudiomIndicator (props: {
       </button>
       <style>{AUDIOM_CURSOR_PULSE}</style>
     </>
+  )
+}
+
+/** Pattern key for Audiom's five fill tokens. A sibling of the map div. */
+function AudiomPatternKey (): JSX.Element {
+  return (
+    <ul
+      aria-label="Audiom patterns"
+      style={{
+        position: 'absolute',
+        right: 8,
+        bottom: 8,
+        zIndex: 3,
+        margin: 0,
+        padding: '0.35rem 0.5rem',
+        listStyle: 'none',
+        background: '#fff',
+        color: '#04203e',
+        border: '1px solid #04203e',
+        borderRadius: 4
+      }}
+    >
+      {patternLegend.map((item) => (
+        <li key={item.token} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+          <img src={patternTileUrl(item.token)} alt="" width={16} height={16} />
+          {item.label}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * Audiom's sound unlock. A sibling of the map div, never a child of it.
+ * The click resumes Audiom's audio context. This widget does not play a beep.
+ */
+function AudiomSoundControl (props: {
+  soundpackUrl?: string
+  onUnlock: () => void
+}): JSX.Element | null {
+  if (!props.soundpackUrl) return null
+  return (
+    <button
+      type="button"
+      onClick={props.onUnlock}
+      style={{
+        position: 'absolute',
+        left: 8,
+        bottom: 8,
+        zIndex: 3,
+        padding: '0.4rem 0.7rem',
+        border: '1px solid #04203e',
+        borderRadius: 4,
+        background: '#fff',
+        color: '#04203e'
+      }}
+    >
+      Turn sound on
+    </button>
   )
 }
 
@@ -396,7 +474,8 @@ const AUDIOM_CURSOR_PULSE = `
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: 0;,
+  soundpackUrl?: string
   background-color: #04203e;
   border-radius: 50%;
   z-index: -1;
@@ -435,7 +514,8 @@ function useBundledRuntime (
   onAvatar: (position: ReportedAvatar | null) => void,
   longitude?: number,
   latitude?: number,
-  moveDistance?: number
+  moveDistance?: number,
+  soundpackUrl?: string
 ): BundledRuntimeHandle | null {
   const [handle, setHandle] = useState<BundledRuntimeHandle | null>(null)
   const [reported, setReported] = useState<ReportedAvatar | null>(null)
@@ -451,7 +531,7 @@ function useBundledRuntime (
       jimuMapView,
       onStatus,
       null,
-      { longitude, latitude, moveDistance }
+      { longitude, latitude, moveDistance, soundpackUrl }
     )
     next.onReported = (state) => {
       const position = {
@@ -469,7 +549,7 @@ function useBundledRuntime (
       onAvatar(null)
       void next.runtime.dispose()
     }
-  }, [enabled, instanceId, jimuMapView, onStatus, onAvatar, longitude, latitude, moveDistance])
+  }, [enabled, instanceId, jimuMapView, onStatus, onAvatar, longitude, latitude, moveDistance, soundpackUrl])
   useEffect(() => {
     if (!surface || !reported) return
     void showAvatar(surface, reported)

@@ -16,7 +16,9 @@ import {
   createInProcessRuntime,
   type InProcessRuntime
 } from '../../../../shared/audiom-runtime/src/factory'
-import { snapshotFromMapView, type SnapshotMapView } from './mapSnapshot'
+import { applyAudiomSymbols, type SymbolModules } from './audiomSymbols'
+import { snapshotFeaturesFromMapView, type SnapshotLayer, type SnapshotMapView } from './mapSnapshot'
+import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
 import { showAvatar, type MountedMapSurface } from './esriMapSurface'
 import { audiomProgramError, createAudiomProgram, type AudiomProgram } from './audiomProgram'
 
@@ -29,6 +31,10 @@ export interface BundledRuntimeHandle {
   reported: boolean
   /** Called only when Audiom reports a new avatar state. */
   onReported?: (state: AvatarState) => void
+  /** True when Audiom asked the host to unlock audio. */
+  activationRequired: boolean
+  /** The compiled Audiom program, when it loaded. */
+  program: AudiomProgram | null
 }
 
 const applied = (revision = 0): AppliedResult => ({ applied: true, revision })
@@ -39,14 +45,16 @@ export function startBundledRuntime (
   jimuMapView: SnapshotMapView | undefined,
   onStatus: (status: string) => void,
   surface: MountedMapSurface | null = null,
-  origin?: { longitude?: number, latitude?: number, moveDistance?: number }
+  origin?: { longitude?: number, latitude?: number, moveDistance?: number, soundpackUrl?: string }
 ): BundledRuntimeHandle {
   const handle: BundledRuntimeHandle = {
     runtime: null as unknown as InProcessRuntime,
     appliedSources: 0,
     lastError: '',
     avatar: null,
-    reported: false
+    reported: false,
+    activationRequired: false,
+    program: null
   }
   let program: AudiomProgram | null = null
   const host = {
@@ -74,7 +82,11 @@ export function startBundledRuntime (
       return Promise.resolve(result)
     },
     onFocusChanged () { return Promise.resolve(applied()) },
-    onActivationRequired () { return Promise.resolve(applied()) },
+    onActivationRequired () {
+      handle.activationRequired = true
+      onStatus('Select the map to turn sound on')
+      return Promise.resolve(applied())
+    },
     onFeatureEntered (keys: CanonicalKey[]) {
       onStatus(keys.length ? `Entered ${keys.length}` : 'Entered')
       return Promise.resolve(applied())
@@ -94,8 +106,10 @@ export function startBundledRuntime (
     instanceId,
     longitude: origin?.longitude,
     latitude: origin?.latitude,
-    moveDistance: origin?.moveDistance
+    moveDistance: origin?.moveDistance,
+    soundpackUrl: origin?.soundpackUrl
   }, host)
+  handle.program = program
   if (program) {
     handle.runtime = program.runtime
   } else {
@@ -117,10 +131,16 @@ export function startBundledRuntime (
   }).then(async () => {
     const start = program?.avatarState?.()
     if (start) await handle.runtime.notifyAvatarChanged(start)
-    return handle.runtime.replaceSources(
-      snapshotFromMapView(jimuMapView, instanceId),
-      1
-    )
+    if (program?.loadSoundpack) {
+      await program.loadSoundpack()
+      if (program.audioLocked?.()) {
+        handle.activationRequired = true
+        onStatus('Select the map to turn sound on')
+      }
+    }
+    const snapshot = await snapshotFeaturesFromMapView(jimuMapView, instanceId)
+    await paintAudiomStyles(jimuMapView, snapshot)
+    return handle.runtime.replaceSources(snapshot, 1)
   }).then((result) => {
     handle.appliedSources = result.revision
     onStatus(program ? 'Using the existing map' : handle.lastError)
@@ -154,3 +174,51 @@ export async function setBundledLifecycle (
 
 export const bundledFocusTarget = FocusTarget.Map
 export const bundledSelection = SelectionOp.Replace
+
+/**
+ * Paint Audiom fill, stroke, and pattern onto layers already on the Esri map.
+ * No-op when the map has no styled features or the symbol modules are absent.
+ */
+export async function paintAudiomStyles (
+  jimuMapView: SnapshotMapView | undefined,
+  snapshot?: MapSnapshot
+): Promise<void> {
+  const layers = jimuMapView?.view?.map?.allLayers || jimuMapView?.map?.allLayers
+  if (!layers || !snapshot) return
+  let modules: SymbolModules
+  try {
+    const loaded = await import('jimu-core').then((jimu) =>
+      jimu.loadArcGISJSAPIModules([
+        'esri/symbols/SimpleFillSymbol',
+        'esri/symbols/SimpleLineSymbol',
+        'esri/symbols/SimpleMarkerSymbol',
+        'esri/renderers/UniqueValueRenderer',
+        'esri/symbols/PictureFillSymbol'
+      ])
+    ) as unknown[]
+    modules = {
+      SimpleFillSymbol: loaded[0] as SymbolModules['SimpleFillSymbol'],
+      SimpleLineSymbol: loaded[1] as SymbolModules['SimpleLineSymbol'],
+      SimpleMarkerSymbol: loaded[2] as SymbolModules['SimpleMarkerSymbol'],
+      UniqueValueRenderer: loaded[3] as SymbolModules['UniqueValueRenderer'],
+      PictureFillSymbol: loaded[4] as new (properties: unknown) => unknown
+    }
+  } catch {
+    return
+  }
+  const queried = (snapshot as MapSnapshot & { queriedLayers?: SnapshotLayer[] }).queriedLayers || []
+  layers.forEach((layer) => {
+    const sourceId = layer.id || layer.title || 'layer'
+    const match = queried.find((item) => (item.id || item.title || 'layer') === sourceId)
+    const features = (match as (SnapshotLayer & { features?: Array<{ attributes?: Record<string, unknown> }> }) | undefined)?.features
+    if (!features?.length) return
+    applyAudiomSymbols(layer, modules, features)
+  })
+}
+
+/** Resume Audiom's audio from a user gesture. False when no soundpack is loaded. */
+export function unlockBundledAudio (handle: BundledRuntimeHandle | null | undefined): boolean {
+  const unlocked = handle?.program?.unlockAudio?.() === true
+  if (unlocked && handle) handle.activationRequired = false
+  return unlocked
+}

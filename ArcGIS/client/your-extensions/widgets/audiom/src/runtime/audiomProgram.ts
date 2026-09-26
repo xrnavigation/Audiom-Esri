@@ -18,6 +18,8 @@ export interface AudiomProgramOptions {
   zoom?: number
   /** Meters. Passed to Audiom as Avatar.moveDistance. */
   moveDistance?: number
+  /** Audiom soundpack address. Absent means Audiom stays silent. */
+  soundpackUrl?: string
 }
 
 export interface AudiomProgram {
@@ -25,6 +27,12 @@ export interface AudiomProgram {
   /** Audiom's current avatar. Present as soon as the program exists. */
   avatarState?(): AvatarState
   moveAvatar(direction: string): AvatarState
+  /** True when Audiom has a soundpack the browser has not unlocked. */
+  audioLocked?(): boolean
+  /** Resume Audiom's audio context from a user gesture. */
+  unlockAudio?(): boolean
+  /** Load Audiom's soundpack. No-op when none was configured. */
+  loadSoundpack?(): Promise<void>
   dispose(): void
 }
 

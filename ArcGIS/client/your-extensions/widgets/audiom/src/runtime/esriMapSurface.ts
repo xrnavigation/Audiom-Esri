@@ -41,7 +41,10 @@ export interface MountedMapView {
     layers?: { add?: (layer: unknown) => void, remove?: (layer: unknown) => void }
   }
   navigation?: { browserTouchPanEnabled?: boolean, mouseWheelZoomEnabled?: boolean }
+  container?: HTMLElement
   ui?: { components?: string[] }
+  watch?: (property: string, handler: () => void) => MapViewHandle
+  when?: () => Promise<unknown>
   on?: (eventName: string, handler: (event: MapViewEvent) => void) => MapViewHandle
   hitTest?: (event: unknown) => Promise<MapViewHit>
   graphics?: { remove?: (graphic: unknown) => void, add?: (graphic: unknown) => void }
@@ -196,7 +199,20 @@ export async function avatarScreenPoint (
     latitude: position.latitude
   }))
   if (projected?.x == null || projected.y == null) return null
-  return { x: projected.x, y: projected.y }
+  // toScreen is relative to the view container. The compass is a sibling of
+  // that node, so shift into the overlay's box. A point outside the view is
+  // not drawn: that is what made the indicator vanish off the map.
+  const viewNode = surface.view.container
+  const overlay = viewNode?.parentElement
+  if (!viewNode || !overlay) return { x: projected.x, y: projected.y }
+  const viewBox = viewNode.getBoundingClientRect()
+  const overlayBox = overlay.getBoundingClientRect()
+  const x = projected.x + viewBox.left - overlayBox.left
+  const y = projected.y + viewBox.top - overlayBox.top
+  if (projected.x < 0 || projected.y < 0 || projected.x > viewBox.width || projected.y > viewBox.height) {
+    return null
+  }
+  return { x, y }
 }
 
 export function destroyMapSurface (surface: MountedMapSurface | null): void {
