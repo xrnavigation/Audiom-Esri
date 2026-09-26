@@ -202,6 +202,7 @@ export interface AudiomRuntime {
 		selectionRevision: number,
 	): Promise<AppliedResult>;
 	openFeatureContent(key: CanonicalKey): Promise<AppliedResult>;
+	moveAvatar(direction: string): Promise<AppliedResult>;
 	restoreAvatar(position: LngLat, orientation: number): Promise<AppliedResult>;
 	focusRuntime(target: FocusTarget): Promise<FocusResult>;
 	setHostLifecycle(

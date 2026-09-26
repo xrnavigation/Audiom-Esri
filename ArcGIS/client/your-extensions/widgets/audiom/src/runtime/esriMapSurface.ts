@@ -1,4 +1,5 @@
 import { loadArcGISJSAPIModules } from 'jimu-core'
+import type { ReportedAvatar } from './reportedAvatar'
 
 export interface MapSurfaceOptions {
   container: HTMLElement
@@ -8,9 +9,52 @@ export interface MapSurfaceOptions {
   zoom?: number
 }
 
+export interface AvatarGraphicsLayer {
+  removeAll?: () => void
+  remove?: (graphic: unknown) => void
+  add?: (graphic: unknown) => void
+  destroy?: () => void
+}
+
+export interface MapViewEvent {
+  key?: string
+  stopPropagation?: () => void
+  mapPoint?: { longitude?: number, latitude?: number }
+}
+
+export interface MapViewHit {
+  results?: Array<{ graphic?: { attributes?: { audiomAvatar?: boolean } } }>
+}
+
+export interface MapViewHandle {
+  remove?: () => void
+}
+
+export interface MountedMapView {
+  center?: unknown
+  destroy?: () => void
+  goTo?: (target: unknown) => Promise<unknown>
+  toScreen?: (point: unknown) => { x?: number, y?: number } | null
+  map?: {
+    add?: (layer: unknown) => void
+    remove?: (layer: unknown) => void
+    layers?: { add?: (layer: unknown) => void, remove?: (layer: unknown) => void }
+  }
+  navigation?: { browserTouchPanEnabled?: boolean, mouseWheelZoomEnabled?: boolean }
+  ui?: { components?: string[] }
+  on?: (eventName: string, handler: (event: MapViewEvent) => void) => MapViewHandle
+  hitTest?: (event: unknown) => Promise<MapViewHit>
+  graphics?: { remove?: (graphic: unknown) => void, add?: (graphic: unknown) => void }
+}
+
 export interface MountedMapSurface {
-  view: { center?: unknown, destroy?: () => void, map?: unknown }
+  view: MountedMapView
   ownedMap: boolean
+  avatarLayer?: AvatarGraphicsLayer
+  avatar?: unknown
+  keyHandle?: MapViewHandle
+  clickHandle?: MapViewHandle
+  onIndicatorClick?: () => void
 }
 
 export interface MapModules {
@@ -22,8 +66,13 @@ export interface MapModules {
     zoom?: number
   }) => MountedMapSurface['view']
 }
+export interface AvatarModules {
+  Graphic: new (properties: unknown) => unknown
+  Point: new (properties: unknown) => unknown
+  GraphicsLayer: new (properties?: unknown) => AvatarGraphicsLayer
+}
 
-type ModuleLoader = (modules: string[]) => Promise<MapModules[]>
+type ModuleLoader = (modules: string[]) => Promise<unknown[]>
 
 let moduleLoader: ModuleLoader = async (modules) => {
   const loaded = await loadArcGISJSAPIModules(modules)
@@ -52,18 +101,114 @@ export async function mountEsriMap (options: MapSurfaceOptions): Promise<Mounted
     center: [options.longitude ?? 0, options.latitude ?? 0],
     zoom: options.zoom ?? 2
   })
-  return { view, ownedMap }
+  const surface: MountedMapSurface = { view, ownedMap }
+  await attachAvatarLayer(surface)
+  disableArrowKeyMapPan(surface)
+  attachIndicatorClick(surface)
+  return surface
 }
 
-export function moveMapCenter (
+/** Audiom's marker lives on its own layer. Shared view graphics are never cleared. */
+async function attachAvatarLayer (surface: MountedMapSurface): Promise<void> {
+  const loaded = await moduleLoader(['esri/layers/GraphicsLayer'])
+  const GraphicsLayer = loaded[0] as AvatarModules['GraphicsLayer'] | undefined
+  if (!GraphicsLayer) return
+  const layer = new GraphicsLayer({ id: 'audiom-avatar', listMode: 'hide', title: 'Audiom avatar' })
+  const map = surface.view.map
+  if (map?.layers?.add) map.layers.add(layer)
+  else if (map?.add) map.add(layer)
+  else return
+  surface.avatarLayer = layer
+}
+
+/** Arrow keys move the Audiom avatar, not the map camera. */
+export function disableArrowKeyMapPan (surface: MountedMapSurface): void {
+  const view = surface.view as {
+    navigation?: { browserTouchPanEnabled?: boolean }
+    on?: MountedMapSurface['view']['on']
+  } & Record<string, unknown>
+  const keys = view.navigation as { browserTouchPanEnabled?: boolean } & Record<string, unknown> | undefined
+  if (keys) {
+    keys.browserTouchPanEnabled = false
+    for (const name of ['keyboardPanEnabled', 'keyboardZoomEnabled', 'gamepadEnabled']) {
+      if (name in keys || keys[name] !== false) keys[name] = false
+    }
+  }
+  surface.keyHandle = view.on?.('key-down', (event) => {
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.stopPropagation?.()
+    }
+  })
+}
+
+/** Clicking Audiom's indicator selects it, the same as clicking Audiom's marker. */
+function attachIndicatorClick (surface: MountedMapSurface): void {
+  const view = surface.view
+  surface.clickHandle = view.on?.('click', (event) => {
+    const point = event.mapPoint
+    const graphic = surface.avatar as { geometry?: { longitude?: number, latitude?: number }, attributes?: { audiomAvatar?: boolean } } | undefined
+    const near = point && graphic?.attributes?.audiomAvatar && graphic.geometry &&
+      Math.abs((point.longitude ?? 0) - (graphic.geometry.longitude ?? 0)) < 0.02 &&
+      Math.abs((point.latitude ?? 0) - (graphic.geometry.latitude ?? 0)) < 0.02
+    if (!view.hitTest) {
+      if (near) surface.onIndicatorClick?.()
+      return
+    }
+    void view.hitTest(event).then((hit) => {
+      const selected = hit.results?.some((result) => result.graphic?.attributes?.audiomAvatar)
+      if (selected || near) surface.onIndicatorClick?.()
+    }).catch(() => {
+      if (near) surface.onIndicatorClick?.()
+    })
+  })
+}
+
+/**
+ * Records the position Audiom reported. The visible indicator is the DOM
+ * compass. A second graphic would draw a duplicate icon.
+ */
+export async function showAvatar (
   surface: MountedMapSurface | null,
-  longitude: number,
-  latitude: number
-): void {
-  if (!surface) return
-  surface.view.center = { longitude, latitude }
+  position: ReportedAvatar | null
+): Promise<void> {
+  if (!surface || !position) return
+  surface.avatar = {
+    geometry: {
+      longitude: position.longitude,
+      latitude: position.latitude
+    },
+    attributes: { audiomAvatar: true, heading: position.heading }
+  }
+}
+
+/** Screen position of a reported avatar, or null when the view cannot project it. */
+export async function avatarScreenPoint (
+  surface: MountedMapSurface | null,
+  position: ReportedAvatar | null
+): Promise<{ x: number, y: number } | null> {
+  if (!surface || !position || !surface.view.toScreen) return null
+  const [, Point] = await moduleLoader([
+    'esri/Graphic',
+    'esri/geometry/Point'
+  ]) as [AvatarModules['Graphic'], AvatarModules['Point']]
+  const projected = surface.view.toScreen(new Point({
+    longitude: position.longitude,
+    latitude: position.latitude
+  }))
+  if (projected?.x == null || projected.y == null) return null
+  return { x: projected.x, y: projected.y }
 }
 
 export function destroyMapSurface (surface: MountedMapSurface | null): void {
+  surface?.keyHandle?.remove?.()
+  surface?.clickHandle?.remove?.()
+  const layer = surface?.avatarLayer
+  const map = surface?.view.map
+  if (layer) {
+    layer.removeAll?.()
+    if (map?.layers?.remove) map.layers.remove(layer)
+    else map?.remove?.(layer)
+    layer.destroy?.()
+  }
   surface?.view.destroy?.()
 }

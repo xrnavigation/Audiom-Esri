@@ -125,7 +125,15 @@ describe('Audiom runtime widget', () => {
 
   it('renders an Esri map in the widget for bundled and hosted modes', async () => {
     const created: Array<{ container: HTMLElement, map: unknown }> = []
-    setMapModuleLoader(async () => [
+    setMapModuleLoader(async (modules) => {
+      if (modules[0] === 'esri/layers/GraphicsLayer') {
+        return [class GraphicsLayer {
+          constructor (public properties: unknown) {}
+          removeAll () {}
+          add () {}
+        }]
+      }
+      return [
       class Map { constructor (public properties: unknown) {} },
       class MapView {
         container: HTMLElement
@@ -138,7 +146,8 @@ describe('Audiom runtime widget', () => {
         }
         destroy () {}
       }
-    ] as any)
+    ]
+    })
 
     for (const location of [RuntimeLocation.Bundled, RuntimeLocation.Hosted]) {
       const Widget = wrapWidget(_Widget, {
@@ -151,6 +160,7 @@ describe('Audiom runtime widget', () => {
       expect(map).not.toBeNull()
       await new Promise((resolve) => setTimeout(resolve, 0))
       expect(map!.getAttribute('data-map-mounted')).toBe('true')
+      expect(map!.getAttribute('tabindex')).toBe('0')
       unmount()
     }
     expect(created.length).toBe(2)

@@ -17,13 +17,18 @@ import {
   type InProcessRuntime
 } from '../../../../shared/audiom-runtime/src/factory'
 import { snapshotFromMapView, type SnapshotMapView } from './mapSnapshot'
-import { moveMapCenter, type MountedMapSurface } from './esriMapSurface'
+import { showAvatar, type MountedMapSurface } from './esriMapSurface'
+import { audiomProgramError, createAudiomProgram, type AudiomProgram } from './audiomProgram'
 
 export interface BundledRuntimeHandle {
   runtime: InProcessRuntime
   appliedSources: number
   lastError: string
   avatar: AvatarState | null
+  /** True only after Audiom reports a position. The widget never invents one. */
+  reported: boolean
+  /** Called only when Audiom reports a new avatar state. */
+  onReported?: (state: AvatarState) => void
 }
 
 const applied = (revision = 0): AppliedResult => ({ applied: true, revision })
@@ -33,17 +38,27 @@ export function startBundledRuntime (
   instanceId: string,
   jimuMapView: SnapshotMapView | undefined,
   onStatus: (status: string) => void,
-  surface: MountedMapSurface | null = null
+  surface: MountedMapSurface | null = null,
+  origin?: { longitude?: number, latitude?: number, moveDistance?: number }
 ): BundledRuntimeHandle {
   const handle: BundledRuntimeHandle = {
     runtime: null as unknown as InProcessRuntime,
     appliedSources: 0,
     lastError: '',
-    avatar: null
+    avatar: null,
+    reported: false
   }
+  let program: AudiomProgram | null = null
   const host = {
     onAvatarChanged (state: AvatarState) {
       handle.avatar = state
+      handle.reported = true
+      handle.onReported?.(state)
+      void showAvatar(surface, {
+        longitude: state.position.longitude,
+        latitude: state.position.latitude,
+        heading: state.orientation
+      })
       return Promise.resolve(applied())
     },
     requestSelection () {
@@ -51,7 +66,6 @@ export function startBundledRuntime (
       return Promise.resolve(result)
     },
     requestViewpoint (viewpoint: Viewpoint) {
-      moveMapCenter(surface, viewpoint.center.longitude, viewpoint.center.latitude)
       onStatus(`Viewpoint ${viewpoint.center.longitude}, ${viewpoint.center.latitude}`)
       return Promise.resolve(applied())
     },
@@ -76,21 +90,40 @@ export function startBundledRuntime (
       return Promise.resolve(applied())
     }
   }
-  handle.runtime = createInProcessRuntime({
-    sessionId: `${instanceId}-session`,
-    instanceId
+  program = createAudiomProgram({
+    instanceId,
+    longitude: origin?.longitude,
+    latitude: origin?.latitude,
+    moveDistance: origin?.moveDistance
   }, host)
+  if (program) {
+    handle.runtime = program.runtime
+  } else {
+    handle.lastError = audiomProgramError() || 'Audiom program failed to load'
+    handle.runtime = createInProcessRuntime({
+      sessionId: `${instanceId}-session`,
+      instanceId,
+      moveAvatar () {
+        return null
+      }
+    }, host)
+    onStatus(handle.lastError)
+  }
   void handle.runtime.hello({
     product: 'Experience Builder',
     version: '1.18',
     contractVersion: CONTRACT_VERSION,
     capabilities: ['existing-map']
-  }).then(() => handle.runtime.replaceSources(
-    snapshotFromMapView(jimuMapView, instanceId),
-    1
-  )).then((result) => {
+  }).then(async () => {
+    const start = program?.avatarState?.()
+    if (start) await handle.runtime.notifyAvatarChanged(start)
+    return handle.runtime.replaceSources(
+      snapshotFromMapView(jimuMapView, instanceId),
+      1
+    )
+  }).then((result) => {
     handle.appliedSources = result.revision
-    onStatus('Using the existing map')
+    onStatus(program ? 'Using the existing map' : handle.lastError)
   }).catch((error: unknown) => {
     handle.lastError = error instanceof Error ? error.message : 'Runtime failed'
     onStatus(handle.lastError)

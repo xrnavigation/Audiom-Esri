@@ -37,6 +37,7 @@ export interface InProcessRuntimeConfig {
 		revision: number,
 	) => void;
 	openFeature?: (key: CanonicalKey) => void;
+	moveAvatar?: (direction: string) => AvatarState | null;
 	restoreAvatar?: (position: LngLat, orientation: number) => void;
 	focus?: (target: FocusTarget) => FocusResult;
 	announce?: (text: string) => void;
@@ -196,6 +197,15 @@ export function createInProcessRuntime(
 				config.applySelection?.(op, heldSelection, selectionRevision);
 				session.selectionRevision = selectionRevision;
 				return applied(selectionRevision);
+			});
+		},
+		moveAvatar(direction: string) {
+			return later(() => {
+				guard();
+				assertPlainData(direction, 'direction');
+				const next = config.moveAvatar?.(direction) ?? null;
+				if (next) host.onAvatarChanged(copyPayload(next));
+				return applied();
 			});
 		},
 		openFeatureContent(key) {

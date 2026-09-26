@@ -213,6 +213,7 @@ export const contractJsonSchema = {
 				'setEffectiveState',
 				'setHostSelection',
 				'openFeatureContent',
+				'moveAvatar',
 				'restoreAvatar',
 				'focusRuntime',
 				'setHostLifecycle',
@@ -251,6 +252,7 @@ export const contractJsonSchema = {
 					additionalProperties: false,
 				},
 				openFeatureContent: canonicalKey,
+				moveAvatar: { type: 'string' },
 				restoreAvatar: {
 					type: 'object',
 					required: ['position', 'orientation'],
