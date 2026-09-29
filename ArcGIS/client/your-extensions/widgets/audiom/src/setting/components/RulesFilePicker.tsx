@@ -90,7 +90,6 @@ export default function RulesFilePicker ({
           <CopyableLabel label={urlLabel} copyValue={urlLocked ? '' : value} showCopyButton={!urlLocked && Boolean(value)} />
           <TextInput
             style={styles.field}
-            type="url"
             aria-label={urlLabel}
             value={urlValue}
             placeholder={urlLocked ? MIXED_VALUE_PLACEHOLDER : PLACEHOLDER_RULES_URL}
