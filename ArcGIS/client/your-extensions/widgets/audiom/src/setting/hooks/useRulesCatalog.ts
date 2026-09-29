@@ -1,4 +1,5 @@
 import { React } from 'jimu-core'
+import { RulesCatalogStatus } from '../enums'
 
 export interface RulesCatalogItem {
   id: number
@@ -7,9 +8,10 @@ export interface RulesCatalogItem {
   url: string
 }
 
-export type RulesCatalog =
-  | { status: 'idle' | 'loading' | 'error'; items: RulesCatalogItem[] }
-  | { status: 'ready'; items: RulesCatalogItem[] }
+export interface RulesCatalog {
+  status: RulesCatalogStatus
+  items: RulesCatalogItem[]
+}
 
 /** One catalog request shared by the bulk picker and every source picker. */
 export function useRulesCatalog (baseUrl: string, apiKey: string): RulesCatalog {
@@ -21,7 +23,7 @@ export function useRulesCatalog (baseUrl: string, apiKey: string): RulesCatalog 
     const update = (catalog: RulesCatalog) => {
       if (active) setResult({ baseUrl, apiKey, catalog })
     }
-    update({ status: 'loading', items: [] })
+    update({ status: RulesCatalogStatus.Loading, items: [] })
     async function load () {
       try {
         const endpoint = new URL('/api/rules', baseUrl)
@@ -37,17 +39,17 @@ export function useRulesCatalog (baseUrl: string, apiKey: string): RulesCatalog 
           typeof item.slug === 'string' && typeof item.url === 'string')) {
           throw new Error('Invalid catalog response')
         }
-        update({ status: 'ready', items: body.data })
+        update({ status: RulesCatalogStatus.Ready, items: body.data })
       } catch {
-        update({ status: 'error', items: [] })
+        update({ status: RulesCatalogStatus.Error, items: [] })
       }
     }
     void load()
     return () => { active = false; controller.abort() }
   }, [baseUrl, apiKey])
 
-  if (!apiKey || !baseUrl) return { status: 'idle', items: [] }
+  if (!apiKey || !baseUrl) return { status: RulesCatalogStatus.Idle, items: [] }
   // Clear stale options during render, before the effect for new credentials runs.
-  if (result?.baseUrl !== baseUrl || result?.apiKey !== apiKey) return { status: 'loading', items: [] }
+  if (result?.baseUrl !== baseUrl || result?.apiKey !== apiKey) return { status: RulesCatalogStatus.Loading, items: [] }
   return result.catalog
 }

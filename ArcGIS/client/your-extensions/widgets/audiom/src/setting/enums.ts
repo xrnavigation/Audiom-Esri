@@ -68,6 +68,14 @@ export enum FilterType {
   When = 'when'
 }
 
+/** Fetch state for the shared rules-file catalog. */
+export enum RulesCatalogStatus {
+  Idle = 'idle',
+  Loading = 'loading',
+  Error = 'error',
+  Ready = 'ready'
+}
+
 // Theme Colors
 
 /**

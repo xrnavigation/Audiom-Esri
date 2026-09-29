@@ -2,6 +2,8 @@ import { React } from 'jimu-core'
 import { render, fireEvent, waitFor, act } from '@testing-library/react'
 import RulesFilePicker from '../../src/setting/components/RulesFilePicker'
 import { useRulesCatalog } from '../../src/setting/hooks/useRulesCatalog'
+import { RulesCatalogStatus } from '../../src/setting/enums'
+import { RULES_CATALOG_EMPTY } from '../../src/setting/strings'
 
 jest.mock('jimu-ui', () => {
   const { createJimuUiStubs } = require('../helpers/stubComponents')
@@ -30,6 +32,22 @@ describe('Rules file catalog selection', () => {
     expect(global.fetch).toHaveBeenCalledWith('https://audiom.example/api/rules', expect.objectContaining({ headers: { 'X-API-Key': 'pk_one' } }))
     fireEvent.change(view.getByRole('combobox', { name: 'Rules file' }), { target: { value: url } })
     expect(onChange).toHaveBeenCalledWith(url)
+  })
+
+  it('hides the URL field when a catalog file is selected and shows it for Custom URL', () => {
+    const view = render(<RulesFilePicker label="Rules file" value={url} onChange={jest.fn()} catalog={{ status: RulesCatalogStatus.Ready, items }} />)
+    expect(view.getByRole('option', { name: 'Custom URL' })).toBeTruthy()
+    expect(view.queryByRole('textbox', { name: 'Rules file URL' })).toBeNull()
+
+    view.rerender(<RulesFilePicker label="Rules file" value="https://custom.example/rules.json" onChange={jest.fn()} catalog={{ status: RulesCatalogStatus.Ready, items }} />)
+    expect(view.getByRole('textbox', { name: 'Rules file URL' })).toBeTruthy()
+    expect((view.getByRole('combobox', { name: 'Rules file' }) as HTMLSelectElement).value).toBe('')
+  })
+
+  it('shows the mixed dash in the URL field without treating it as a custom URL', () => {
+    const view = render(<RulesFilePicker label="Rules file" value="-" onChange={jest.fn()} mixed catalog={{ status: RulesCatalogStatus.Ready, items }} />)
+    expect((view.getByRole('textbox', { name: 'Rules file URL' }) as HTMLInputElement).value).toBe('-')
+    expect((view.getByRole('combobox', { name: 'Rules file' }) as HTMLSelectElement).value).toBe('')
   })
 
   it('preserves a custom URL and permits manual edits when catalog loading fails', async () => {
@@ -61,7 +79,7 @@ describe('Rules file catalog selection', () => {
   it('announces an empty catalog and reloads when the server changes', async () => {
     global.fetch = jest.fn().mockResolvedValue(response([]))
     const view = render(<Harness />)
-    await view.findByText('No rules files are available for this API key.')
+    await view.findByText(RULES_CATALOG_EMPTY)
     view.rerender(<Harness baseUrl="https://other.example" />)
     await waitFor(() => expect(global.fetch).toHaveBeenLastCalledWith('https://other.example/api/rules', expect.anything()))
   })

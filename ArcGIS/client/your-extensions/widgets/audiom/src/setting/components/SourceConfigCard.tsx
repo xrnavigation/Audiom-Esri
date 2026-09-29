@@ -76,6 +76,7 @@ import {
   PLACEHOLDER_SOURCE,
   PLACEHOLDER_FILTER,
   PLACEHOLDER_TIME_FILTER,
+  MIXED_VALUE_PLACEHOLDER,
   TOOLTIP_LOCK_FILTER,
   TOOLTIP_UNLOCK_FILTER,
   TOOLTIP_REMOVE_FILTER,
@@ -252,8 +253,11 @@ const SourceConfigCard = (props: SourceConfigCardProps) => {
 
   const renderSourceField = (field: FieldConfig) => {
     if (field.key === SourceConfigKey.RulesFileUrl) {
-      return <RulesFilePicker key={field.key} label={`${FIELD_LABEL_RULES_URL} (${sourceName})`}
+      return <RulesFilePicker key={field.key}
+        label={`Rules File (${sourceName})`}
+        urlLabel={`${FIELD_LABEL_RULES_URL} (${sourceName})`}
         value={sourceConfig.rulesFileUrl ?? ''} catalog={props.catalog}
+        mixed={sourceConfig.rulesFileUrl === MIXED_VALUE_PLACEHOLDER}
         onChange={rulesFileUrl => onFieldChange({ rulesFileUrl })} />
     }
     const value = (sourceConfig as Record<string, unknown>)[field.key] ?? field.defaultValue
