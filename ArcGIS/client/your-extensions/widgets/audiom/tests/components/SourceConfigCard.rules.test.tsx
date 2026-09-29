@@ -1,6 +1,7 @@
 import { React } from 'jimu-core'
 import { render, fireEvent } from '@testing-library/react'
 import SourceConfigCard from '../../src/setting/components/SourceConfigCard'
+import { RulesCatalogStatus } from '../../src/setting/enums'
 import { makeSource } from '../helpers/configFactories'
 
 jest.mock('jimu-ui', () => {
@@ -20,7 +21,7 @@ describe('Source card rules selection', () => {
       sourceConfig={makeSource({ name: 'Roads', locked: true })} index={0} isExpanded readOnly
       onFieldChange={onFieldChange} onToggleExpanded={jest.fn()} onRemove={jest.fn()}
       onToggleEnabled={jest.fn()} onToggleLocked={jest.fn()}
-      catalog={{ status: 'ready', items: [{ id: 9, name: 'OSM', slug: 'osm', url }] }}
+      catalog={{ status: RulesCatalogStatus.Ready, items: [{ id: 9, name: 'OSM', slug: 'osm', url }] }}
     />)
     fireEvent.change(view.getByRole('combobox', { name: /Roads/ }), { target: { value: url } })
     expect(onFieldChange).toHaveBeenCalledWith({ rulesFileUrl: url })

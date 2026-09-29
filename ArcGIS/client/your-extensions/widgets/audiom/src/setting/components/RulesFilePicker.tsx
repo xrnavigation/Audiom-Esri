@@ -2,8 +2,17 @@ import { React } from 'jimu-core'
 import { Select, Option, TextInput } from 'jimu-ui'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
 import type { RulesCatalog } from '../hooks/useRulesCatalog'
-import { FlowType } from '../enums'
-import { MIXED_VALUE_PLACEHOLDER, PLACEHOLDER_RULES_URL, RULES_FILE_CUSTOM_URL } from '../strings'
+import { AriaRole, FlowType, RulesCatalogStatus } from '../enums'
+import {
+  MIXED_VALUE_PLACEHOLDER,
+  PLACEHOLDER_RULES_URL,
+  RULES_CATALOG_EMPTY,
+  RULES_CATALOG_ERROR,
+  RULES_CATALOG_IDLE,
+  RULES_CATALOG_LOADING,
+  RULES_FILE_CUSTOM_URL,
+  RULES_FILE_MIXED
+} from '../strings'
 import { validateUrl } from '../validation/validation'
 import CopyableLabel from './CopyableLabel'
 
@@ -50,11 +59,11 @@ export default function RulesFilePicker ({
 }: Props) {
   const selected = mixed ? MIXED_VALUE_PLACEHOLDER
     : catalog.items.some(item => item.url === value) ? value : ''
-  const catalogDisabled = catalog.status !== 'ready' || catalog.items.length === 0
-  const message = catalog.status === 'idle' ? 'Enter your API key to list rules files.'
-    : catalog.status === 'loading' ? 'Loading rules files…'
-      : catalog.status === 'error' ? 'Could not load rules files. Check your API key and Audiom server URL.'
-        : catalog.items.length === 0 ? 'No rules files are available for this API key.' : ''
+  const catalogDisabled = catalog.status !== RulesCatalogStatus.Ready || catalog.items.length === 0
+  const message = catalog.status === RulesCatalogStatus.Idle ? RULES_CATALOG_IDLE
+    : catalog.status === RulesCatalogStatus.Loading ? RULES_CATALOG_LOADING
+      : catalog.status === RulesCatalogStatus.Error ? RULES_CATALOG_ERROR
+        : catalog.items.length === 0 ? RULES_CATALOG_EMPTY : ''
   // Mixed still shows the URL row so the dash is visible, same as other mixed fields.
   const showCustomUrl = mixed || selected === ''
   const urlLocked = mixed && !urlEditableWhenMixed
@@ -72,7 +81,7 @@ export default function RulesFilePicker ({
           onChange={event => { onChange(event.target.value) }}
         >
           {mixed && (
-            <Option value={MIXED_VALUE_PLACEHOLDER} disabled style={{ fontStyle: 'italic' }}>Mixed</Option>
+            <Option value={MIXED_VALUE_PLACEHOLDER} disabled style={{ fontStyle: 'italic' }}>{RULES_FILE_MIXED}</Option>
           )}
           <Option value="">{RULES_FILE_CUSTOM_URL}</Option>
           {catalog.items.map(item => (
@@ -81,7 +90,7 @@ export default function RulesFilePicker ({
         </Select>
       </SettingRow>
       {message && (
-        <div role={catalog.status === 'error' ? 'alert' : 'status'} style={styles.message}>
+        <div role={catalog.status === RulesCatalogStatus.Error ? AriaRole.Alert : AriaRole.Status} style={styles.message}>
           {message}
         </div>
       )}

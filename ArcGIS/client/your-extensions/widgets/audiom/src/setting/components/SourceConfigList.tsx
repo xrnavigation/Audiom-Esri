@@ -4,7 +4,7 @@ import { Select, Option, Collapse, Button } from 'jimu-ui'
 import { ExpandOutlined } from 'jimu-icons/outlined/directional/expand'
 import { CollapseOutlined } from 'jimu-icons/outlined/directional/collapse'
 import { MapType } from '../../../../../shared/audiom-client/AudiomSource'
-import { ButtonSize, ButtonType, FlowType, Colors, Padding } from '../enums'
+import { AriaRole, ButtonSize, ButtonType, FlowType, Colors, Padding } from '../enums'
 import { DEFAULT_SOURCE_CONFIG, ISourceConfig, MAP_TYPE_OPTIONS } from '../configs'
 import { replaceAt } from '../../utils/sourceConfigUtils'
 import CopyableLabel from './CopyableLabel'
@@ -47,7 +47,7 @@ const BUTTON_ADD = 'Add Source Configuration'
 const FIELD_LABEL_ALL_MAP_TYPE = 'Map Type (All)'
 const FIELD_LABEL_ALL_RULES_FILE = 'Rules File (All)'
 // MIXED_VALUE_PLACEHOLDER is now imported from ../strings
-import { MIXED_VALUE_PLACEHOLDER } from '../strings'
+import { FIELD_LABEL_ALL_RULES_URL, MIXED_VALUE_PLACEHOLDER, RULES_FILE_MIXED, RULES_FILES_MIXED } from '../strings'
 const EMPTY_STATE_MESSAGE = 'No sources could be extracted from the ESRI map.'
 
 interface SourceConfigListProps {
@@ -238,15 +238,15 @@ const SourceConfigList = (props: SourceConfigListProps) => {
               onChange={(e) => onAllMapTypeChange(e.target.value as MapType)}
             >
               {commonMapType === null && (
-                <Option value="" disabled style={{ fontStyle: 'italic' }}>Mixed</Option>
+                <Option value="" disabled style={{ fontStyle: 'italic' }}>{RULES_FILE_MIXED}</Option>
               )}
               {MAP_TYPE_OPTIONS.map(opt => (
                 <Option key={opt.value} value={opt.value}>{opt.label}</Option>
               ))}
             </Select>
           </SettingRow>
-          {hasMixedRulesFiles && <div role="status">Sources use different rules files.</div>}
-          <RulesFilePicker label={FIELD_LABEL_ALL_RULES_FILE} urlLabel="Rules File URL (All)"
+          {hasMixedRulesFiles && <div role={AriaRole.Status}>{RULES_FILES_MIXED}</div>}
+          <RulesFilePicker label={FIELD_LABEL_ALL_RULES_FILE} urlLabel={FIELD_LABEL_ALL_RULES_URL}
             value={getAllRulesFileValue()} onChange={onAllRulesFileChange}
             onUrlChange={onAllCustomUrlChange} urlEditableWhenMixed
             catalog={catalog} mixed={hasMixedRulesFiles} />
