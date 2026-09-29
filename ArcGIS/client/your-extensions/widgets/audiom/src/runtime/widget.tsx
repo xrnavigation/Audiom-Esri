@@ -474,8 +474,7 @@ const AUDIOM_CURSOR_PULSE = `
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;,
-  soundpackUrl?: string
+  bottom: 0;
   background-color: #04203e;
   border-radius: 50%;
   z-index: -1;
