@@ -46,6 +46,12 @@ const styles = {
   message: { width: '100%', margin: 0 }
 } as const satisfies Record<string, React.CSSProperties>
 
+const CATALOG_STATUS_MESSAGE: Partial<Record<RulesCatalogStatus, string>> = {
+  [RulesCatalogStatus.Idle]: RULES_CATALOG_IDLE,
+  [RulesCatalogStatus.Loading]: RULES_CATALOG_LOADING,
+  [RulesCatalogStatus.Error]: RULES_CATALOG_ERROR
+}
+
 /**
  * Catalog dropdown plus a manual URL field.
  *
@@ -60,10 +66,8 @@ export default function RulesFilePicker ({
   const selected = mixed ? MIXED_VALUE_PLACEHOLDER
     : catalog.items.some(item => item.url === value) ? value : ''
   const catalogDisabled = catalog.status !== RulesCatalogStatus.Ready || catalog.items.length === 0
-  const message = catalog.status === RulesCatalogStatus.Idle ? RULES_CATALOG_IDLE
-    : catalog.status === RulesCatalogStatus.Loading ? RULES_CATALOG_LOADING
-      : catalog.status === RulesCatalogStatus.Error ? RULES_CATALOG_ERROR
-        : catalog.items.length === 0 ? RULES_CATALOG_EMPTY : ''
+  const message = CATALOG_STATUS_MESSAGE[catalog.status]
+    ?? (catalog.items.length === 0 ? RULES_CATALOG_EMPTY : '')
   // Mixed still shows the URL row so the dash is visible, same as other mixed fields.
   const showCustomUrl = mixed || selected === ''
   const urlLocked = mixed && !urlEditableWhenMixed
