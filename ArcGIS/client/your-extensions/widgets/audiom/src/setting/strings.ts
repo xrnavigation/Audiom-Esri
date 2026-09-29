@@ -35,6 +35,8 @@ export const FIELD_LABEL_FILTER = 'Filters'
 export const PLACEHOLDER_NAME = 'Enter source display name'
 export const PLACEHOLDER_SOURCE_URL = 'Enter map source URL'
 export const PLACEHOLDER_RULES_URL = 'Enter rules file URL'
+/** Dropdown choice for a rules file that is not in the catalog. */
+export const RULES_FILE_CUSTOM_URL = 'Custom URL'
 export const PLACEHOLDER_SOURCE = 'Enter source identifier (e.g., units)'
 export const PLACEHOLDER_FILTER = 'e.g., population > 1000'
 export const PLACEHOLDER_TIME_FILTER = 'e.g., 2024-01-01/2024-12-31'

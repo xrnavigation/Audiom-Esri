@@ -32,6 +32,22 @@ describe('Rules file catalog selection', () => {
     expect(onChange).toHaveBeenCalledWith(url)
   })
 
+  it('hides the URL field when a catalog file is selected and shows it for Custom URL', () => {
+    const view = render(<RulesFilePicker label="Rules file" value={url} onChange={jest.fn()} catalog={{ status: 'ready', items }} />)
+    expect(view.getByRole('option', { name: 'Custom URL' })).toBeTruthy()
+    expect(view.queryByRole('textbox', { name: 'Rules file URL' })).toBeNull()
+
+    view.rerender(<RulesFilePicker label="Rules file" value="https://custom.example/rules.json" onChange={jest.fn()} catalog={{ status: 'ready', items }} />)
+    expect(view.getByRole('textbox', { name: 'Rules file URL' })).toBeTruthy()
+    expect((view.getByRole('combobox', { name: 'Rules file' }) as HTMLSelectElement).value).toBe('')
+  })
+
+  it('shows the mixed dash in the URL field without treating it as a custom URL', () => {
+    const view = render(<RulesFilePicker label="Rules file" value="-" onChange={jest.fn()} mixed catalog={{ status: 'ready', items }} />)
+    expect((view.getByRole('textbox', { name: 'Rules file URL' }) as HTMLInputElement).value).toBe('-')
+    expect((view.getByRole('combobox', { name: 'Rules file' }) as HTMLSelectElement).value).toBe('')
+  })
+
   it('preserves a custom URL and permits manual edits when catalog loading fails', async () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401 })
     const onChange = jest.fn()

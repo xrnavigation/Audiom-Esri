@@ -155,6 +155,15 @@ const SourceConfigList = (props: SourceConfigListProps) => {
     onChange(newSourceConfigs)
   }
 
+  // A catalog pick replaces every source. A typed URL only replaces sources
+  // that are not already on a catalog file.
+  const onAllCustomUrlChange = (rulesFileUrl: string) => {
+    const catalogUrls = new Set(catalog.items.map(item => item.url))
+    onChange(sourceConfigs.map(config =>
+      catalogUrls.has(config.rulesFileUrl ?? '') ? config : { ...config, rulesFileUrl }
+    ))
+  }
+
   const onSourceConfigChange = (index: number, updates: Partial<ISourceConfig>) => {
     onChange(replaceAt(sourceConfigs, index, updates))
   }
@@ -236,11 +245,11 @@ const SourceConfigList = (props: SourceConfigListProps) => {
               ))}
             </Select>
           </SettingRow>
-          <SettingRow flow={FlowType.Wrap}>
-            {hasMixedRulesFiles && <div role="status">Sources use different rules files.</div>}
-            <RulesFilePicker label={FIELD_LABEL_ALL_RULES_FILE} value={hasMixedRulesFiles ? '' : getAllRulesFileValue()}
-              onChange={onAllRulesFileChange} catalog={catalog} />
-          </SettingRow>
+          {hasMixedRulesFiles && <div role="status">Sources use different rules files.</div>}
+          <RulesFilePicker label={FIELD_LABEL_ALL_RULES_FILE} urlLabel="Rules File URL (All)"
+            value={getAllRulesFileValue()} onChange={onAllRulesFileChange}
+            onUrlChange={onAllCustomUrlChange} urlEditableWhenMixed
+            catalog={catalog} mixed={hasMixedRulesFiles} />
           </div>
         )}
         {sourceConfigs.map((sourceConfig, index) => {
