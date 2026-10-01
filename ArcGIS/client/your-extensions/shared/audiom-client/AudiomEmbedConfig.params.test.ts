@@ -243,7 +243,7 @@ describe('AudiomEmbedConfig query parameters', () => {
         apiKey: 'test-key',
         visualBaseLayers: [{
           url: 'https://example.com/overlay.png',
-          position: plainPosition as unknown as GeoQuad
+          position: plainPosition
         }]
       });
 

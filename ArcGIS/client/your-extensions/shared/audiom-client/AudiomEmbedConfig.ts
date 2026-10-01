@@ -1,6 +1,6 @@
 import { StepSize } from './StepSize';
 import { AudiomSource, IAudiomSource } from './AudiomSource';
-import { GeoQuad } from './GeoQuad';
+import { GeoQuad, type IGeoQuad } from './GeoQuad';
 import { Coordinates } from './Coordinates';
 
 /**
@@ -24,12 +24,20 @@ export enum FilterMode {
 }
 
 /**
- * Visual base layer configuration
+ * Visual base layer input. `position` may be a GeoQuad or a plain corner object.
  */
 export interface IVisualBaseLayer {
   /** URL for the visual base layer image overlay */
   url: string;
   /** Position quad for the visual base layer */
+  position?: IGeoQuad;
+}
+
+/**
+ * Stored visual base layer. `position` is always a GeoQuad instance.
+ */
+interface VisualBaseLayer {
+  url: string;
   position?: GeoQuad;
 }
 
@@ -144,9 +152,12 @@ export interface IAudiomEmbedConfig {
 }
 
 /**
- * Audiom embedded map configuration
+ * Audiom embedded map configuration.
+ *
+ * Input accepts plain IGeoQuad positions. The stored layers always hold
+ * GeoQuad instances, so this class does not implement IAudiomEmbedConfig.
  */
-export class AudiomEmbedConfig implements IAudiomEmbedConfig {
+export class AudiomEmbedConfig {
   embedId: string | number;
   apiKey: string;
   sources?: AudiomSource[];
@@ -164,7 +175,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   filters?: string[];
   filterMode?: FilterMode;
   visualStyle?: VisualStyle;
-  visualBaseLayers?: IVisualBaseLayer[];
+  visualBaseLayers?: VisualBaseLayer[];
   allowedOrigins?: string[] | string;
   additionalParams?: Record<string, string | number | boolean>;
 
@@ -211,7 +222,12 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     this.filters = config.filters;
     this.filterMode = config.filterMode;
     this.visualStyle = config.visualStyle;
-    this.visualBaseLayers = config.visualBaseLayers;
+    // Copy corners into GeoQuad instances so serialization always has toString().
+    // JSON and Immutable records satisfy IGeoQuad but are not class instances.
+    this.visualBaseLayers = config.visualBaseLayers?.map(layer => ({
+      url: layer.url,
+      position: layer.position ? GeoQuad.from(layer.position) : undefined
+    }));
     this.allowedOrigins = config.allowedOrigins;
     this.additionalParams = config.additionalParams;
   }
@@ -311,9 +327,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
       this.visualBaseLayers.forEach((layer, index) => {
         params[`visualbaselayer${index}`] = layer.url;
         if (layer.position) {
-          // Do not call position.toString() directly. A plain or Immutable
-          // object is truthy but is not a GeoQuad
-          params[`visualbaselayerposition${index}`] = GeoQuad.toParamString(layer.position)!;
+          params[`visualbaselayerposition${index}`] = layer.position.toString();
         }
       });
     }
