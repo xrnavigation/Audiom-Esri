@@ -3,7 +3,7 @@ import { audiomConfigToEmbedConfig } from '../utils/mapUtils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { serializeLockedForDiff } from '../utils/sourceConfigUtils'
 import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis'
-import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs'
+import { DEFAULT_CONFIG, IAudiomConfig, toPlainConfig } from '../setting/configs'
 import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation'
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
@@ -37,8 +37,9 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
     state?.appRuntimeInfo?.appMode === AppMode.Run
   )
   
-  // Sanitize config on every render (pure function, always reflects current config)
-  const { config: sanitizedConfig, warnings } = sanitizeConfig(props.config)
+  // props.config is an Immutable record. Deep-copy before sanitize/serialize so
+  // nested fields such as visualBaseLayers[].position are plain strings.
+  const { config: sanitizedConfig, warnings } = sanitizeConfig(toPlainConfig(props.config))
   
   // Log warnings once per unique set
   logWarnings(warnings)

@@ -15,7 +15,7 @@ import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/mapUtil
 import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { mergeSourcesPreservingUnlocked } from '../utils/sourceConfigUtils'
 import { createLogger } from '../utils/logger'
-import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig, setConfigValue } from './configs'
+import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig, setConfigValue, toPlainConfig } from './configs'
 import { ButtonType, FieldType, FlowType, Colors } from './enums'
 import { Padding } from './enums'
 import { AudiomConfigKey, LockableFieldName } from './configKeys'
@@ -210,7 +210,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
   const onPreviewInAudiom = () => {
     // For preview, we use URL mode sources (not existing map sources since we don't have JimuMapView in settings)
-    const plainConfig: IAudiomConfig = { ...config, useExistingMap: false }
+    const plainConfig: IAudiomConfig = { ...toPlainConfig(config), useExistingMap: false }
     const embedConfig = audiomConfigToEmbedConfig(plainConfig, undefined)
 
     const previewUrl = embedConfig.toUrl(plainConfig.baseUrl || DEFAULT_CONFIG.baseUrl)

@@ -172,6 +172,26 @@ export function setConfigValue<K extends keyof IAudiomConfig>(
 }
 
 /**
+ * Deep-copy an Experience Builder config into a plain object.
+ *
+ * `props.config` is an Immutable record at runtime. Spreading it only copies
+ * the top level, so nested values such as `visualBaseLayers` stay Immutable.
+ * Those records are truthy objects whose `toString()` is "[object Object]".
+ */
+export function toPlainConfig(config: IAudiomConfig | undefined): IAudiomConfig {
+  if (!config) {
+    return {} as IAudiomConfig
+  }
+  const immutable = config as IAudiomConfig & {
+    asMutable?: (options?: { deep?: boolean }) => IAudiomConfig
+  }
+  if (typeof immutable.asMutable === 'function') {
+    return immutable.asMutable({ deep: true })
+  }
+  return config
+}
+
+/**
  * Type-safe config value accessor with default fallback.
  * Eliminates repetitive `config?.[key] ?? DEFAULT_CONFIG[key]` patterns.
  * 

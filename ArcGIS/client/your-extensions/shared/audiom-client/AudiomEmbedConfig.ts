@@ -311,7 +311,9 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
       this.visualBaseLayers.forEach((layer, index) => {
         params[`visualbaselayer${index}`] = layer.url;
         if (layer.position) {
-          params[`visualbaselayerposition${index}`] = layer.position.toString();
+          // Do not call position.toString() directly. A plain or Immutable
+          // object is truthy but is not a GeoQuad
+          params[`visualbaselayerposition${index}`] = GeoQuad.toParamString(layer.position)!;
         }
       });
     }

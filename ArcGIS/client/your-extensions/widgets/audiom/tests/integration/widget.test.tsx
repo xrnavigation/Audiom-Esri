@@ -38,7 +38,7 @@ jest.mock('../../src/utils/mapSyncManager', () => ({
 import { widgetRender, wrapWidget } from 'jimu-for-test'
 import _Widget from '../../src/runtime/widget'
 import { JimuConfig } from '../../src/utils/JimuConfig'
-import { makeConfig } from '../helpers/configFactories'
+import { makeConfig, makeImmutableConfig } from '../helpers/configFactories'
 
 const render = widgetRender()
 
@@ -119,6 +119,23 @@ describe('Audiom runtime widget', () => {
     const { unmount } = render(<Widget widgetId="audiom-7" />)
     unmount()
     expect(fakeManager.removeChangeListener).toHaveBeenCalled()
+  })
+
+  it('appends visual base layer position as JSON, not "[object Object]"', () => {
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({
+        visualBaseLayers: [{
+          url: 'https://x/img.png',
+          position: '[[-1,1],[1,1],[1,-1],[-1,-1]]'
+        }]
+      }) as any
+    })
+    const { container } = render(<Widget widgetId="audiom-position" />)
+    const src = container.querySelector('iframe')!.getAttribute('src')!
+    expect(src).toContain('visualbaselayerposition0=')
+    expect(src).toContain(encodeURIComponent('[[-1,1],[1,1],[1,-1],[-1,-1]]'))
+    expect(src).not.toContain('[object Object]')
+    expect(src).not.toContain(encodeURIComponent('[object Object]'))
   })
 
   it('encodes user-supplied title in the iframe src (no script tag injection)', () => {

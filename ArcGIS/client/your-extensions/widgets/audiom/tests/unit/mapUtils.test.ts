@@ -7,7 +7,7 @@ import {
 } from '../../src/utils/mapUtils'
 import { FilterType } from '../../src/setting/enums'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
-import { makeConfig, makeSource, makeFilter } from '../helpers/configFactories'
+import { makeConfig, makeImmutableConfig, makeSource, makeFilter } from '../helpers/configFactories'
 
 describe('combineFilterExpressions', () => {
   it('returns undefined when no where filters present', () => {
@@ -131,9 +131,23 @@ describe('audiomConfigToEmbedConfig', () => {
       }]
     })
     const embed = audiomConfigToEmbedConfig(cfg, undefined)
-    expect(embed).toBeDefined()
-    // Should not throw on toUrl
-    expect(() => embed.toUrl(cfg.baseUrl!)).not.toThrow()
+    const params = embed.toQueryParams()
+    expect(params.visualbaselayer0).toBe('https://x/img.png')
+    expect(params.visualbaselayerposition0).toBe('[[-1,1],[1,1],[1,-1],[-1,-1]]')
+    expect(params.visualbaselayerposition0).not.toContain('[object Object]')
+  })
+
+  it('serializes Immutable visualBaseLayer positions as JSON', () => {
+    const cfg = makeImmutableConfig({
+      visualBaseLayers: [{
+        url: 'https://x/img.png',
+        position: '[[-92.9,47.1],[-86.6,47.1],[-86.6,42.4],[-92.9,42.4]]'
+      }]
+    })
+    const embed = audiomConfigToEmbedConfig(cfg, undefined)
+    const params = embed.toQueryParams()
+    expect(params.visualbaselayerposition0).toBe('[[-92.9,47.1],[-86.6,47.1],[-86.6,42.4],[-92.9,42.4]]')
+    expect(params.visualbaselayerposition0).not.toBe('[object Object]')
   })
 
   it('omits visualBaseLayers when empty', () => {

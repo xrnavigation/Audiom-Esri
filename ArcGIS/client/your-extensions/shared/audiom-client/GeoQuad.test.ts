@@ -87,6 +87,39 @@ describe('GeoQuad', () => {
     });
   });
 
+  describe('toParamString', () => {
+    const expected = '[[-10,10],[10,10],[10,-10],[-10,-10]]';
+
+    it('serializes a GeoQuad instance', () => {
+      expect(GeoQuad.toParamString(makeQuad())).toBe(expected);
+    });
+
+    it('serializes a JSON string', () => {
+      expect(GeoQuad.toParamString(expected)).toBe(expected);
+    });
+
+    it('serializes a number[][] array', () => {
+      expect(GeoQuad.toParamString([[-10, 10], [10, 10], [10, -10], [-10, -10]])).toBe(expected);
+    });
+
+    it('serializes a plain corner object instead of "[object Object]"', () => {
+      const plain = {
+        topLeft: { longitude: -10, latitude: 10 },
+        topRight: { longitude: 10, latitude: 10 },
+        bottomRight: { longitude: 10, latitude: -10 },
+        bottomLeft: { longitude: -10, latitude: -10 }
+      };
+      expect(String(plain)).toBe('[object Object]');
+      expect(GeoQuad.toParamString(plain)).toBe(expected);
+    });
+
+    it('returns undefined for empty values', () => {
+      expect(GeoQuad.toParamString(undefined)).toBeUndefined();
+      expect(GeoQuad.toParamString(null)).toBeUndefined();
+      expect(GeoQuad.toParamString('')).toBeUndefined();
+    });
+  });
+
   describe('getCoordinates', () => {
     it('returns a 4-element tuple of Coordinates', () => {
       const q = makeQuad();

@@ -115,6 +115,36 @@ export class GeoQuad implements IGeoQuad {
   }
 
   /**
+   * Serialize a position that may not be a GeoQuad instance.
+   *
+   * Callers (widget config, Immutable records, JSON) can hand over a string,
+   * a 4-pair array, a corner object, or a real GeoQuad. Plain objects do not
+   * have GeoQuad.toString(), so Object.prototype.toString() would emit
+   * "[object Object]" if used directly in a URL.
+   */
+  static toParamString(position: unknown): string | undefined {
+    if (position == null || position === '') {
+      return undefined;
+    }
+    if (position instanceof GeoQuad) {
+      return position.toString();
+    }
+    if (typeof position === 'string') {
+      return GeoQuad.parse(position).toString();
+    }
+    if (Array.isArray(position)) {
+      return GeoQuad.fromArray(position as number[][]).toString();
+    }
+    if (typeof position === 'object') {
+      const quad = position as Partial<IGeoQuad>;
+      if (quad.topLeft && quad.topRight && quad.bottomRight && quad.bottomLeft) {
+        return GeoQuad.from(quad as IGeoQuad).toString();
+      }
+    }
+    throw new Error(`Cannot serialize visual base layer position: ${typeof position}`);
+  }
+
+  /**
    * Get all 4 corner coordinates as an array
    * Order: top-left, top-right, bottom-right, bottom-left
    */
