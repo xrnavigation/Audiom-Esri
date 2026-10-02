@@ -28,8 +28,10 @@ There are no author/bot exemptions. Direct commits need authored notes too.
 
 The frontend-owned reconciler follows this repository's actual source graph,
 including direct commits and missed events. It records source dates without
-claiming verified production deployment. Scheduled collection uses public source
-repositories and needs no cross-repository secret. Optional immediate dispatch
+claiming verified production deployment. The hub's scheduled collection uses a
+read-only credential for private frontend, backend and Layerloader repositories.
+The Audiom server exposes the private feed through its public `/api/changelog`
+endpoint without sending credentials to visitors. Optional immediate dispatch
 requires a GitHub App/token allowed to dispatch to Audiom-Front-End; an ordinary
 repository-scoped GITHUB_TOKEN is insufficient.
 
