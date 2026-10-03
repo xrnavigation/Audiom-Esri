@@ -94,7 +94,7 @@ function formatTimeExtent(timeExtent: { start?: Date, end?: Date }): string | un
   return DateTimeInterval.create(start, end).toOgcDateTimeParam()
 }
 
-export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv?: JimuMapView): AudiomEmbedConfig {
+export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapView | undefined): AudiomEmbedConfig {
   logger.debug('audiomConfigToEmbedConfig - useExistingMap:', config.useExistingMap);
 
   const sources = resolveSources(config, jmv);
