@@ -2,12 +2,13 @@ import { renderHook, act } from '@testing-library/react'
 import { useMapSyncState } from '../../src/setting/hooks/useMapSyncState'
 import { LockableFieldName } from '../../src/setting/configKeys'
 import { makeImmutableConfig } from '../helpers/configFactories'
+import type { ImmutableObject } from 'jimu-core'
 import type { IAudiomConfig } from '../../src/setting/configs'
 
-function setup(initialConfig: IAudiomConfig) {
-  const onSettingChange = jest.fn<void, [IAudiomConfig]>()
+function setup(initialConfig: ImmutableObject<IAudiomConfig>) {
+  const onSettingChange = jest.fn<void, [ImmutableObject<IAudiomConfig>]>()
   const { result, rerender } = renderHook(
-    ({ config }: { config: IAudiomConfig }) => useMapSyncState(config, onSettingChange),
+    ({ config }: { config: ImmutableObject<IAudiomConfig> }) => useMapSyncState(config, onSettingChange),
     { initialProps: { config: initialConfig } }
   )
   return { result, rerender, onSettingChange }

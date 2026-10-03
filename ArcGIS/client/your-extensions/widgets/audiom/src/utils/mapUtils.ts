@@ -12,7 +12,7 @@ import FeatureLayer from 'esri/layers/FeatureLayer';
 import CSVLayer from 'esri/layers/CSVLayer';
 import GeoJSONLayer from 'esri/layers/GeoJSONLayer';
 import MapImageLayer from 'esri/layers/MapImageLayer';
-import { DEFAULT_CONFIG, DEFAULT_SOURCE_CONFIG, IAudiomConfig, IFilterConfig, toPlainConfig } from "../setting/configs";
+import { DEFAULT_CONFIG, DEFAULT_SOURCE_CONFIG, IAudiomConfig, IFilterConfig } from "../setting/configs";
 import { FilterType } from "../setting/enums";
 import { isConfigValid } from "../setting/validation/validation";
 import { createLogger } from './logger';
@@ -94,30 +94,27 @@ function formatTimeExtent(timeExtent: { start?: Date, end?: Date }): string | un
   return DateTimeInterval.create(start, end).toOgcDateTimeParam()
 }
 
-export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapView | undefined): AudiomEmbedConfig {
-  // Experience Builder returns an Immutable config. Nested fields must be
-  // plain values before GeoQuad.parse / URL serialization.
-  const plainConfig = toPlainConfig(config);
-  logger.debug('audiomConfigToEmbedConfig - useExistingMap:', plainConfig.useExistingMap);
+export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv?: JimuMapView): AudiomEmbedConfig {
+  logger.debug('audiomConfigToEmbedConfig - useExistingMap:', config.useExistingMap);
 
-  const sources = resolveSources(plainConfig, jmv);
+  const sources = resolveSources(config, jmv);
 
   return AudiomEmbedConfig.dynamic({
-    apiKey: plainConfig.apiKey || '',
+    apiKey: config.apiKey || '',
     sources: sources,
-    center: Coordinates.create(plainConfig.centerLongitude ?? DEFAULT_CONFIG.centerLongitude, plainConfig.centerLatitude ?? DEFAULT_CONFIG.centerLatitude),
-    showVisualMap: plainConfig.showVisualMap ?? DEFAULT_CONFIG.showVisualMap,
-    showHeading: plainConfig.showHeading ?? DEFAULT_CONFIG.showHeading,
-    zoom: plainConfig.zoom ?? DEFAULT_CONFIG.zoom,
-    heading: plainConfig.heading,
-    stepSize: StepSize.create(plainConfig.stepSize ?? DEFAULT_CONFIG.stepSize, plainConfig.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit),
-    soundpack: plainConfig.soundpackUrl || undefined,
-    title: plainConfig.title || undefined,
-    visualStyle: plainConfig.visualStyle || undefined,
-    visualBaseLayers: plainConfig.visualBaseLayers && plainConfig.visualBaseLayers.length > 0
-      ? plainConfig.visualBaseLayers.map(layer => ({
+    center: Coordinates.create(config.centerLongitude ?? DEFAULT_CONFIG.centerLongitude, config.centerLatitude ?? DEFAULT_CONFIG.centerLatitude),
+    showVisualMap: config.showVisualMap ?? DEFAULT_CONFIG.showVisualMap,
+    showHeading: config.showHeading ?? DEFAULT_CONFIG.showHeading,
+    zoom: config.zoom ?? DEFAULT_CONFIG.zoom,
+    heading: config.heading,
+    stepSize: StepSize.create(config.stepSize ?? DEFAULT_CONFIG.stepSize, config.stepSizeUnit ?? DEFAULT_CONFIG.stepSizeUnit),
+    soundpack: config.soundpackUrl || undefined,
+    title: config.title || undefined,
+    visualStyle: config.visualStyle || undefined,
+    visualBaseLayers: config.visualBaseLayers && config.visualBaseLayers.length > 0
+      ? config.visualBaseLayers.map(layer => ({
           url: layer.url,
-          position: layer.position ? GeoQuad.parse(String(layer.position)) : undefined,
+          position: layer.position ? GeoQuad.parse(layer.position) : undefined,
         }))
       : undefined,
   });

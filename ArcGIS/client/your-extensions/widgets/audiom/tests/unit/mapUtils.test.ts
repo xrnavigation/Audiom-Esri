@@ -7,6 +7,7 @@ import {
 } from '../../src/utils/mapUtils'
 import { FilterType } from '../../src/setting/enums'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
+import { toMutableConfig } from '../../src/setting/configs'
 import { makeConfig, makeImmutableConfig, makeSource, makeFilter } from '../helpers/configFactories'
 
 describe('combineFilterExpressions', () => {
@@ -137,13 +138,13 @@ describe('audiomConfigToEmbedConfig', () => {
     expect(params.visualbaselayerposition0).not.toContain('[object Object]')
   })
 
-  it('serializes Immutable visualBaseLayer positions as JSON', () => {
-    const cfg = makeImmutableConfig({
+  it('serializes Immutable visualBaseLayer positions as JSON after a deep copy', () => {
+    const cfg = toMutableConfig(makeImmutableConfig({
       visualBaseLayers: [{
         url: 'https://x/img.png',
         position: '[[-92.9,47.1],[-86.6,47.1],[-86.6,42.4],[-92.9,42.4]]'
       }]
-    })
+    }))
     const embed = audiomConfigToEmbedConfig(cfg, undefined)
     const params = embed.toQueryParams()
     expect(params.visualbaselayerposition0).toBe('[[-92.9,47.1],[-86.6,47.1],[-86.6,42.4],[-92.9,42.4]]')

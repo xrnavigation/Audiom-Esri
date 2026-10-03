@@ -153,11 +153,8 @@ export interface IAudiomEmbedConfig {
 
 /**
  * Audiom embedded map configuration.
- *
- * Input accepts plain IGeoQuad positions. The stored layers always hold
- * GeoQuad instances, so this class does not implement IAudiomEmbedConfig.
  */
-export class AudiomEmbedConfig {
+export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   embedId: string | number;
   apiKey: string;
   sources?: AudiomSource[];
@@ -175,7 +172,7 @@ export class AudiomEmbedConfig {
   filters?: string[];
   filterMode?: FilterMode;
   visualStyle?: VisualStyle;
-  visualBaseLayers?: VisualBaseLayer[];
+  visualBaseLayers?: IVisualBaseLayer[];
   allowedOrigins?: string[] | string;
   additionalParams?: Record<string, string | number | boolean>;
 
