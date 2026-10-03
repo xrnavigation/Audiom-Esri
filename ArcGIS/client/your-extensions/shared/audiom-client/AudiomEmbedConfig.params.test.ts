@@ -3,6 +3,7 @@ import { AudiomEmbedConfig, FilterMode, VisualStyle } from './AudiomEmbedConfig'
 import { StepSize } from './StepSize';
 import { SourceType, MapType } from './AudiomSource';
 import { Coordinates } from './Coordinates';
+import { GeoQuad } from './GeoQuad';
 import { field } from './expressions/AttributeFilter';
 
 describe('AudiomEmbedConfig query parameters', () => {
@@ -217,6 +218,37 @@ describe('AudiomEmbedConfig query parameters', () => {
 
       const params = config.toQueryParams();
       expect(params.visualbaselayer0).toBeUndefined();
+    });
+
+    it('should serialize a GeoQuad position as JSON, not "[object Object]"', () => {
+      const position = GeoQuad.parse('[[-92.9,47.1],[-86.6,47.1],[-86.6,42.4],[-92.9,42.4]]');
+      const config = AudiomEmbedConfig.dynamic({
+        apiKey: 'test-key',
+        visualBaseLayers: [{ url: 'https://example.com/overlay.png', position }]
+      });
+
+      const params = config.toQueryParams();
+      expect(params.visualbaselayerposition0).toBe('[[-92.9,47.1],[-86.6,47.1],[-86.6,42.4],[-92.9,42.4]]');
+      expect(params.visualbaselayerposition0).not.toBe('[object Object]');
+    });
+
+    it('should serialize a plain position object instead of calling Object.toString', () => {
+      const plainPosition = {
+        topLeft: { longitude: -1, latitude: 1 },
+        topRight: { longitude: 1, latitude: 1 },
+        bottomRight: { longitude: 1, latitude: -1 },
+        bottomLeft: { longitude: -1, latitude: -1 }
+      };
+      const config = AudiomEmbedConfig.dynamic({
+        apiKey: 'test-key',
+        visualBaseLayers: [{
+          url: 'https://example.com/overlay.png',
+          position: plainPosition
+        }]
+      });
+
+      const params = config.toQueryParams();
+      expect(params.visualbaselayerposition0).toBe('[[-1,1],[1,1],[1,-1],[-1,-1]]');
     });
   });
 
