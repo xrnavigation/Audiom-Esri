@@ -34,14 +34,6 @@ export interface IVisualBaseLayer {
 }
 
 /**
- * Stored visual base layer. `position` is always a GeoQuad instance.
- */
-interface VisualBaseLayer {
-  url: string;
-  position?: GeoQuad;
-}
-
-/**
  * Configuration interface for Audiom embedded map
  */
 export interface IAudiomEmbedConfig {
