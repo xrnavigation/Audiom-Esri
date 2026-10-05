@@ -268,7 +268,7 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     return `${currentStepSize} ${currentUnit}`
   }
 
-  const runtimeLocation = runtimeLocationOf(config)
+  const runtimeLocation = runtimeLocationOf(mutableConfig)
   const integrated = isIntegratedRuntime(runtimeLocation)
 
   // Connection fields - set once. Visibility follows the runtime location.
@@ -343,9 +343,9 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     )
   }
 
-  const visibleConnectionFields = connectionFields.filter((field) => field.showWhen?.(config) !== false)
+  const visibleConnectionFields = connectionFields.filter((field) => field.showWhen?.(mutableConfig) !== false)
   const visibleDisplayFields = displayFields.filter((field) => {
-    if (field.showWhen && !field.showWhen(config)) return false
+    if (field.showWhen && !field.showWhen(mutableConfig)) return false
     if (field.key === AudiomConfigKey.Heading) {
       return config?.showHeading ?? DEFAULT_CONFIG.showHeading
     }
