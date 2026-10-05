@@ -1,7 +1,8 @@
-import { ImmutableObject, React } from 'jimu-core'
+import { DataSourceManager, Immutable, ImmutableObject, React, type DataSource, type IMDataSourceJson, type UseDataSource } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { JimuMapViewComponent, type JimuMapView } from 'jimu-arcgis'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
+import { AllDataSourceTypes, DataSourceSelector } from 'jimu-ui/advanced/data-source-selector'
 import { NumericInput, Switch, Button, ButtonGroup, Collapse, Tooltip, Label } from 'jimu-ui'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 
@@ -31,6 +32,11 @@ import {
 const { useEffect, useCallback, useState, useRef } = React
 
 const logger = createLogger('Setting')
+
+const MAP_SOURCE_TYPES = Immutable([
+  AllDataSourceTypes.WebMap,
+  AllDataSourceTypes.WebScene
+])
 
 const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) => {
   const { config } = props
@@ -99,12 +105,15 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     }
   }, [config, updateConfig, updateMapValues, fieldNeedsUpdate, syncLockedFieldsToConfig])
 
-  // Get the effective map ID - prefer useMapWidgetIds from props, fall back to config
-  const effectiveMapId = props.useMapWidgetIds?.[0] || config?.existingMapId || ''
+  const runtimeLocation = runtimeLocationOf(toMutableConfig(config))
+  const bundled = runtimeLocation === RuntimeLocation.Bundled
+  // Bundled draws its own web map or web scene. It never binds a Map widget.
+  const effectiveMapId = bundled ? '' : (props.useMapWidgetIds?.[0] || config?.existingMapId || '')
 
   // Auto-sync existingMapId from props.useMapWidgetIds when it changes
   // This handles the case when the widget is first added and useMapWidgetIds gets populated
   useEffect(() => {
+    if (bundled) return
     const mapIdFromProps = props.useMapWidgetIds?.[0]
     if (mapIdFromProps && config?.existingMapId !== mapIdFromProps) {
       logger.debug('Auto-syncing existingMapId from useMapWidgetIds:', mapIdFromProps)
@@ -113,7 +122,7 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
         config: setConfigValue(config, AudiomConfigKey.ExistingMapId, mapIdFromProps)
       })
     }
-  }, [props.useMapWidgetIds, config?.existingMapId, props, config])
+  }, [bundled, props.useMapWidgetIds, config?.existingMapId, props, config])
 
   // Initialize MapSyncManager: do the initial sync once when useExistingMap is
   // first enabled for a given map, but only subscribe to ongoing layer/zoom
@@ -203,6 +212,30 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     })
   }
 
+  const onMapSourceChange = (nextUseDataSources: UseDataSource[]) => {
+    const selected = nextUseDataSources?.[0]
+    const dataSourceId = selected?.dataSourceId || selected?.mainDataSourceId || ''
+    const dsJson = dataSourceId
+      ? DataSourceManager.getInstance().getDataSource(dataSourceId)?.getDataSourceJson?.()
+      : undefined
+    const itemId = (dsJson as IMDataSourceJson | undefined)?.itemId || ''
+    props.onSettingChange({
+      id: props.id,
+      useDataSources: nextUseDataSources,
+      useDataSourcesEnabled: true,
+      config: setConfigValue(config, AudiomConfigKey.MapItemId, itemId)
+    })
+  }
+
+  const onMapSourceCreated = (ds: DataSource) => {
+    const itemId = (ds.getDataSourceJson?.() as IMDataSourceJson | undefined)?.itemId || ''
+    if (!itemId || itemId === config?.mapItemId) return
+    props.onSettingChange({
+      id: props.id,
+      config: setConfigValue(config, AudiomConfigKey.MapItemId, itemId)
+    })
+  }
+
   const onPropertyChange = (property: string, value: unknown) => {
     props.onSettingChange({
       id: props.id,
@@ -268,7 +301,6 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     return `${currentStepSize} ${currentUnit}`
   }
 
-  const runtimeLocation = runtimeLocationOf(mutableConfig)
   const integrated = isIntegratedRuntime(runtimeLocation)
 
   // Connection fields - set once. Visibility follows the runtime location.
@@ -387,20 +419,40 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
       </SettingSection>
 
       <SettingSection title="Map Configuration">
-        <SettingRow flow={FlowType.Wrap}>
-          <CopyableLabel label="Use Existing Map Widget" copyValue={String(integrated || useExistingMap)} showCopyButton={false} />
-          <Switch
-            checked={integrated || useExistingMap}
-            disabled={integrated}
-            onChange={(e) => onPropertyChange('useExistingMap', e.target.checked)}
-          />
-        </SettingRow>
-        {(integrated || useExistingMap) ? (
+        {bundled ? (
           <SettingRow flow={FlowType.Wrap}>
-            <CopyableLabel label="Select Map Widget" copyValue={config?.existingMapId || ''} showCopyButton={false} />
-            <MapWidgetSelector useMapWidgetIds={props.useMapWidgetIds} onSelect={onMapWidgetSelected} />
+            <CopyableLabel label="Source" copyValue={config?.mapItemId || ''} showCopyButton={false} />
+            <div>A web map or web scene, or any combination of the two.</div>
+            <DataSourceSelector
+              types={MAP_SOURCE_TYPES}
+              widgetId={props.id}
+              useDataSources={props.useDataSources}
+              isMultiple
+              mustUseDataSource
+              hideDataView
+              disableDataView
+              buttonLabel="Set"
+              onChange={onMapSourceChange}
+              onDataSourceCreated={onMapSourceCreated}
+            />
           </SettingRow>
-        ) : null}
+        ) : (
+          <>
+            <SettingRow flow={FlowType.Wrap}>
+              <CopyableLabel label="Use Existing Map Widget" copyValue={String(useExistingMap)} showCopyButton={false} />
+              <Switch
+                checked={useExistingMap}
+                onChange={(e) => onPropertyChange('useExistingMap', e.target.checked)}
+              />
+            </SettingRow>
+            {useExistingMap ? (
+              <SettingRow flow={FlowType.Wrap}>
+                <CopyableLabel label="Select Map Widget" copyValue={config?.existingMapId || ''} showCopyButton={false} />
+                <MapWidgetSelector useMapWidgetIds={props.useMapWidgetIds} onSelect={onMapWidgetSelected} />
+              </SettingRow>
+            ) : null}
+          </>
+        )}
         {isSettingVisible(AudiomConfigKey.Zoom, runtimeLocation) ? (
           <>
             <CollapsibleHeader

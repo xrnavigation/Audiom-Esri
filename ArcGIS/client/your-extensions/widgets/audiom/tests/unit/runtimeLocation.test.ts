@@ -20,7 +20,8 @@ describe('runtime location field visibility', () => {
       expect(isSettingVisible(AudiomConfigKey.ApiKey, location)).toBe(true)
       expect(isSettingVisible(AudiomConfigKey.Title, location)).toBe(true)
       expect(isSettingVisible(AudiomConfigKey.ShowHeading, location)).toBe(true)
-      expect(isSettingVisible(AudiomConfigKey.ExistingMapId, location)).toBe(true)
+      expect(isSettingVisible(AudiomConfigKey.ExistingMapId, location)).toBe(false)
+      expect(isSettingVisible(AudiomConfigKey.MapItemId, location)).toBe(true)
     }
   )
 

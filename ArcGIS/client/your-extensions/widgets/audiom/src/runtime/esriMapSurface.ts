@@ -7,6 +7,10 @@ export interface MapSurfaceOptions {
   longitude?: number
   latitude?: number
   zoom?: number
+  /** Portal item drawn by this widget. Bundled mode never borrows a Map widget. */
+  mapItemId?: string
+  portalUrl?: string
+  scene?: boolean
 }
 
 export interface AvatarGraphicsLayer {
@@ -61,7 +65,10 @@ export interface MountedMapSurface {
 }
 
 export interface MapModules {
-  Map: new (properties: { basemap?: string }) => unknown
+  Map: new (properties: {
+    basemap?: string
+    portalItem?: { id: string, portal?: { url: string } }
+  }) => unknown
   MapView: new (properties: {
     container: HTMLElement
     map: unknown
@@ -91,14 +98,28 @@ export function setMapModuleLoader (loader: ModuleLoader | null): void {
 }
 
 /**
- * Draws an Esri MapView in the widget. Reuses the selected map's layers
- * when one exists; otherwise creates a 2D map in this container.
+ * Draws an Esri view in the widget. A portal item becomes this widget's
+ * own web map or web scene. An existing map is reused only when one is
+ * already owned here. Otherwise a 2D streets map is created in this container.
  */
 export async function mountEsriMap (options: MapSurfaceOptions): Promise<MountedMapSurface> {
-  const [Map, MapView] = await moduleLoader(['esri/Map', 'esri/views/MapView'])
+  const scene = Boolean(options.scene && options.mapItemId)
+  const modules = scene
+    ? ['esri/WebScene', 'esri/views/SceneView']
+    : options.mapItemId
+      ? ['esri/WebMap', 'esri/views/MapView']
+      : ['esri/Map', 'esri/views/MapView']
+  const [MapCtor, ViewCtor] = await moduleLoader(modules)
   const ownedMap = !options.existingMap
-  const map = options.existingMap || new Map({ basemap: 'streets-vector' })
-  const view = new MapView({
+  const map = options.existingMap || (options.mapItemId
+    ? new MapCtor({
+      portalItem: {
+        id: options.mapItemId,
+        portal: options.portalUrl ? { url: options.portalUrl } : undefined
+      }
+    })
+    : new MapCtor({ basemap: 'streets-vector' }))
+  const view = new ViewCtor({
     container: options.container,
     map,
     center: [options.longitude ?? 0, options.latitude ?? 0],

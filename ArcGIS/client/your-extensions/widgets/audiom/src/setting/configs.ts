@@ -158,6 +158,8 @@ export interface IAudiomConfig {
   zoomLocked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual value.
   useExistingMap?: boolean
   existingMapId?: string
+  /** Portal item id of the web map or web scene Bundled mode draws itself. */
+  mapItemId?: string
   /** Absent on configs saved before integrated modes. Those load as legacy. */
   runtimeLocation?: RuntimeLocation
   /** Bundled mode only. Ignored, not deleted, in the other modes. */

@@ -150,7 +150,11 @@ describe('Audiom runtime widget', () => {
     })
 
     const Widget = wrapWidget(_Widget, {
-      config: makeImmutableConfig({ runtimeLocation: RuntimeLocation.Bundled }) as any
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-1'
+      }) as any,
+      useMapWidgetIds: ['external-map']
     })
     const { container, unmount } = render(<Widget widgetId="audiom-bundled" />)
     expect(container.querySelector('iframe')).toBeNull()
@@ -162,6 +166,7 @@ describe('Audiom runtime widget', () => {
     expect(map!.getAttribute('tabindex')).toBe('0')
     unmount()
     expect(created.length).toBe(1)
+    expect((created[0].map as { properties: { portalItem?: { id: string } } }).properties.portalItem?.id).toBe('item-1')
     setMapModuleLoader(null)
   })
 

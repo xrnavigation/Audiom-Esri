@@ -129,9 +129,15 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   )
 
   if (isIntegratedRuntime(runtimeLocation)) {
-    const mapWidgetId = props.useMapWidgetIds?.[0] || sanitizedConfig.existingMapId
-    const existingMap = (jimuMapView as { view?: { map?: unknown } } | undefined)?.view?.map
+    const bundled = runtimeLocation === RuntimeLocation.Bundled
+    const mapWidgetId = bundled ? '' : (props.useMapWidgetIds?.[0] || sanitizedConfig.existingMapId)
+    const existingMap = bundled
+      ? undefined
+      : (jimuMapView as { view?: { map?: unknown } } | undefined)?.view?.map
     const mapLabel = bundledStatus(bundledHandle, false)
+    const scene = bundled && props.useDataSources?.some((source) =>
+      String(source.dataSourceId || '').toUpperCase().includes('WEB_SCENE')
+    )
     return (
       <div
         className="jimu-widget"
@@ -139,12 +145,14 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
         aria-label={title}
         style={styles.container}
       >
-        {mapWidgetId && (
+        {!bundled && mapWidgetId && (
           <JimuMapViewComponent useMapWidgetId={mapWidgetId} onActiveViewChange={activeViewChangeHandler} />
         )}
         <div style={styles.container}>
           <EsriMapSurface
             existingMap={existingMap}
+            mapItemId={bundled ? sanitizedConfig.mapItemId : undefined}
+            scene={scene}
             longitude={sanitizedConfig.centerLongitude}
             latitude={sanitizedConfig.centerLatitude}
             zoom={sanitizedConfig.zoom}
@@ -213,6 +221,8 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
 
 function EsriMapSurface (props: {
   existingMap?: unknown
+  mapItemId?: string
+  scene?: boolean
   longitude?: number
   latitude?: number
   zoom?: number
@@ -237,6 +247,8 @@ function EsriMapSurface (props: {
     void mountEsriMap({
       container: node,
       existingMap: props.existingMap,
+      mapItemId: props.mapItemId,
+      scene: props.scene,
       longitude: props.longitude,
       latitude: props.latitude,
       zoom: props.zoom
@@ -264,7 +276,7 @@ function EsriMapSurface (props: {
       delete (node as { __audiomSurface?: MountedMapSurface }).__audiomSurface
       onSurface?.(null)
     }
-  }, [props.existingMap, props.longitude, props.latitude, props.zoom, onSurface])
+  }, [props.existingMap, props.mapItemId, props.scene, props.longitude, props.latitude, props.zoom, onSurface])
   useEffect(() => {
     const node = container.current as { __audiomSurface?: MountedMapSurface } | null
     if (!node?.__audiomSurface) return

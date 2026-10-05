@@ -28,6 +28,12 @@ jest.mock('jimu-ui/advanced/setting-components', () => {
   return createSettingComponentsStubs()
 })
 
+jest.mock('jimu-ui/advanced/data-source-selector', () => ({
+  __esModule: true,
+  AllDataSourceTypes: { WebMap: 'WEB_MAP', WebScene: 'WEB_SCENE' },
+  DataSourceSelector: (): null => null
+}))
+
 /**
  * jimu-ui pulls in heavy DOM/style dependencies that don't initialise
  * cleanly under jsdom (Tooltip / Collapse / NumericInput each instantiate
@@ -81,6 +87,7 @@ jest.mock('../../src/utils/mapSyncManager', () => ({
 import { widgetSettingRender, wrapWidgetSetting } from 'jimu-for-test'
 import _Setting from '../../src/setting/setting'
 import { makeImmutableConfig } from '../helpers/configFactories'
+import { RuntimeLocation } from '../../src/setting/runtimeLocation'
 
 const render = widgetSettingRender()
 
@@ -165,5 +172,17 @@ describe('Audiom setting panel', () => {
       ([arg]) => (arg.config as any)?.existingMapId === 'fresh-map'
     )
     expect(setExistingMapIdCall).toBeDefined()
+  })
+
+  it('hides Map widget controls and shows the web map source in bundled mode', () => {
+    const Setting = wrapWidgetSetting(_Setting, {
+      config: makeImmutableConfig({ runtimeLocation: RuntimeLocation.Bundled }) as any,
+      onSettingChange: jest.fn(),
+      useMapWidgetIds: ['external-map']
+    } as any)
+    const { queryByText, getByText } = render(<Setting widgetId="audiom-set-bundled" />)
+    expect(queryByText('Use Existing Map Widget')).toBeNull()
+    expect(queryByText('Select Map Widget')).toBeNull()
+    expect(getByText('A web map or web scene, or any combination of the two.')).not.toBeNull()
   })
 })

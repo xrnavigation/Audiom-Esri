@@ -221,8 +221,8 @@ export function sanitizeConfig(config: IAudiomConfig): SanitizeResult {
   for (const key of ignoredSettingKeys(config)) {
     warnings.push(`${key} is ignored in ${location} mode and was kept.`)
   }
-  if (!isEmbedRuntime(location) && !config.existingMapId) {
-    warnings.push('Select Map Widget is required in integrated mode.')
+  if (location === RuntimeLocation.Bundled && !config.mapItemId) {
+    warnings.push('Select a web map or web scene.')
   }
 
   return { config: sanitized, warnings }
