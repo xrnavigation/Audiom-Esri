@@ -21,7 +21,7 @@ import { Padding } from './enums'
 import { AudiomConfigKey, LockableFieldName } from './configKeys'
 import { validateUrl, VALIDATION } from './validation/validation'
 import {
-  hostedOriginDisclosure,
+  isEmbedRuntime,
   isIntegratedRuntime,
   isSettingVisible,
   RuntimeLocation,
@@ -365,14 +365,17 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
           <Label>Runtime location</Label>
           <ButtonGroup>
             {([
-              [RuntimeLocation.Legacy, 'Standalone embed'],
-              [RuntimeLocation.Bundled, 'Bundled'],
-              [RuntimeLocation.Hosted, 'Hosted']
+              [RuntimeLocation.Standalone, 'Standalone embed'],
+              [RuntimeLocation.Bundled, 'Bundled']
             ] as const).map(([value, label]) => (
               <Button
                 key={value}
-                active={runtimeLocation === value}
-                aria-pressed={runtimeLocation === value}
+                active={value === RuntimeLocation.Standalone
+                  ? isEmbedRuntime(runtimeLocation)
+                  : runtimeLocation === value}
+                aria-pressed={value === RuntimeLocation.Standalone
+                  ? isEmbedRuntime(runtimeLocation)
+                  : runtimeLocation === value}
                 onClick={() => onPropertyChange(AudiomConfigKey.RuntimeLocation, value)}
               >
                 {label}
@@ -380,11 +383,6 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
             ))}
           </ButtonGroup>
         </SettingRow>
-        {runtimeLocation === RuntimeLocation.Hosted ? (
-          <SettingRow flow={FlowType.Wrap}>
-            <Label role="status">{hostedOriginDisclosure(config?.baseUrl)}</Label>
-          </SettingRow>
-        ) : null}
         {visibleConnectionFields.map((field) => renderField(field, false))}
       </SettingSection>
 
@@ -434,7 +432,7 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
             onChange={(layers) => onPropertyChange(AudiomConfigKey.VisualBaseLayers, layers)}
           />
         ) : null}
-        {runtimeLocation === RuntimeLocation.Legacy ? (
+        {isEmbedRuntime(runtimeLocation) ? (
           <>
             <SettingRow flow={FlowType.Wrap}>
               <Button

@@ -3,22 +3,26 @@ import type { IAudiomConfig } from './configs'
 
 /** Where the Audiom runtime runs. Absent saved configs stay on the iframe. */
 export enum RuntimeLocation {
+  /** Saved configs from before Standalone embed was its own mode. */
   Legacy = 'legacy',
-  Bundled = 'bundled',
-  Hosted = 'hosted'
+  Standalone = 'standalone',
+  Bundled = 'bundled'
 }
 
-export const DEFAULT_RUNTIME_LOCATION = RuntimeLocation.Legacy
+export const DEFAULT_RUNTIME_LOCATION = RuntimeLocation.Standalone
 export const DEFAULT_API_ENDPOINT = 'https://audiom.net'
 export const DEFAULT_ASSET_BASE_URL = 'https://audiom.net'
+
+const MAP_SETTING_KEYS = [
+  AudiomConfigKey.Zoom,
+  AudiomConfigKey.CenterLatitude,
+  AudiomConfigKey.CenterLongitude
+]
 
 const LEGACY_ONLY_KEYS: Array<keyof IAudiomConfig> = [
   AudiomConfigKey.ShowVisualMap,
   AudiomConfigKey.VisualStyle,
   AudiomConfigKey.VisualBaseLayers,
-  AudiomConfigKey.Zoom,
-  AudiomConfigKey.CenterLatitude,
-  AudiomConfigKey.CenterLongitude,
   AudiomConfigKey.BaseUrl
 ]
 
@@ -26,16 +30,25 @@ export function runtimeLocationOf (
   config: Partial<IAudiomConfig> | undefined
 ): RuntimeLocation {
   const value = config?.runtimeLocation
-  if (value === RuntimeLocation.Bundled || value === RuntimeLocation.Hosted) {
+  if (
+    value === RuntimeLocation.Standalone ||
+    value === RuntimeLocation.Bundled ||
+    value === RuntimeLocation.Legacy
+  ) {
     return value
   }
   return DEFAULT_RUNTIME_LOCATION
 }
 
+/** Iframe embed, including configs saved before Standalone embed existed. */
+export function isEmbedRuntime (location: RuntimeLocation): boolean {
+  return location === RuntimeLocation.Standalone || location === RuntimeLocation.Legacy
+}
+
 export function isIntegratedRuntime (
   location: RuntimeLocation = DEFAULT_RUNTIME_LOCATION
 ): boolean {
-  return location !== RuntimeLocation.Legacy
+  return !isEmbedRuntime(location)
 }
 
 /** Fields the Connection and Display sections should render for this mode. */
@@ -48,27 +61,23 @@ export function visibleSettingKeys (location: RuntimeLocation): AudiomConfigKey[
     AudiomConfigKey.Heading,
     AudiomConfigKey.StepSize
   ]
-  if (location === RuntimeLocation.Legacy) {
+  if (isEmbedRuntime(location)) {
     return [
       ...shared,
       AudiomConfigKey.BaseUrl,
       AudiomConfigKey.ShowVisualMap,
       AudiomConfigKey.VisualStyle,
       AudiomConfigKey.VisualBaseLayers,
-      AudiomConfigKey.Zoom,
-      AudiomConfigKey.CenterLatitude,
-      AudiomConfigKey.CenterLongitude
+      ...MAP_SETTING_KEYS
     ]
   }
-  const integrated = [...shared, AudiomConfigKey.ExistingMapId]
-  if (location === RuntimeLocation.Bundled) {
-    return [
-      ...integrated,
-      AudiomConfigKey.ApiEndpoint,
-      AudiomConfigKey.AssetBaseUrl
-    ]
-  }
-  return [...integrated, AudiomConfigKey.BaseUrl]
+  return [
+    ...shared,
+    AudiomConfigKey.ExistingMapId,
+    ...MAP_SETTING_KEYS,
+    AudiomConfigKey.ApiEndpoint,
+    AudiomConfigKey.AssetBaseUrl
+  ]
 }
 
 export function isSettingVisible (
@@ -80,30 +89,15 @@ export function isSettingVisible (
 
 /**
  * Values that do not apply to the current mode. They stay in the saved
- * config so switching back to legacy restores them.
+ * config so switching back to standalone embed restores them.
  */
 export function ignoredSettingKeys (
   config: Partial<IAudiomConfig> | undefined
 ): Array<keyof IAudiomConfig> {
   const location = runtimeLocationOf(config)
-  if (location === RuntimeLocation.Legacy) {
+  if (isEmbedRuntime(location)) {
     return [AudiomConfigKey.ApiEndpoint, AudiomConfigKey.AssetBaseUrl]
       .filter((key) => config?.[key] !== undefined)
   }
-  return LEGACY_ONLY_KEYS.filter((key) => {
-    if (location === RuntimeLocation.Hosted && key === AudiomConfigKey.BaseUrl) {
-      return false
-    }
-    return config?.[key] !== undefined
-  })
-}
-
-export function hostedOriginDisclosure (baseUrl: string | undefined): string {
-  let origin = baseUrl || DEFAULT_API_ENDPOINT
-  try {
-    origin = new URL(origin).origin
-  } catch {
-    origin = baseUrl || DEFAULT_API_ENDPOINT
-  }
-  return `The map's records are rendered inside ${origin}.`
+  return LEGACY_ONLY_KEYS.filter((key) => config?.[key] !== undefined)
 }

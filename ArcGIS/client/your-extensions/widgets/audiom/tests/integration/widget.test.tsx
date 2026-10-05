@@ -123,7 +123,7 @@ describe('Audiom runtime widget', () => {
     expect(fakeManager.removeChangeListener).toHaveBeenCalled()
   })
 
-  it('renders an Esri map in the widget for bundled and hosted modes', async () => {
+  it('renders an Esri map in the widget for bundled mode', async () => {
     const created: Array<{ container: HTMLElement, map: unknown }> = []
     setMapModuleLoader(async (modules) => {
       if (modules[0] === 'esri/layers/GraphicsLayer') {
@@ -149,21 +149,19 @@ describe('Audiom runtime widget', () => {
     ]
     })
 
-    for (const location of [RuntimeLocation.Bundled, RuntimeLocation.Hosted]) {
-      const Widget = wrapWidget(_Widget, {
-        config: makeImmutableConfig({ runtimeLocation: location }) as any
-      })
-      const { container, unmount } = render(<Widget widgetId={`audiom-${location}`} />)
-      expect(container.querySelector('iframe')).toBeNull()
-      expect(container.querySelector('button')).toBeNull()
-      const map = container.querySelector('#audiom-esri-map')
-      expect(map).not.toBeNull()
-      await new Promise((resolve) => setTimeout(resolve, 0))
-      expect(map!.getAttribute('data-map-mounted')).toBe('true')
-      expect(map!.getAttribute('tabindex')).toBe('0')
-      unmount()
-    }
-    expect(created.length).toBe(2)
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({ runtimeLocation: RuntimeLocation.Bundled }) as any
+    })
+    const { container, unmount } = render(<Widget widgetId="audiom-bundled" />)
+    expect(container.querySelector('iframe')).toBeNull()
+    expect(container.querySelector('button')).toBeNull()
+    const map = container.querySelector('#audiom-esri-map')
+    expect(map).not.toBeNull()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(map!.getAttribute('data-map-mounted')).toBe('true')
+    expect(map!.getAttribute('tabindex')).toBe('0')
+    unmount()
+    expect(created.length).toBe(1)
     setMapModuleLoader(null)
   })
 

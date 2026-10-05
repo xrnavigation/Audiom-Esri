@@ -1074,19 +1074,11 @@
     },
     "widget_23": {
       "uri": "widgets/audiom/",
-      "version": "1.1.0",
+      "version": "1.20.0",
       "label": "Audiom",
       "config": {
         "existingMapId": "widget_1",
         "sourceConfigs": [
-          {
-            "name": "percentImpervious_allMP_compare_naip",
-            "source": "1a0b60705a9-layer-3",
-            "sourceUrl": "https://gis.blueraster.io/server/rest/services/Hosted/percentImpervious_allMP_compare_naip/FeatureServer/0",
-            "mapType": "heatmap",
-            "filters": [],
-            "enabled": false
-          },
           {
             "name": "percentImpervious_allMP_compare_naip",
             "source": "1a0b6077076-layer-4",
@@ -1097,9 +1089,9 @@
           }
         ],
         "title": "Manassas Park Landuse from NAIP",
-        "centerLatitude": 38.77214293632973,
-        "centerLongitude": -77.43450590350864,
-        "zoom": 12.412342215988712,
+        "centerLatitude": 38.76894010401575,
+        "centerLongitude": -77.44936262247555,
+        "zoom": 12,
         "apiKey": "wO35blaGsjJREGuXehqWU",
         "titleLocked": true,
         "centerLongitudeLocked": true
@@ -1309,7 +1301,7 @@
     "portalUrl": "https://xrnavigation.maps.arcgis.com",
     "enableA11yForWidgetSettings": false
   },
-  "timestamp": 1789760594341,
+  "timestamp": 1791232140926,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {

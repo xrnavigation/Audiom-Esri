@@ -66,9 +66,11 @@ describe('sanitizeConfig', () => {
     const bundled = sanitizeConfig(saved)
     expect(bundled.config.showVisualMap).toBe(false)
     expect(bundled.config.zoom).toBe(8)
-    expect(bundled.warnings.some(w => /ignored in bundled/i.test(w))).toBe(true)
+    expect(bundled.warnings.some(w => /showVisualMap is ignored in bundled/i.test(w))).toBe(true)
+    expect(bundled.warnings.some(w => /zoom is ignored in bundled/i.test(w))).toBe(false)
+    expect(bundled.warnings.some(w => /centerLatitude is ignored in bundled/i.test(w))).toBe(false)
 
-    const restored = sanitizeConfig({ ...bundled.config, runtimeLocation: 'legacy' } as any)
+    const restored = sanitizeConfig({ ...bundled.config, runtimeLocation: 'standalone' } as any)
     expect(restored.config.showVisualMap).toBe(false)
     expect(restored.config.zoom).toBe(8)
     expect(restored.config.centerLatitude).toBe(12)

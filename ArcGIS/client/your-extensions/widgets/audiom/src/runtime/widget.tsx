@@ -6,7 +6,6 @@ import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis'
 import { DEFAULT_CONFIG, IAudiomConfig, toMutableConfig } from '../setting/configs'
 import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation'
 import {
-  hostedOriginDisclosure,
   isIntegratedRuntime,
   RuntimeLocation,
   runtimeLocationOf
@@ -132,9 +131,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   if (isIntegratedRuntime(runtimeLocation)) {
     const mapWidgetId = props.useMapWidgetIds?.[0] || sanitizedConfig.existingMapId
     const existingMap = (jimuMapView as { view?: { map?: unknown } } | undefined)?.view?.map
-    const mapLabel = runtimeLocation === RuntimeLocation.Bundled
-      ? bundledStatus(bundledHandle, false)
-      : 'Esri map'
+    const mapLabel = bundledStatus(bundledHandle, false)
     return (
       <div
         className="jimu-widget"
@@ -188,9 +185,6 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
             : mapLabel}
           {runtimeStatus ? `. ${runtimeStatus}` : ''}
         </p>
-        {runtimeLocation === RuntimeLocation.Hosted ? (
-          <p role="status">{hostedOriginDisclosure(sanitizedConfig.baseUrl)}</p>
-        ) : null}
       </div>
     )
   }

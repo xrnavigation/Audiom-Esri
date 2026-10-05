@@ -7,6 +7,7 @@ import {
   DEFAULT_ASSET_BASE_URL,
   DEFAULT_RUNTIME_LOCATION,
   ignoredSettingKeys,
+  isEmbedRuntime,
   RuntimeLocation,
   runtimeLocationOf
 } from '../runtimeLocation'
@@ -220,7 +221,7 @@ export function sanitizeConfig(config: IAudiomConfig): SanitizeResult {
   for (const key of ignoredSettingKeys(config)) {
     warnings.push(`${key} is ignored in ${location} mode and was kept.`)
   }
-  if (location !== RuntimeLocation.Legacy && !config.existingMapId) {
+  if (!isEmbedRuntime(location) && !config.existingMapId) {
     warnings.push('Select Map Widget is required in integrated mode.')
   }
 

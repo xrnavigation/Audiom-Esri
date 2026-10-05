@@ -35,7 +35,7 @@ export const DEFAULT_CONFIG = {
   centerLatitudeLocked: true,
   centerLongitudeLocked: true,
   zoomLocked: true,
-  runtimeLocation: RuntimeLocation.Legacy,
+  runtimeLocation: RuntimeLocation.Standalone,
   apiEndpoint: 'https://audiom.net',
   assetBaseUrl: 'https://audiom.net',
 } as const satisfies Partial<IAudiomConfig>
