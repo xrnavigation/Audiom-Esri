@@ -1,9 +1,9 @@
-import { type AllWidgetProps, React, ReactRedux, AppMode, type IMState } from 'jimu-core'
+import { type AllWidgetProps, React, ReactRedux, AppMode, type IMState, type ImmutableObject } from 'jimu-core'
 import { audiomConfigToEmbedConfig } from '../utils/mapUtils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { serializeLockedForDiff } from '../utils/sourceConfigUtils'
 import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis'
-import { DEFAULT_CONFIG, IAudiomConfig } from '../setting/configs'
+import { DEFAULT_CONFIG, IAudiomConfig, toMutableConfig } from '../setting/configs'
 import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation'
 import {
   hostedOriginDisclosure,
@@ -41,7 +41,7 @@ const styles = {
   }
 } as const satisfies Record<string, React.CSSProperties>
 
-const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
+const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   const [jimuMapView, setJimuMapView] = useState<JimuMapView>()
   const [mapSurface, setMapSurface] = useState<MountedMapSurface | null>(null)
   const [avatar, setAvatar] = useState<ReportedAvatar | null>(null)
@@ -58,8 +58,7 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
     state?.appRuntimeInfo?.appMode === AppMode.Run
   )
   
-  // Sanitize config on every render (pure function, always reflects current config)
-  const { config: sanitizedConfig, warnings } = sanitizeConfig(props.config)
+  const { config: sanitizedConfig, warnings } = sanitizeConfig(toMutableConfig(props.config))
   
   // Log warnings once per unique set
   logWarnings(warnings)
@@ -113,7 +112,7 @@ const Widget = (props: AllWidgetProps<IAudiomConfig>) => {
     }
   }, [sanitizedConfig?.sourceConfigs, lastSyncedConfigJson])
 
-  const mapConfig = audiomConfigToEmbedConfig(sanitizedConfig as IAudiomConfig, jimuMapView)
+  const mapConfig = audiomConfigToEmbedConfig({ ...DEFAULT_CONFIG, ...sanitizedConfig }, jimuMapView)
   const embedUrl = mapConfig.toUrl(sanitizedConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
   const runtimeLocation = runtimeLocationOf(sanitizedConfig)
   const title = props.config.title || 'Audiom'

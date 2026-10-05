@@ -44,10 +44,23 @@ jest.mock('../../src/setting/components/CopyableLabel', () => {
 })
 
 describe('SourceConfigList', () => {
+  const originalFetch = global.fetch
+  afterEach(() => { global.fetch = originalFetch })
   const sources = [
     makeSource({ source: 'a', name: 'Source A' }),
     makeSource({ source: 'b', name: 'Source B' })
   ]
+
+  it('applies the chosen catalog URL to all sources, including map-synced sources', async () => {
+    const url = 'https://audiom.example/rules/id/9.json?apiKey=pk_one'
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ data: [{ id: 9, name: 'OSM', slug: 'osm', url }] }) })
+    const onChange = jest.fn()
+    const view = render(<SourceConfigList sourceConfigs={sources} onChange={onChange} readOnly apiKey="pk_one" baseUrl="https://audiom.example" />)
+    await view.findByRole('option', { name: 'OSM (#9)' })
+    fireEvent.change(view.getByRole('combobox', { name: 'Rules File (All)' }), { target: { value: url } })
+    expect(onChange).toHaveBeenCalledWith(sources.map(source => ({ ...source, rulesFileUrl: url })))
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
 
   it('expands and collapses all sources via the 1.13 expand/collapse icons', () => {
     const { getByLabelText, getByTestId } = render(

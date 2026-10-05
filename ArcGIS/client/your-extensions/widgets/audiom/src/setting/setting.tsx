@@ -1,4 +1,4 @@
-﻿import { React } from 'jimu-core'
+import { ImmutableObject, React } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { JimuMapViewComponent, type JimuMapView } from 'jimu-arcgis'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
@@ -15,7 +15,7 @@ import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/mapUtil
 import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { mergeSourcesPreservingUnlocked } from '../utils/sourceConfigUtils'
 import { createLogger } from '../utils/logger'
-import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig, setConfigValue } from './configs'
+import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig, setConfigValue, toMutableConfig } from './configs'
 import { ButtonType, FieldType, FlowType, Colors } from './enums'
 import { Padding } from './enums'
 import { AudiomConfigKey, LockableFieldName } from './configKeys'
@@ -32,9 +32,10 @@ const { useEffect, useCallback, useState, useRef } = React
 
 const logger = createLogger('Setting')
 
-const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
+const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) => {
   const { config } = props
-  // Each widget id gets its own MapSyncManager instance â€” two audiom widgets
+  const mutableConfig = toMutableConfig(config)
+  // Each widget id gets its own MapSyncManager instance — two audiom widgets
   // on the same page won't share listeners / initial-sync state / debounce
   // timers. The instance survives the settings panel being remounted
   // (e.g. switching widget tabs) because the registry is keyed by widget id.
@@ -46,7 +47,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
   const [mapViewReadyTick, setMapViewReadyTick] = useState(0)
 
   // Helper to update config
-  const updateConfig = useCallback((newConfig: IAudiomConfig) => {
+  const updateConfig = useCallback((newConfig: ImmutableObject<IAudiomConfig>) => {
     props.onSettingChange({
       id: props.id,
       config: newConfig
@@ -64,7 +65,8 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
   // Callback to apply synced config from MapSyncManager
   const applyConfigFromMap = useCallback((newMapConfig: MapSyncConfig) => {
-    const currentSources = config.sourceConfigs || []
+    const mutableConfig = toMutableConfig(config)
+    const currentSources = mutableConfig.sourceConfigs || []
     const mapSources = newMapConfig.sourceConfigs || []
     
     // Merge sources, preserving enabled/locked state for manually unlocked items
@@ -154,7 +156,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
     // created by the map widget) the JimuMapViewComponent rendered below
     // will fire onActiveViewChange once it is â€” that bumps mapViewReadyTick
     // and re-runs this effect.
-    const attached = mapSyncManager.attach(effectiveMapId, config)
+    const attached = mapSyncManager.attach(effectiveMapId, mutableConfig)
     if (attached) {
       const initialConfig = mapSyncManager.getCurrentConfig(effectiveMapId)
       if (initialConfig) {
@@ -217,10 +219,10 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
 
   const onPreviewInAudiom = () => {
     // For preview, we use URL mode sources (not existing map sources since we don't have JimuMapView in settings)
-    const plainConfig: IAudiomConfig = { ...config, useExistingMap: false }
-    const embedConfig = audiomConfigToEmbedConfig(plainConfig, undefined)
+    const previewConfig: IAudiomConfig = { ...mutableConfig, useExistingMap: false }
+    const embedConfig = audiomConfigToEmbedConfig(previewConfig, undefined)
 
-    const previewUrl = embedConfig.toUrl(plainConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
+    const previewUrl = embedConfig.toUrl(previewConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
     window.open(previewUrl, '_blank', 'noopener,noreferrer')
   }
 
@@ -416,7 +418,9 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
           </>
         ) : null}
         <SourceConfigList
-          sourceConfigs={config?.sourceConfigs || []}
+          apiKey={config?.apiKey ?? ''}
+          baseUrl={config?.baseUrl || DEFAULT_CONFIG.baseUrl}
+          sourceConfigs={mutableConfig.sourceConfigs || []}
           onChange={onSourceConfigsChange}
           readOnly={integrated || useExistingMap}
         />
@@ -426,7 +430,7 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
         {visibleDisplayFields.map((field) => renderField(field, false))}
         {isSettingVisible(AudiomConfigKey.VisualBaseLayers, runtimeLocation) ? (
           <VisualBaseLayerList
-            layers={config?.visualBaseLayers || []}
+            layers={mutableConfig.visualBaseLayers || []}
             onChange={(layers) => onPropertyChange(AudiomConfigKey.VisualBaseLayers, layers)}
           />
         ) : null}
@@ -437,14 +441,14 @@ const Setting = (props: AllWidgetSettingProps<IAudiomConfig>) => {
                 type={ButtonType.Primary}
                 style={{ width: '100%' }}
                 onClick={onPreviewInAudiom}
-                disabled={!isAudiomConfigValid(config)}
+                disabled={!isAudiomConfigValid(mutableConfig)}
               >
                 Preview in Audiom
               </Button>
             </SettingRow>
             <SettingRow flow={FlowType.Wrap}>
               <Label style={{ width: '100%', color: Colors.TextMuted, fontSize: '12px' }}>
-                {(!isAudiomConfigValid(config))
+                {(!isAudiomConfigValid(mutableConfig))
                   ? 'API Key is required to preview in Audiom.'
                   : 'Opens the current configuration in a new tab.'}
               </Label>

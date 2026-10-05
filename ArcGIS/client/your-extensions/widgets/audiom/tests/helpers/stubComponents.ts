@@ -42,6 +42,8 @@ export interface ButtonStubProps extends ChildrenProps {
 export interface SelectStubProps extends ChildrenProps {
   value?: string | number
   onChange?: ChangeEventHandler<HTMLSelectElement>
+  disabled?: boolean
+  'aria-label'?: string
 }
 
 export interface OptionStubProps extends ChildrenProps {
@@ -54,6 +56,10 @@ export interface CollapseStubProps extends ChildrenProps {
 
 export interface TextInputStubProps {
   value?: string | number
+  type?: string
+  placeholder?: string
+  disabled?: boolean
+  'aria-label'?: string
   onChange?: ChangeEventHandler<HTMLInputElement>
 }
 
@@ -118,7 +124,9 @@ export function stubSelect(p: SelectStubProps): ReactElement {
   const React = getReact()
   return React.createElement('select', {
     value: p.value,
-    onChange: p.onChange
+    onChange: p.onChange,
+    disabled: p.disabled,
+    'aria-label': p['aria-label']
   }, p.children)
 }
 
@@ -136,6 +144,10 @@ export function stubTextInput(p: TextInputStubProps): ReactElement {
   const React = getReact()
   return React.createElement('input', {
     value: p.value ?? '',
+    type: p.type,
+    placeholder: p.placeholder,
+    disabled: p.disabled,
+    'aria-label': p['aria-label'],
     onChange: p.onChange
   })
 }

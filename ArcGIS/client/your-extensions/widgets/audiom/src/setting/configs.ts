@@ -167,18 +167,25 @@ export interface IAudiomConfig {
 }
 
 /**
- * Type-safe wrapper around `ImmutableObject<IAudiomConfig>.set()`.
- *
- * The Experience Builder framework types `props.config` as plain `IAudiomConfig`,
- * but at runtime it is always an ImmutableObject with a typed `.set(key, value)`
- * method. Use this helper instead of casting at every call site.
+ * Type-safe wrapper around `ImmutableObject.set()`.
  */
 export function setConfigValue<K extends keyof IAudiomConfig>(
-  config: IAudiomConfig,
+  config: ImmutableObject<IAudiomConfig>,
   key: K,
   value: IAudiomConfig[K]
-): IAudiomConfig {
-  return (config as unknown as ImmutableObject<IAudiomConfig>).set(key, value) as unknown as IAudiomConfig
+): ImmutableObject<IAudiomConfig> {
+  return config.set(key, value)
+}
+
+/**
+ * Deep-copy an Experience Builder config into a plain object.
+ *
+ * Spreading an Immutable record only copies the top level, so nested values
+ * such as `visualBaseLayers` stay Immutable. Those records are truthy objects
+ * whose `toString()` is "[object Object]".
+ */
+export function toMutableConfig(config: ImmutableObject<IAudiomConfig>): IAudiomConfig {
+  return config.asMutable({ deep: true })
 }
 
 /**
