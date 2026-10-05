@@ -127,6 +127,13 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     stepSizeMeters(sanitizedConfig.stepSize, sanitizedConfig.stepSizeUnit),
     sanitizedConfig.soundpackUrl
   )
+  const embedOverlay = useRef<HTMLDivElement>(null)
+  useAudiomEmbed(
+    embedOverlay,
+    mapSurface,
+    bundledHandle,
+    runtimeLocation === RuntimeLocation.Bundled
+  )
 
   if (isIntegratedRuntime(runtimeLocation)) {
     const bundled = runtimeLocation === RuntimeLocation.Bundled
@@ -165,6 +172,11 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
               : undefined}
             onSurface={setMapSurface}
             onScreen={setIndicatorScreen}
+          />
+          <div
+            ref={embedOverlay}
+            hidden
+            style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
           />
           <AudiomIndicator
             avatar={avatar}
@@ -518,6 +530,80 @@ function movementDirection (key: string): string | null {
   if (key === 'ArrowLeft') return 'left'
   if (key === 'ArrowRight') return 'right'
   return null
+}
+
+/**
+ * Audiom's own React root, beside the Esri map node. Esri replaces children
+ * of the map div, so this overlay is a sibling. Absent when the Front-End
+ * entry cannot load; the hand-rolled compass stays in that case.
+ */
+function useAudiomEmbed (
+  overlay: { current: HTMLDivElement | null },
+  surface: MountedMapSurface | null,
+  handle: BundledRuntimeHandle | null,
+  enabled: boolean
+): boolean {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    const node = overlay.current
+    if (!enabled || !node || !surface || !handle?.program) {
+      setMounted(false)
+      return
+    }
+    let cancelled = false
+    let release: (() => void) | null = null
+    try {
+      // Experience Builder compiles this sibling file with the widget.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const compiled = require('../../../../../../../../Audiom-Front-End/src/runtime/exbEntry') as {
+        mountAudiomEmbed?: (
+          container: HTMLElement,
+          options: {
+            session: { world: unknown }
+            view: MountedMapSurface['view']
+            project: typeof projectEmbedPoint
+            controllerOptions: { welcome: false }
+          }
+        ) => { release: () => void }
+        unmountAudiomEmbed?: (container: HTMLElement) => void
+      }
+      const session = handle.program as { world?: unknown } | null
+      if (!compiled.mountAudiomEmbed || !session?.world) {
+        setMounted(false)
+        return
+      }
+      const controller = compiled.mountAudiomEmbed(node, {
+        session: session as { world: unknown },
+        view: surface.view,
+        project: projectEmbedPoint,
+        controllerOptions: { welcome: false }
+      })
+      release = () => {
+        controller.release()
+        compiled.unmountAudiomEmbed?.(node)
+      }
+      if (!cancelled) setMounted(true)
+    } catch {
+      if (!cancelled) setMounted(false)
+    }
+    return () => {
+      cancelled = true
+      release?.()
+      setMounted(false)
+    }
+  }, [enabled, surface, handle, overlay])
+  return mounted
+}
+
+function projectEmbedPoint (
+  view: { toScreen?: (point: unknown) => { x?: number, y?: number } | null, container?: HTMLElement },
+  longitude: number,
+  latitude: number
+): Promise<{ x: number, y: number } | null> {
+  return avatarScreenPoint(
+    { view, ownedMap: false },
+    { longitude, latitude, heading: 0 }
+  )
 }
 
 function useBundledRuntime (

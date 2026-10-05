@@ -24,6 +24,8 @@ export interface AudiomProgramOptions {
 
 export interface AudiomProgram {
   readonly runtime: InProcessRuntime
+  /** The compiled session, when the program is a RuntimeSession. */
+  readonly world?: unknown
   /** Audiom's current avatar. Present as soon as the program exists. */
   avatarState?(): AvatarState
   moveAvatar(direction: string): AvatarState
