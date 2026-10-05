@@ -3,7 +3,6 @@ import { React } from 'jimu-core'
 import { DEFAULT_CONFIG, IAudiomConfig } from '../configs'
 import { AudiomConfigKey } from '../configKeys'
 import {
-  DEFAULT_API_ENDPOINT,
   DEFAULT_ASSET_BASE_URL,
   DEFAULT_RUNTIME_LOCATION,
   ignoredSettingKeys,
@@ -200,14 +199,6 @@ export function sanitizeConfig(config: IAudiomConfig): SanitizeResult {
   }
 
   if (location === RuntimeLocation.Bundled) {
-    const endpoint = validateAndReset(
-      config.apiEndpoint,
-      validateUrl,
-      DEFAULT_API_ENDPOINT,
-      'API endpoint',
-      warnings
-    )
-    sanitized.apiEndpoint = endpoint ?? config.apiEndpoint ?? DEFAULT_API_ENDPOINT
     const assets = validateAndReset(
       config.assetBaseUrl,
       validateUrl,

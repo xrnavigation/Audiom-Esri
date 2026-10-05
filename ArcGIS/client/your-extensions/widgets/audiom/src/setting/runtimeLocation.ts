@@ -10,7 +10,6 @@ export enum RuntimeLocation {
 }
 
 export const DEFAULT_RUNTIME_LOCATION = RuntimeLocation.Standalone
-export const DEFAULT_API_ENDPOINT = 'https://audiom.net'
 export const DEFAULT_ASSET_BASE_URL = 'https://audiom.net'
 
 const MAP_SETTING_KEYS = [
@@ -75,7 +74,6 @@ export function visibleSettingKeys (location: RuntimeLocation): AudiomConfigKey[
     ...shared,
     AudiomConfigKey.MapItemId,
     ...MAP_SETTING_KEYS,
-    AudiomConfigKey.ApiEndpoint,
     AudiomConfigKey.AssetBaseUrl
   ]
 }
@@ -96,7 +94,7 @@ export function ignoredSettingKeys (
 ): Array<keyof IAudiomConfig> {
   const location = runtimeLocationOf(config)
   if (isEmbedRuntime(location)) {
-    return [AudiomConfigKey.ApiEndpoint, AudiomConfigKey.AssetBaseUrl]
+    return [AudiomConfigKey.AssetBaseUrl]
       .filter((key) => config?.[key] !== undefined)
   }
   return LEGACY_ONLY_KEYS.filter((key) => config?.[key] !== undefined)

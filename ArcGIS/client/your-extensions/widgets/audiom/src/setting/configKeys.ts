@@ -35,7 +35,6 @@ export enum AudiomConfigKey {
   /** Portal item selected as Bundled mode's own map. Not a Map widget. */
   MapItemId = 'mapItemId',
   RuntimeLocation = 'runtimeLocation',
-  ApiEndpoint = 'apiEndpoint',
   AssetBaseUrl = 'assetBaseUrl'
 }
 

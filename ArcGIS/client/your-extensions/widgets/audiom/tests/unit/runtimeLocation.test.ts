@@ -37,9 +37,8 @@ describe('runtime location field visibility', () => {
     expect(isSettingVisible(AudiomConfigKey.CenterLongitude, RuntimeLocation.Bundled)).toBe(true)
   })
 
-  it('shows the bundled endpoints only in bundled mode', () => {
-    expect(isSettingVisible(AudiomConfigKey.ApiEndpoint, RuntimeLocation.Bundled)).toBe(true)
+  it('shows the asset base URL only in bundled mode', () => {
     expect(isSettingVisible(AudiomConfigKey.AssetBaseUrl, RuntimeLocation.Bundled)).toBe(true)
-    expect(isSettingVisible(AudiomConfigKey.ApiEndpoint, RuntimeLocation.Standalone)).toBe(false)
+    expect(isSettingVisible(AudiomConfigKey.AssetBaseUrl, RuntimeLocation.Standalone)).toBe(false)
   })
 })

@@ -307,7 +307,6 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
   const connectionFields: FieldConfig[] = [
     { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Password, placeholder: 'Enter API key' },
     { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl, validateOnAccept: (val) => validateUrl(String(val)), showWhen: () => isSettingVisible(AudiomConfigKey.BaseUrl, runtimeLocation) },
-    { key: AudiomConfigKey.ApiEndpoint, label: 'API Endpoint', type: FieldType.Text, placeholder: 'https://audiom.net', defaultValue: DEFAULT_CONFIG.apiEndpoint, validateOnAccept: (val) => validateUrl(String(val)), showWhen: () => isSettingVisible(AudiomConfigKey.ApiEndpoint, runtimeLocation) },
     { key: AudiomConfigKey.AssetBaseUrl, label: 'Asset Base URL', type: FieldType.Text, placeholder: 'https://audiom.net', defaultValue: DEFAULT_CONFIG.assetBaseUrl, validateOnAccept: (val) => validateUrl(String(val)), showWhen: () => isSettingVisible(AudiomConfigKey.AssetBaseUrl, runtimeLocation) },
     { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack name or URL' }
   ]

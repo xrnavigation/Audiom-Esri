@@ -36,7 +36,6 @@ export const DEFAULT_CONFIG = {
   centerLongitudeLocked: true,
   zoomLocked: true,
   runtimeLocation: RuntimeLocation.Standalone,
-  apiEndpoint: 'https://audiom.net',
   assetBaseUrl: 'https://audiom.net',
 } as const satisfies Partial<IAudiomConfig>
 
@@ -162,8 +161,6 @@ export interface IAudiomConfig {
   mapItemId?: string
   /** Absent on configs saved before integrated modes. Those load as legacy. */
   runtimeLocation?: RuntimeLocation
-  /** Bundled mode only. Ignored, not deleted, in the other modes. */
-  apiEndpoint?: string
   /** Bundled mode only. Ignored, not deleted, in the other modes. */
   assetBaseUrl?: string
 }
