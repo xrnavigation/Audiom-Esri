@@ -16,7 +16,7 @@ import {
   createInProcessRuntime,
   type InProcessRuntime
 } from '../../../../shared/audiom-runtime/src/factory'
-import { applyAudiomSymbols, type SymbolModules } from './audiomSymbols'
+import { applyAudiomSymbols, restoreAudiomSymbols, type SymbolLayer, type SymbolModules, type VectorStyleMode } from './audiomSymbols'
 import { snapshotFeaturesFromMapView, type SnapshotLayer, type SnapshotMapView } from './mapSnapshot'
 import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
 import { showAvatar, type MountedMapSurface } from './esriMapSurface'
@@ -176,12 +176,14 @@ export const bundledFocusTarget = FocusTarget.Map
 export const bundledSelection = SelectionOp.Replace
 
 /**
- * Paint Audiom fill, stroke, and pattern onto layers already on the Esri map.
- * No-op when the map has no styled features or the symbol modules are absent.
+ * Paint Audiom fill, stroke, width, opacity, dash, and pattern onto layers
+ * already on the Esri map. No-op when the map has no styled features or the
+ * symbol modules are absent. Host renderers are saved and restored on unmount.
  */
 export async function paintAudiomStyles (
   jimuMapView: SnapshotMapView | undefined,
-  snapshot?: MapSnapshot
+  snapshot?: MapSnapshot,
+  mode: VectorStyleMode = 'both'
 ): Promise<void> {
   const layers = jimuMapView?.view?.map?.allLayers || jimuMapView?.map?.allLayers
   if (!layers || !snapshot) return
@@ -212,7 +214,15 @@ export async function paintAudiomStyles (
     const match = queried.find((item) => (item.id || item.title || 'layer') === sourceId)
     const features = (match as (SnapshotLayer & { features?: Array<{ attributes?: Record<string, unknown> }> }) | undefined)?.features
     if (!features?.length) return
-    applyAudiomSymbols(layer, modules, features)
+    applyAudiomSymbols(layer, modules, features, mode)
+  })
+}
+
+/** Put each painted layer's host renderer back. */
+export function restoreAudiomStyles (jimuMapView: SnapshotMapView | undefined): void {
+  const layers = jimuMapView?.view?.map?.allLayers || jimuMapView?.map?.allLayers
+  layers?.forEach((layer) => {
+    restoreAudiomSymbols(layer as SymbolLayer)
   })
 }
 

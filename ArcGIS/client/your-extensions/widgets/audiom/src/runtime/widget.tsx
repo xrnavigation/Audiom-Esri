@@ -13,7 +13,7 @@ import {
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
 import { patternLegend, patternTileUrl } from './audiomSymbols'
-import { bundledFocusTarget, bundledStatus, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
+import { bundledFocusTarget, bundledStatus, restoreAudiomStyles, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
 import { StepSize, StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import {
   avatarScreenPoint,
@@ -389,7 +389,9 @@ function AudiomIndicator (props: {
           transform: `rotate(${avatar.heading}deg)`
         }}
       >
-        <AudiomCompass />
+        <span className="audiom-cursor-pulse">
+          <AudiomCompass />
+        </span>
       </button>
       <style>{AUDIOM_CURSOR_PULSE}</style>
     </>
@@ -470,10 +472,19 @@ function AudiomCompass (): JSX.Element {
 
 /** Audiom's cursor pulse. Same keyframes as AudioMapControls `.control:focus::after`. */
 const AUDIOM_CURSOR_PULSE = `
-.audiom-cursor { position: relative; }
-.audiom-cursor svg { width: 1.75rem; height: auto; display: block; margin: 0 auto; }
+/* The button is positioned on the map. Do not set position:relative on
+   .audiom-cursor: that overrides the inline left/top and pins it in the widget. */
+.audiom-cursor-pulse {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.audiom-cursor svg { width: 1.75rem; height: auto; display: block; transform: translateY(-0.0625rem); }
 .audiom-cursor:focus { outline: none; }
-.audiom-cursor:focus::after {
+.audiom-cursor:focus .audiom-cursor-pulse::after {
   content: "";
   position: absolute;
   top: 0;
@@ -490,7 +501,7 @@ const AUDIOM_CURSOR_PULSE = `
   to { opacity: 0; transform: scale(1.25); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .audiom-cursor:focus::after { animation: none; }
+  .audiom-cursor:focus .audiom-cursor-pulse::after { animation: none; }
 }
 `
 
@@ -549,6 +560,7 @@ function useBundledRuntime (
     setHandle(next)
     return () => {
       next.onReported = undefined
+      restoreAudiomStyles(jimuMapView)
       setReported(null)
       onAvatar(null)
       void next.runtime.dispose()

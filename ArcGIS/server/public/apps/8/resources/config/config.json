@@ -1094,12 +1094,21 @@
         "zoom": 12,
         "apiKey": "wO35blaGsjJREGuXehqWU",
         "titleLocked": true,
-        "centerLongitudeLocked": true
+        "centerLongitudeLocked": true,
+        "runtimeLocation": "bundled",
+        "mapItemId": "175186b0ca58430e96f154598098f611"
       },
       "id": "widget_23",
       "useMapWidgetIds": [
         "widget_1"
-      ]
+      ],
+      "useDataSources": [
+        {
+          "dataSourceId": "dataSource_2",
+          "mainDataSourceId": "dataSource_2"
+        }
+      ],
+      "useDataSourcesEnabled": true
     }
   },
   "exbVersion": "1.20.0",
@@ -1301,7 +1310,7 @@
     "portalUrl": "https://xrnavigation.maps.arcgis.com",
     "enableA11yForWidgetSettings": false
   },
-  "timestamp": 1791232140926,
+  "timestamp": 1791239099193,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {

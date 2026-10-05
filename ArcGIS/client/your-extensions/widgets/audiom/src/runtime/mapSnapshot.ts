@@ -137,19 +137,7 @@ export async function snapshotFeaturesFromMapView (
 }
 
 /** Audiom pattern tokens. Unknown tokens fall back to dots, matching Audiom's legend. */
-export const AUDIOM_PATTERN_TOKENS = [
-  'dot-pattern',
-  'empty-square-pattern',
-  'grid-pattern',
-  'diagonal-line-pattern',
-  'caret-pattern'
-] as const
-
-export function patternToken (value: unknown): string {
-  return typeof value === 'string' && (AUDIOM_PATTERN_TOKENS as readonly string[]).includes(value)
-    ? value
-    : 'dot-pattern'
-}
+export { PATTERN_TOKENS as AUDIOM_PATTERN_TOKENS, patternToken } from './patternTiles'
 
 function layerHasRules (layer: SnapshotLayer & { features?: SnapshotFeature[] }): boolean {
   const features = layer.features
@@ -194,7 +182,7 @@ function styleAttributes (
   attributes: Record<string, unknown>
 ): Record<string, string | number | boolean | null> {
   const kept: Record<string, string | number | boolean | null> = {}
-  const names = ['name', 'Name', 'fill', 'stroke', 'fill-pattern', 'fill-opacity', 'stroke-opacity', 'stroke-dasharray']
+  const names = ['name', 'Name', 'fill', 'stroke', 'stroke-width', 'fill-pattern', 'fill-opacity', 'stroke-opacity', 'stroke-dasharray']
   for (const name of names) {
     const value = attributes[name]
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null) {
