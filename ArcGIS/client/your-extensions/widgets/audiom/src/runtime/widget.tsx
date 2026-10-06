@@ -173,11 +173,6 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
             onSurface={setMapSurface}
             onScreen={setIndicatorScreen}
           />
-          <div
-            ref={embedOverlay}
-            hidden
-            style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
-          />
           <AudiomIndicator
             avatar={avatar}
             screen={indicatorScreen}
@@ -198,6 +193,10 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
             />
           )}
           {runtimeLocation === RuntimeLocation.Bundled && <AudiomPatternKey />}
+          <div
+            ref={embedOverlay}
+            style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 4 }}
+          />
         </div>
         <p className="sr-only" role="status">
           {avatar
@@ -243,7 +242,7 @@ function EsriMapSurface (props: {
   onSelect?: () => void
   onScreen?: (point: { x: number, y: number } | null) => void
   onSurface?: (surface: MountedMapSurface | null) => void
-}): JSX.Element {
+}) {
   const container = useRef<HTMLDivElement>(null)
   const onSurface = props.onSurface
   const onScreen = props.onScreen
@@ -360,7 +359,7 @@ function AudiomIndicator (props: {
   screen: { x: number, y: number } | null
   onMove?: (direction: string) => void
   onSelect?: () => void
-}): JSX.Element | null {
+}) {
   const button = useRef<HTMLButtonElement>(null)
   const avatar = props.avatar
   const screen = props.screen
@@ -396,7 +395,7 @@ function AudiomIndicator (props: {
           border: 0,
           borderRadius: '50%',
           background: 'transparent',
-          zIndex: 5,
+          zIndex: 20,
           cursor: 'pointer',
           transform: `rotate(${avatar.heading}deg)`
         }}
@@ -411,7 +410,7 @@ function AudiomIndicator (props: {
 }
 
 /** Pattern key for Audiom's five fill tokens. A sibling of the map div. */
-function AudiomPatternKey (): JSX.Element {
+function AudiomPatternKey () {
   return (
     <ul
       aria-label="Audiom patterns"
@@ -446,7 +445,7 @@ function AudiomPatternKey (): JSX.Element {
 function AudiomSoundControl (props: {
   soundpackUrl?: string
   onUnlock: () => void
-}): JSX.Element | null {
+}) {
   if (!props.soundpackUrl) return null
   return (
     <button
@@ -470,7 +469,7 @@ function AudiomSoundControl (props: {
 }
 
 /** Audiom VisualCursor paths. Rendered with jimu-core React, not Audiom's React. */
-function AudiomCompass (): JSX.Element {
+function AudiomCompass () {
   return (
     <svg width="33" height="30" viewBox="0 0 337 308" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <path d="M331.07 256.95L303.27 208.32L257.64 128.46L257.17 127.66L247.36 110.49L238.96 95.82L193.12 15.63C188.07 6.77001 178.34 1.04001 168.35 1.04001H167.34C157.39 1.04001 148.35 6.47001 143.17 15.55L88.8899 110.49L78.3499 128.9L78.2899 129.03L54.75 170.21L32.95 208.32L15.9899 238L5.21995 256.86C-0.290052 266.5 -0.670052 278.22 4.20995 288.19C9.87995 299.83 21.4299 307.06 34.3499 307.06H127.71C138 307.06 148.12 303.55 156.28 297.1L156.5 296.92C157.01 296.5 157.51 296.09 158.02 295.63C160.96 293.08 163.58 290.13 165.82 286.84L168.16 283.4L170.5 286.85C179.09 299.5 193.35 307.05 208.63 307.05H301.96C308.36 307.05 314.55 305.27 319.89 301.9L320.46 301.54L320.96 301.09C324.49 297.92 327.71 294.38 330.53 290.57L331.96 288.64L332.29 287.94C337 278 336.54 266.41 331.09 256.95H331.07ZM143.7 271.82C142.76 273.2 141.65 274.44 140.41 275.51L140.24 275.66C140.02 275.86 139.8 276.03 139.59 276.21C136.21 278.86 131.99 280.33 127.7 280.33H34.34C31.68 280.33 29.3999 278.89 28.2199 276.48C27.6299 275.27 26.8699 272.83 28.4199 270.12L39.1899 251.26L56.15 221.59L77.9499 183.48L101.86 141.65L101.92 141.53L112.09 123.76L166.38 28.8C166.83 28.02 167.27 27.78 167.33 27.76L167.83 27.8L168.35 27.77C168.67 27.77 169.51 28.17 169.91 28.88L215.76 109.09L224.16 123.76L234.06 141.09L234.48 141.79L280.07 221.58L307.31 269.24V277.71C306.06 279.37 304.13 280.32 301.94 280.32H208.61C202.18 280.32 196.19 277.15 192.59 271.84L168.13 235.78L143.69 271.82H143.7Z" fill="#000" stroke="#000" />

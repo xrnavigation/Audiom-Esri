@@ -32,6 +32,8 @@ export interface SnapshotLayer {
   objectIdField?: string
   createQuery?: () => { where?: string, outFields?: string[], returnGeometry?: boolean, num?: number }
   queryFeatures?: (query: unknown) => Promise<{ features?: SnapshotFeature[] }>
+  /** Test double. Production layers are read through queryFeatures. */
+  features?: SnapshotFeature[]
 }
 
 export interface SnapshotMapView {
@@ -177,20 +179,27 @@ function recordsFallbackId (feature: SnapshotFeature): string {
   return String(fallbackSerial)
 }
 
+type StyleValue = string | number | boolean | null
+
 /** Keep rule outputs Audiom already computed. Do not invent colors or patterns. */
-function styleAttributes (
-  attributes: Record<string, unknown>
-): Record<string, string | number | boolean | null> {
-  const kept: Record<string, string | number | boolean | null> = {}
-  const names = ['name', 'Name', 'fill', 'stroke', 'stroke-width', 'fill-pattern', 'fill-opacity', 'stroke-opacity', 'stroke-dasharray']
-  for (const name of names) {
-    const value = attributes[name]
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null) {
-      kept[name] = value
-    }
-  }
-  if (kept.name == null && typeof attributes.Name === 'string') kept.name = attributes.Name
+function styleAttributes (attributes: Record<string, unknown>): Record<string, StyleValue> {
+  const kept: Record<string, StyleValue> = {}
+  putStyle(kept, 'name', typeof attributes.name === 'string' ? attributes.name : attributes.Name)
+  putStyle(kept, 'Name', attributes.Name)
+  putStyle(kept, 'fill', attributes.fill)
+  putStyle(kept, 'stroke', attributes.stroke)
+  putStyle(kept, 'stroke-width', attributes['stroke-width'])
+  putStyle(kept, 'fill-pattern', attributes['fill-pattern'])
+  putStyle(kept, 'fill-opacity', attributes['fill-opacity'])
+  putStyle(kept, 'stroke-opacity', attributes['stroke-opacity'])
+  putStyle(kept, 'stroke-dasharray', attributes['stroke-dasharray'])
   return kept
+}
+
+function putStyle (kept: Record<string, StyleValue>, name: string, value: unknown): void {
+  if (typeof value === 'string') kept[name] = `${value}`
+  else if (typeof value === 'number') kept[name] = Number(value)
+  else if (typeof value === 'boolean') kept[name] = Boolean(value)
 }
 
 function serializeGeometry (

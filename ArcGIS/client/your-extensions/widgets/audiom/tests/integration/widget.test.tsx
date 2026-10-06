@@ -9,7 +9,7 @@
  * - Use `wrapWidget` + `widgetRender` from jimu-for-test so Redux store,
  *   theme, and intl providers are wired up like the runtime.
  */
-import { React } from 'jimu-core'
+import { React, type ImmutableArray } from 'jimu-core'
 
 jest.mock('jimu-arcgis', () => ({
   __esModule: true,
@@ -154,7 +154,7 @@ describe('Audiom runtime widget', () => {
         runtimeLocation: RuntimeLocation.Bundled,
         mapItemId: 'item-1'
       }) as any,
-      useMapWidgetIds: ['external-map']
+      useMapWidgetIds: ['external-map'] as unknown as ImmutableArray<string>
     })
     const { container, unmount } = render(<Widget widgetId="audiom-bundled" />)
     expect(container.querySelector('iframe')).toBeNull()

@@ -109,7 +109,10 @@ export async function mountEsriMap (options: MapSurfaceOptions): Promise<Mounted
     : options.mapItemId
       ? ['esri/WebMap', 'esri/views/MapView']
       : ['esri/Map', 'esri/views/MapView']
-  const [MapCtor, ViewCtor] = await moduleLoader(modules)
+  const loaded = await moduleLoader(modules) as MapModules[]
+  const MapCtor = loaded[0]?.Map
+  const ViewCtor = loaded[1]?.MapView
+  if (!MapCtor || !ViewCtor) throw new Error('Esri map modules did not load')
   const ownedMap = !options.existingMap
   const map = options.existingMap || (options.mapItemId
     ? new MapCtor({

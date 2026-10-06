@@ -33,7 +33,7 @@ const { useEffect, useCallback, useState, useRef } = React
 
 const logger = createLogger('Setting')
 
-const MAP_SOURCE_TYPES = Immutable([
+const MAP_SOURCE_TYPES = Immutable.from([
   AllDataSourceTypes.WebMap,
   AllDataSourceTypes.WebScene
 ])
@@ -431,8 +431,15 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
               hideDataView
               disableDataView
               buttonLabel="Set"
-              onChange={onMapSourceChange}
-              onDataSourceCreated={onMapSourceCreated}
+              onChange={(nextUseDataSources) => {
+                onMapSourceChange(nextUseDataSources)
+                const selected = nextUseDataSources?.[0]
+                const dataSourceId = selected?.dataSourceId || selected?.mainDataSourceId || ''
+                const created = dataSourceId
+                  ? DataSourceManager.getInstance().getDataSource(dataSourceId)
+                  : undefined
+                if (created) onMapSourceCreated(created)
+              }}
             />
           </SettingRow>
         ) : (

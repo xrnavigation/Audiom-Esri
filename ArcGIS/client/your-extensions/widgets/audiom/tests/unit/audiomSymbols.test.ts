@@ -81,7 +81,8 @@ describe('audiom symbols', () => {
     }
     expect(applyAudiomSymbols(layer, modules, layer.features)).toBe(true)
     expect(layer.renderer).not.toBe(host)
-    expect(layer.features[0].attributes.audiomStyle).toContain('#7bbf75')
+    const painted = layer.features[0].attributes as Record<string, unknown>
+    expect(String(painted.audiomStyle)).toContain('#7bbf75')
     expect(restoreAudiomSymbols(layer)).toBe(true)
     expect(layer.renderer).toBe(host)
     expect(restoreAudiomSymbols(layer)).toBe(false)
