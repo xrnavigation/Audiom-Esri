@@ -180,7 +180,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
           {runtimeLocation === RuntimeLocation.Bundled && <AudiomPatternKey />}
           <div
             ref={embedOverlay}
-            style={{ position: 'absolute', inset: 0, overflow: 'visible', zIndex: 2, pointerEvents: 'none' }}
+            style={{ position: 'absolute', inset: 0, overflow: 'visible', zIndex: 8, pointerEvents: 'none' }}
           />
         </div>
         <p className="sr-only" role="status">
@@ -533,8 +533,8 @@ function movementDirection (key: string): string | null {
 
 /**
  * Audiom's own React root, beside the Esri map node. Esri replaces children
- * of the map div, so this overlay is a sibling. Absent when the Front-End
- * entry cannot load; the hand-rolled compass stays in that case.
+ * of the map div, so this overlay is a sibling. The menu mounts as soon as
+ * the map exists. A missing program does not hide it.
  */
 function useAudiomEmbed (
   overlay: { current: HTMLDivElement | null },
@@ -545,11 +545,9 @@ function useAudiomEmbed (
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
     const node = overlay.current
-    if (!enabled || !node || !surface || !handle?.program) {
-      if (enabled && surface && handle && !handle.program) {
-        // eslint-disable-next-line no-console
-        console.error('Audiom embed skipped: program is not ready')
-      }
+    // The menu does not wait on the program. A failed program used to skip
+    // this effect entirely, which is why the button never appeared.
+    if (!enabled || !node || !surface) {
       setMounted(false)
       return
     }
@@ -562,7 +560,7 @@ function useAudiomEmbed (
         mountAudiomEmbed?: (
           container: HTMLElement,
           options: {
-            session: { world: unknown }
+            session: { world: unknown } | null
             view: MountedMapSurface['view']
             project: typeof projectEmbedPoint
             controllerOptions: { welcome: false }
@@ -570,21 +568,18 @@ function useAudiomEmbed (
         ) => { release: () => void }
         unmountAudiomEmbed?: (container: HTMLElement) => void
       }
-      const session = handle.program as { world?: unknown } | null
-      if (!compiled.mountAudiomEmbed || !session?.world) {
-        // eslint-disable-next-line no-console
-        console.error('Audiom embed skipped: session has no world')
-        setMounted(false)
-        return
+      const session = handle?.program as { world?: unknown } | null
+      if (!compiled.mountAudiomEmbed) {
+        throw new Error('Audiom menu entry has no mountAudiomEmbed')
       }
       const controller = compiled.mountAudiomEmbed(node, {
-        session: session as { world: unknown },
+        session: session?.world ? session as { world: unknown } : null,
         view: surface.view,
         project: projectEmbedPoint,
         controllerOptions: { welcome: false }
       })
       release = () => {
-        controller.release()
+        controller?.release()
         compiled.unmountAudiomEmbed?.(node)
       }
       if (!cancelled) setMounted(true)
