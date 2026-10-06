@@ -44,7 +44,6 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   const [jimuMapView, setJimuMapView] = useState<JimuMapView>()
   const [mapSurface, setMapSurface] = useState<MountedMapSurface | null>(null)
   const [avatar, setAvatar] = useState<ReportedAvatar | null>(null)
-  const [indicatorScreen, setIndicatorScreen] = useState<{ x: number, y: number } | null>(null)
   const [runtimeStatus, setRuntimeStatus] = useState('')
   const [hasChanges, setHasChanges] = useState(false)
   const [lastSyncedConfigJson, setLastSyncedConfigJson] = useState<string>('')
@@ -171,20 +170,6 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
               ? () => { void bundledHandle?.runtime.focusRuntime(bundledFocusTarget) }
               : undefined}
             onSurface={setMapSurface}
-            onScreen={setIndicatorScreen}
-          />
-          <AudiomIndicator
-            avatar={avatar}
-            screen={indicatorScreen}
-            onMove={runtimeLocation === RuntimeLocation.Bundled
-              ? (direction) => { void bundledHandle?.runtime.moveAvatar(direction) }
-              : undefined}
-            onSelect={runtimeLocation === RuntimeLocation.Bundled
-              ? () => {
-                unlockBundledAudio(bundledHandle)
-                void bundledHandle?.runtime.focusRuntime(bundledFocusTarget)
-              }
-              : undefined}
           />
           {runtimeLocation === RuntimeLocation.Bundled && (
             <AudiomSoundControl
@@ -195,7 +180,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
           {runtimeLocation === RuntimeLocation.Bundled && <AudiomPatternKey />}
           <div
             ref={embedOverlay}
-            style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, overflow: 'visible', zIndex: 5 }}
+            style={{ position: 'absolute', inset: 0, overflow: 'visible', zIndex: 2, pointerEvents: 'none' }}
           />
         </div>
         <p className="sr-only" role="status">
@@ -250,6 +235,13 @@ function EsriMapSurface (props: {
   const [screen, setScreen] = useState<{ x: number, y: number } | null>(null)
   const [surfaceReady, setSurfaceReady] = useState(false)
   const avatar = props.avatar
+  // The compass is the configured center until Audiom reports a position.
+  // Waiting on that report is what left the map with no navigation icon.
+  const placed = avatar ?? (
+    props.longitude != null && props.latitude != null
+      ? { longitude: props.longitude, latitude: props.latitude, heading: 0 }
+      : null
+  )
   useEffect(() => {
     const node = container.current
     if (!node) return
@@ -299,14 +291,14 @@ function EsriMapSurface (props: {
   useEffect(() => {
     const node = container.current as { __audiomSurface?: MountedMapSurface } | null
     const surface = node?.__audiomSurface
-    if (!surface || !avatar) {
+    if (!surface || !placed) {
       setScreen(null)
       onScreen?.(null)
       return
     }
     let cancelled = false
     const place = () => {
-      void avatarScreenPoint(surface, avatar).then((point) => {
+      void avatarScreenPoint(surface, placed).then((point) => {
         if (cancelled) return
         setScreen(point)
         onScreen?.(point)
@@ -327,7 +319,7 @@ function EsriMapSurface (props: {
       resize?.remove?.()
       pointer?.remove?.()
     }
-  }, [avatar, surfaceReady, onScreen])
+  }, [placed, surfaceReady, onScreen])
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const direction = movementDirection(event.key)
     if (!direction || !props.onMove) return
@@ -336,16 +328,24 @@ function EsriMapSurface (props: {
     props.onMove(direction)
   }
   return (
-    <div
-      id="audiom-esri-map"
-      ref={container}
-      className="widget-map mapview-container"
-      role="application"
-      aria-label="Audiom map"
-      tabIndex={0}
-      onKeyDown={onKeyDown}
-      style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%' }}
-    />
+    <div style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%' }}>
+      <div
+        id="audiom-esri-map"
+        ref={container}
+        className="widget-map mapview-container"
+        role="application"
+        aria-label="Audiom map"
+        tabIndex={0}
+        onKeyDown={onKeyDown}
+        style={{ position: 'absolute', inset: 0 }}
+      />
+      <AudiomIndicator
+        avatar={placed}
+        screen={screen}
+        onMove={props.onMove}
+        onSelect={onSelect}
+      />
+    </div>
   )
 }
 
@@ -395,7 +395,7 @@ function AudiomIndicator (props: {
           border: 0,
           borderRadius: '50%',
           background: 'transparent',
-          zIndex: 20,
+          zIndex: 30,
           cursor: 'pointer',
           transform: `rotate(${avatar.heading}deg)`
         }}
@@ -546,6 +546,10 @@ function useAudiomEmbed (
   useEffect(() => {
     const node = overlay.current
     if (!enabled || !node || !surface || !handle?.program) {
+      if (enabled && surface && handle && !handle.program) {
+        // eslint-disable-next-line no-console
+        console.error('Audiom embed skipped: program is not ready')
+      }
       setMounted(false)
       return
     }
@@ -568,6 +572,8 @@ function useAudiomEmbed (
       }
       const session = handle.program as { world?: unknown } | null
       if (!compiled.mountAudiomEmbed || !session?.world) {
+        // eslint-disable-next-line no-console
+        console.error('Audiom embed skipped: session has no world')
         setMounted(false)
         return
       }

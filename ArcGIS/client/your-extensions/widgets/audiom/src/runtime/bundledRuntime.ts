@@ -114,6 +114,8 @@ export function startBundledRuntime (
     handle.runtime = program.runtime
   } else {
     handle.lastError = audiomProgramError() || 'Audiom program failed to load'
+    // eslint-disable-next-line no-console
+    console.error('Audiom program failed to load:', handle.lastError)
     handle.runtime = createInProcessRuntime({
       sessionId: `${instanceId}-session`,
       instanceId,

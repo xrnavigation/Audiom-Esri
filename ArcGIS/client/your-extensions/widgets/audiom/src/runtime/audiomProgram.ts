@@ -67,6 +67,8 @@ function loadCompiledProgram (): AudiomProgramFactory | null {
     return programFactory
   } catch (error) {
     loadError = error instanceof Error ? error.message : 'Audiom program failed to load'
+    // eslint-disable-next-line no-console
+    console.error('Audiom program failed to load', error)
     return null
   }
 }
