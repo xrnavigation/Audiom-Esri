@@ -195,7 +195,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
           {runtimeLocation === RuntimeLocation.Bundled && <AudiomPatternKey />}
           <div
             ref={embedOverlay}
-            style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 4 }}
+            style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, overflow: 'visible', zIndex: 5 }}
           />
         </div>
         <p className="sr-only" role="status">
@@ -344,7 +344,7 @@ function EsriMapSurface (props: {
       aria-label="Audiom map"
       tabIndex={0}
       onKeyDown={onKeyDown}
-      style={{ width: '100%', height: '100%' }}
+      style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%' }}
     />
   )
 }
@@ -582,7 +582,11 @@ function useAudiomEmbed (
         compiled.unmountAudiomEmbed?.(node)
       }
       if (!cancelled) setMounted(true)
-    } catch {
+    } catch (error) {
+      // The embed is optional; the hand-rolled compass stays if it fails.
+      // Surface the reason instead of swallowing it.
+      // eslint-disable-next-line no-console
+      console.error('Audiom embed failed to mount', error)
       if (!cancelled) setMounted(false)
     }
     return () => {
