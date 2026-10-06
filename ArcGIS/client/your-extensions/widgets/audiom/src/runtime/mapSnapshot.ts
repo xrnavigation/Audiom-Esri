@@ -30,8 +30,15 @@ export interface SnapshotLayer {
   /** False when the layer is outside the current scale. Those features stay navigable. */
   scaleVisible?: boolean
   objectIdField?: string
+  /** Esri field used as the feature's display name, when the layer publishes one. */
+  displayField?: string
   createQuery?: () => { where?: string, outFields?: string[], returnGeometry?: boolean, num?: number }
   queryFeatures?: (query: unknown) => Promise<{ features?: SnapshotFeature[] }>
+  /** Resolves when the layer can be queried. Absent means query immediately. */
+  when?: () => Promise<unknown>
+  load?: () => Promise<unknown>
+  /** Nested operational layers. Group layers are not queried themselves. */
+  layers?: { forEach: (fn: (layer: SnapshotLayer) => void) => void }
   /** Test double. Production layers are read through queryFeatures. */
   features?: SnapshotFeature[]
 }
@@ -72,8 +79,10 @@ export function snapshotFromMapView (
     const hidden = layer.visible === false
     const outOfScale = layer.scaleVisible === false
     // Hidden features leave the navigable set. Out-of-scale features stay
-    // navigable. A visible layer with no rules is visual-only: not in the audio map.
-    const bound = supported && !hidden && layerHasRules(layer)
+    // navigable. A visible supported layer is listed even when it has no
+    // Audiom rule colors; those colors are painted later and must not hide
+    // the map's features from the menu.
+    const bound = supported && !hidden && (layerHasRules(layer) || layerHasFeatures(layer))
     sources.push({
       sourceId,
       displayName: layer.title || sourceId,
@@ -87,7 +96,7 @@ export function snapshotFromMapView (
     if (!supported || hidden) return
     const features = (layer as SnapshotLayer & { features?: SnapshotFeature[] }).features
     if (!features?.length) return
-    // Out of scale stays navigable. A visible layer without rules is described, not entered.
+    // Out of scale stays navigable. Visible queried features are listed too.
     const navigable = supported && (bound || outOfScale)
     for (const feature of features.slice(0, FEATURE_LIMIT)) {
       const record = featureRecord(dataSourceId, sourceId, layer, feature, navigable)
@@ -112,23 +121,17 @@ export async function snapshotFeaturesFromMapView (
   if (!layers) return snapshotFromMapView(jimuMapView, dataSourceId)
   const loaded: SnapshotLayer[] = []
   const pending: Array<Promise<void>> = []
-  layers.forEach((layer) => {
+  const queue: SnapshotLayer[] = []
+  layers.forEach((layer) => queue.push(layer))
+  for (let index = 0; index < queue.length; index += 1) {
+    const layer = queue[index]
+    layer.layers?.forEach((child) => queue.push(child))
     const copy: SnapshotLayer & { features?: SnapshotFeature[] } = { ...layer }
     loaded.push(copy)
-    if (!layer.queryFeatures || !layer.createQuery || layer.visible === false) return
-    if (!isDataSourceLayerType(layer.type || '')) return
-    const query = layer.createQuery()
-    query.returnGeometry = true
-    query.outFields = ['*']
-    query.num = FEATURE_LIMIT
-    pending.push(
-      layer.queryFeatures(query).then((result) => {
-        copy.features = result.features || []
-      }).catch(() => {
-        copy.features = []
-      })
-    )
-  })
+    if (!layer.queryFeatures || !layer.createQuery || layer.visible === false) continue
+    if (!isDataSourceLayerType(layer.type || '')) continue
+    pending.push(queryLayerFeatures(layer, copy))
+  }
   await Promise.all(pending)
   const view = {
     map: { allLayers: { forEach: (fn: (layer: SnapshotLayer) => void) => { loaded.forEach(fn) } } }
@@ -136,6 +139,34 @@ export async function snapshotFeaturesFromMapView (
   const snapshot = snapshotFromMapView({ map: view.map }, dataSourceId)
   ;(snapshot as MapSnapshot & { queriedLayers?: SnapshotLayer[] }).queriedLayers = loaded
   return snapshot
+}
+
+/** Wait for the layer, then query. A layer that is still loading has no features yet. */
+async function queryLayerFeatures (
+  layer: SnapshotLayer,
+  copy: SnapshotLayer & { features?: SnapshotFeature[] }
+): Promise<void> {
+  try {
+    if (layer.when) await layer.when()
+    else if (layer.load) await layer.load()
+  } catch {
+    copy.features = []
+    return
+  }
+  if (!layer.queryFeatures || !layer.createQuery) {
+    copy.features = []
+    return
+  }
+  try {
+    const query = layer.createQuery()
+    query.returnGeometry = true
+    query.outFields = ['*']
+    query.num = FEATURE_LIMIT
+    const result = await layer.queryFeatures(query)
+    copy.features = result.features || []
+  } catch {
+    copy.features = []
+  }
 }
 
 /** Audiom pattern tokens. Unknown tokens fall back to dots, matching Audiom's legend. */
@@ -150,6 +181,10 @@ function layerHasRules (layer: SnapshotLayer & { features?: SnapshotFeature[] })
   })
 }
 
+function layerHasFeatures (layer: SnapshotLayer & { features?: SnapshotFeature[] }): boolean {
+  return Boolean(layer.features?.length)
+}
+
 function featureRecord (
   dataSourceId: string,
   layerId: string,
@@ -162,10 +197,13 @@ function featureRecord (
   const attributes = feature.attributes || {}
   const objectId = layer.objectIdField ? attributes[layer.objectIdField] : attributes.OBJECTID ?? attributes.objectid
   const recordId = objectId != null ? String(objectId) : `${layerId}-${recordsFallbackId(feature)}`
+  const styled = styleAttributes(attributes)
+  const label = featureLabel(attributes, layer)
+  if (label && styled.name == null) styled.name = label
   return {
     key: { dataSourceId, layerId, recordId },
     sourceId: layerId,
-    attributes: styleAttributes(attributes),
+    attributes: styled,
     geometry,
     navigable
   }
@@ -173,10 +211,27 @@ function featureRecord (
 
 let fallbackSerial = 0
 function recordsFallbackId (feature: SnapshotFeature): string {
-  const name = feature.attributes?.name ?? feature.attributes?.Name
-  if (name != null) return String(name)
+  const name = featureLabel(feature.attributes || {})
+  if (name != null) return name
   fallbackSerial += 1
   return String(fallbackSerial)
+}
+
+const NAME_FIELDS = ['name', 'Name', 'NAME', 'title', 'Title', 'TITLE', 'label', 'Label', 'LABEL']
+
+/** First human-readable attribute. Does not invent a name from the object id. */
+function featureLabel (
+  attributes: Record<string, unknown>,
+  layer?: SnapshotLayer & { displayField?: string }
+): string | null {
+  const displayField = layer?.displayField
+  const fields = displayField ? [displayField, ...NAME_FIELDS] : NAME_FIELDS
+  for (const field of fields) {
+    const value = attributes[field]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+    if (typeof value === 'number' && field !== layer?.objectIdField) return String(value)
+  }
+  return null
 }
 
 type StyleValue = string | number | boolean | null
