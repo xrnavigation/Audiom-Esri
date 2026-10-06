@@ -7,6 +7,7 @@ import {
   SourceStatus
 } from '../../../../shared/audiom-runtime/src/types'
 import { isDataSourceLayerType } from '../utils/mapEnums'
+import { loadMapModules } from './esriMapSurface'
 
 export interface SnapshotFeature {
   attributes?: Record<string, unknown>
@@ -32,15 +33,28 @@ export interface SnapshotLayer {
   objectIdField?: string
   /** Esri field used as the feature's display name, when the layer publishes one. */
   displayField?: string
-  createQuery?: () => { where?: string, outFields?: string[], returnGeometry?: boolean, num?: number }
+  createQuery?: () => {
+    where?: string
+    outFields?: string[]
+    returnGeometry?: boolean
+    outSpatialReference?: { wkid: number }
+    num?: number
+  }
   queryFeatures?: (query: unknown) => Promise<{ features?: SnapshotFeature[] }>
   /** Resolves when the layer can be queried. Absent means query immediately. */
   when?: () => Promise<unknown>
   load?: () => Promise<unknown>
   /** Nested operational layers. Group layers are not queried themselves. */
   layers?: { forEach: (fn: (layer: SnapshotLayer) => void) => void }
+  /** Map-image and subtype children. Queried when the parent has no query. */
+  sublayers?: { forEach: (fn: (layer: SnapshotLayer) => void) => void }
+  /** True for a basemap layer. Those are not data sources. */
+  isBasemap?: boolean
+  listMode?: string
   /** Test double. Production layers are read through queryFeatures. */
   features?: SnapshotFeature[]
+  /** Esri spatial reference. Prototype getter; read it, do not spread the layer. */
+  spatialReference?: { wkid?: number, latestWkid?: number, wkt?: string }
 }
 
 export interface SnapshotMapView {
@@ -62,6 +76,23 @@ const FAMILY_BY_TYPE: Record<string, GeometryFamily> = {
 }
 
 const FEATURE_LIMIT = 200
+const LAYER_LOAD_TIMEOUT = 'Audiom layer load timed out'
+
+function withTimeout<T> (pending: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(LAYER_LOAD_TIMEOUT)), ms)
+    pending.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error: unknown) => {
+        clearTimeout(timer)
+        reject(error)
+      }
+    )
+  })
+}
 
 /** The existing map is the visual surface. This describes its layers and features. */
 export function snapshotFromMapView (
@@ -74,15 +105,17 @@ export function snapshotFromMapView (
   if (!layers) return { sources, records }
 
   layers.forEach((layer) => {
+    if (isInternalLayer(layer)) return
     const sourceId = layer.id || layer.title || 'layer'
-    const supported = isDataSourceLayerType(layer.type || '')
+    const supported = !isRasterLayer(layer) && (
+      isDataSourceLayerType(layer.type || '') ||
+      (typeof layer.queryFeatures === 'function' && typeof layer.createQuery === 'function')
+    )
     const hidden = layer.visible === false
     const outOfScale = layer.scaleVisible === false
-    // Hidden features leave the navigable set. Out-of-scale features stay
-    // navigable. A visible supported layer is listed even when it has no
-    // Audiom rule colors; those colors are painted later and must not hide
-    // the map's features from the menu.
-    const bound = supported && !hidden && (layerHasRules(layer) || layerHasFeatures(layer))
+    // A visible operational layer is a data source even before its features
+    // are queried. Rule colors are painted later and must not hide the layer.
+    const bound = supported && !hidden
     sources.push({
       sourceId,
       displayName: layer.title || sourceId,
@@ -126,10 +159,12 @@ export async function snapshotFeaturesFromMapView (
   for (let index = 0; index < queue.length; index += 1) {
     const layer = queue[index]
     layer.layers?.forEach((child) => queue.push(child))
-    const copy: SnapshotLayer & { features?: SnapshotFeature[] } = { ...layer }
+    layer.sublayers?.forEach((child) => queue.push(child))
+    const copy = layerCopy(layer)
     loaded.push(copy)
-    if (!layer.queryFeatures || !layer.createQuery || layer.visible === false) continue
-    if (!isDataSourceLayerType(layer.type || '')) continue
+    if (isInternalLayer(layer)) continue
+    if (layer.visible === false) continue
+    if (typeof layer.queryFeatures !== 'function' || typeof layer.createQuery !== 'function') continue
     pending.push(queryLayerFeatures(layer, copy))
   }
   await Promise.all(pending)
@@ -141,31 +176,88 @@ export async function snapshotFeaturesFromMapView (
   return snapshot
 }
 
+/**
+ * Esri layer fields are prototype getters. A spread copy drops type,
+ * geometryType, and displayField, so the menu never sees the layer.
+ */
+function layerCopy (layer: SnapshotLayer): SnapshotLayer & { features?: SnapshotFeature[] } {
+  return {
+    id: layer.id,
+    title: layer.title,
+    type: layer.type,
+    visible: layer.visible,
+    geometryType: layer.geometryType,
+    scaleVisible: layer.scaleVisible,
+    objectIdField: layer.objectIdField,
+    displayField: layer.displayField,
+    isBasemap: layer.isBasemap,
+    listMode: layer.listMode,
+    features: layer.features
+  }
+}
+
+/** The avatar marker, basemap tiles, and rasters are not feature data sources. */
+function isInternalLayer (layer: SnapshotLayer): boolean {
+  if (layer.id === 'audiom-avatar' || layer.listMode === 'hide') return true
+  if (layer.isBasemap) return true
+  return isRasterLayer(layer)
+}
+
+/**
+ * Imagery layers expose queryFeatures, then reject it. They are pictures,
+ * not features, and must not be listed or queried.
+ */
+function isRasterLayer (layer: SnapshotLayer): boolean {
+  const type = layer.type || ''
+  return type === 'tile' || type === 'vector-tile' || type === 'imagery' ||
+    type === 'imagery-tile' || type === 'georeferenced-image' ||
+    type === 'web-tile' || type === 'base-tile' || type === 'open-street-map' ||
+    type === 'bing-maps' || type === 'base-dynamic' || type === 'wcs' ||
+    type === 'elevation' || type === 'media'
+}
+
 /** Wait for the layer, then query. A layer that is still loading has no features yet. */
 async function queryLayerFeatures (
   layer: SnapshotLayer,
   copy: SnapshotLayer & { features?: SnapshotFeature[] }
 ): Promise<void> {
   try {
-    if (layer.when) await layer.when()
-    else if (layer.load) await layer.load()
-  } catch {
+    if (typeof layer.when === 'function') await withTimeout(layer.when(), 8000)
+    else if (typeof layer.load === 'function') await withTimeout(layer.load(), 8000)
+  } catch (error) {
     copy.features = []
+    // eslint-disable-next-line no-console
+    console.error('Audiom could not load layer', copy.title || copy.id, error)
     return
   }
-  if (!layer.queryFeatures || !layer.createQuery) {
+  // Load can publish fields that were missing when the layer was queued.
+  copy.type = layer.type
+  copy.geometryType = layer.geometryType
+  copy.displayField = layer.displayField
+  copy.objectIdField = layer.objectIdField
+  if (typeof layer.queryFeatures !== 'function' || typeof layer.createQuery !== 'function') {
     copy.features = []
     return
   }
   try {
     const query = layer.createQuery()
+    query.where = query.where || '1=1'
     query.returnGeometry = true
     query.outFields = ['*']
+    // Audiom stores longitude and latitude. A web map in Web Mercator
+    // otherwise returns meters, which the ENU projection rejects.
+    query.outSpatialReference = { wkid: 4326 }
     query.num = FEATURE_LIMIT
     const result = await layer.queryFeatures(query)
-    copy.features = result.features || []
-  } catch {
+    copy.features = await geographicFeatures(layer, result?.features || [])
+    if (!copy.features.length) {
+      // eslint-disable-next-line no-console
+      console.error('Audiom layer query returned no features', copy.title || copy.id, copy.type)
+    }
+  } catch (error) {
     copy.features = []
+    // eslint-disable-next-line no-console
+    console.error('Audiom layer query failed', copy.title || copy.id, error)
   }
 }
 
@@ -288,4 +380,50 @@ function pointCoordinates (geometry: NonNullable<SnapshotFeature['geometry']>): 
     return [geometry.x, geometry.y]
   }
   return null
+}
+
+/**
+ * A query can ignore outSpatialReference and return projected meters.
+ * Audiom's ENU projection only accepts longitude and latitude, so project
+ * those meters with the layer's own spatial reference. Do not guess a CRS.
+ */
+async function geographicFeatures (
+  layer: SnapshotLayer,
+  features: SnapshotFeature[]
+): Promise<SnapshotFeature[]> {
+  const source = layer.spatialReference
+  const wkid = source?.latestWkid || source?.wkid
+  if (!features.length || !source || wkid === 4326 || wkid === 84) return features
+  if (features.every(featureIsGeographic)) return features
+  try {
+    const loaded = await loadMapModules(['esri/geometry/projection', 'esri/geometry/SpatialReference'])
+    const projection = loaded[0] as {
+      load?: () => Promise<unknown>
+      project: (geometry: unknown, spatialReference: unknown) => SnapshotFeature['geometry']
+    } | undefined
+    const SpatialReference = loaded[1] as (new (properties: { wkid: number }) => unknown) | undefined
+    if (!projection || !SpatialReference) return features
+    if (typeof projection.load === 'function') await projection.load()
+    const geographic = new SpatialReference({ wkid: 4326 })
+    return features.map((feature) => {
+      if (!feature.geometry || featureIsGeographic(feature)) return feature
+      const projected = projection.project({ ...feature.geometry, spatialReference: source }, geographic)
+      return projected ? { ...feature, geometry: projected } : feature
+    })
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Audiom could not project layer', layer.title || layer.id, error)
+    return features
+  }
+}
+
+function featureIsGeographic (feature: SnapshotFeature): boolean {
+  const geometry = feature.geometry
+  if (!geometry) return true
+  const positions = [
+    ...(typeof geometry.x === 'number' ? [[geometry.x, geometry.y || 0]] : []),
+    ...(geometry.paths || []).flat(),
+    ...(geometry.rings || []).flat()
+  ]
+  return positions.every((position) => Math.abs(position[0]) <= 180 && Math.abs(position[1]) <= 90)
 }

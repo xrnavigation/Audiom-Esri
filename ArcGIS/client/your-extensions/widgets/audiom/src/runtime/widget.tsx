@@ -1,4 +1,4 @@
-import { type AllWidgetProps, React, ReactRedux, AppMode, type IMState, type ImmutableObject } from 'jimu-core'
+import { type AllWidgetProps, React, ReactRedux, AppMode, getAppStore, type IMState, type ImmutableObject } from 'jimu-core'
 import { audiomConfigToEmbedConfig } from '../utils/mapUtils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { serializeLockedForDiff } from '../utils/sourceConfigUtils'
@@ -13,7 +13,9 @@ import {
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
 
-import { bundledFocusTarget, bundledStatus, restoreAudiomStyles, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
+import { bundledFocusTarget, bundledStatus, paintAudiomStyles, restoreAudiomStyles, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
+import { snapshotFeaturesFromMapView } from './mapSnapshot'
+import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
 import { StepSize, StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import {
   avatarScreenPoint,
@@ -39,6 +41,32 @@ const styles = {
     height: '100%'
   }
 } as const satisfies Record<string, React.CSSProperties>
+
+/**
+ * The web map item lives on the data source portal, not the app portal.
+ * Loading it without that URL is the CONT_0001 "item does not exist" error,
+ * which leaves the map with no feature layers.
+ */
+function portalUrlForItem (
+  props: AllWidgetProps<ImmutableObject<IAudiomConfig>>,
+  itemId: string | undefined
+): string | undefined {
+  if (!itemId) return undefined
+  const sources = props.useDataSources ? Array.from(props.useDataSources) : []
+  const state = getAppStore().getState() as {
+    appConfig?: { dataSources?: Record<string, { itemId?: string, portalUrl?: string }> }
+  }
+  const dataSources = state.appConfig?.dataSources || {}
+  for (const source of sources) {
+    const id = source.mainDataSourceId || source.dataSourceId
+    const dataSource = id ? dataSources[id] : undefined
+    if (dataSource?.itemId === itemId && dataSource.portalUrl) return dataSource.portalUrl
+  }
+  for (const dataSource of Object.values(dataSources)) {
+    if (dataSource?.itemId === itemId && dataSource.portalUrl) return dataSource.portalUrl
+  }
+  return undefined
+}
 
 const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   const [jimuMapView, setJimuMapView] = useState<JimuMapView>()
@@ -158,6 +186,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
           <EsriMapSurface
             existingMap={existingMap}
             mapItemId={bundled ? sanitizedConfig.mapItemId : undefined}
+            portalUrl={bundled ? portalUrlForItem(props, sanitizedConfig.mapItemId) : undefined}
             scene={scene}
             longitude={sanitizedConfig.centerLongitude}
             latitude={sanitizedConfig.centerLatitude}
@@ -218,6 +247,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
 function EsriMapSurface (props: {
   existingMap?: unknown
   mapItemId?: string
+  portalUrl?: string
   scene?: boolean
   longitude?: number
   latitude?: number
@@ -250,6 +280,7 @@ function EsriMapSurface (props: {
     void mountEsriMap({
       container: node,
       existingMap: props.existingMap,
+      portalUrl: props.portalUrl,
       mapItemId: props.mapItemId,
       scene: props.scene,
       longitude: props.longitude,
@@ -259,6 +290,13 @@ function EsriMapSurface (props: {
       if (cancelled) {
         destroyMapSurface(mounted)
         return
+      }
+      const loaded = mounted.view as { when?: () => Promise<unknown> }
+      if (typeof loaded.when === 'function') {
+        void loaded.when().catch((error: unknown) => {
+          // eslint-disable-next-line no-console
+          console.error('Audiom map view failed to load', error)
+        })
       }
       surface = mounted
       mounted.onIndicatorClick = () => {
@@ -279,7 +317,7 @@ function EsriMapSurface (props: {
       delete (node as { __audiomSurface?: MountedMapSurface }).__audiomSurface
       onSurface?.(null)
     }
-  }, [props.existingMap, props.mapItemId, props.scene, props.longitude, props.latitude, props.zoom, onSurface])
+  }, [props.existingMap, props.mapItemId, props.portalUrl, props.scene, props.longitude, props.latitude, props.zoom, onSurface])
   useEffect(() => {
     const node = container.current as { __audiomSurface?: MountedMapSurface } | null
     if (!node?.__audiomSurface) return
@@ -627,6 +665,53 @@ function useBundledRuntime (
       void next.runtime.dispose()
     }
   }, [enabled, instanceId, jimuMapView, onStatus, onAvatar, longitude, latitude, moveDistance, soundpackUrl])
+  useEffect(() => {
+    const drawn = surface?.view?.map || jimuMapView?.view?.map
+    const map = drawn as {
+      when?: () => Promise<unknown>
+      allLayers?: {
+        forEach: (fn: (layer: unknown) => void) => void
+        on?: (eventName: string, handler: () => void) => { remove?: () => void }
+      }
+    } | undefined
+    if (!handle?.program || !map) return
+    let cancelled = false
+    let layerHandle: { remove?: () => void } | undefined
+    const view = { map }
+    const apply = async () => {
+      // Do not await view.when() or map.when(). A portal item that the app
+      // portal cannot see leaves those promises pending, and the legend
+      // then never reads the layers that did load.
+      if (cancelled) return
+      const snapshot = await snapshotFeaturesFromMapView(view, instanceId)
+      if (cancelled) return
+      const listed = snapshot.records.filter((record) => record.navigable).length
+      const names = snapshot.sources.map((source) => source.displayName).join(', ')
+      // eslint-disable-next-line no-console
+      console.error('Audiom feature snapshot', snapshot.sources.length, 'layers', listed, 'features', names)
+      await paintAudiomStyles(view, snapshot)
+      if (cancelled) return
+      const program = handle.program as { applySnapshot?: (snapshot: MapSnapshot) => Promise<unknown> } | null
+      if (program?.applySnapshot) await program.applySnapshot(snapshot)
+      else await handle.runtime.replaceSources(snapshot, 1)
+    }
+    void apply().catch((error: unknown) => {
+      // eslint-disable-next-line no-console
+      console.error('Audiom feature snapshot failed', error)
+    })
+    // A web map adds its operational layers after the view object exists.
+    // Snapshot again when that collection changes, or the legend stays empty.
+    layerHandle = map.allLayers?.on?.('change', () => {
+      void apply().catch((error: unknown) => {
+        // eslint-disable-next-line no-console
+        console.error('Audiom feature snapshot failed', error)
+      })
+    })
+    return () => {
+      cancelled = true
+      layerHandle?.remove?.()
+    }
+  }, [handle, jimuMapView, surface, instanceId])
   useEffect(() => {
     if (!surface || !reported) return
     void showAvatar(surface, reported)

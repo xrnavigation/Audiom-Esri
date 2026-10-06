@@ -9,7 +9,7 @@
  * - Use `wrapWidget` + `widgetRender` from jimu-for-test so Redux store,
  *   theme, and intl providers are wired up like the runtime.
  */
-import { React, type ImmutableArray } from 'jimu-core'
+import { React, getAppStore, type ImmutableArray } from 'jimu-core'
 
 jest.mock('jimu-arcgis', () => ({
   __esModule: true,
@@ -167,6 +167,74 @@ describe('Audiom runtime widget', () => {
     unmount()
     expect(created.length).toBe(1)
     expect((created[0].map as { properties: { portalItem?: { id: string } } }).properties.portalItem?.id).toBe('item-1')
+    setMapModuleLoader(null)
+  })
+
+  it('loads a bundled web map from the data source portal, not the app portal', async () => {
+    const created: Array<{ map: { properties: { portalItem?: { id: string, portal?: { url?: string } } } } }> = []
+    setMapModuleLoader(async (modules) => {
+      if (modules[0] === 'esri/layers/GraphicsLayer') {
+        return [class GraphicsLayer {
+          constructor (public properties: unknown) {}
+          removeAll () {}
+          add () {}
+        }]
+      }
+      class Portal {
+        url: string
+        loaded = false
+        constructor (properties: { url: string }) { this.url = properties.url }
+        async load () { this.loaded = true }
+      }
+      class PortalItem {
+        id: string
+        portal: { url?: string }
+        constructor (properties: { id: string, portal: { url?: string } }) {
+          this.id = properties.id
+          this.portal = properties.portal
+        }
+      }
+      return [
+        class Map { constructor (public properties: unknown) {} },
+        class MapView {
+          constructor (properties: { container: HTMLElement, map: { properties: { portalItem?: { id: string, portal?: { url?: string } } } } }) {
+            created.push(properties)
+            properties.container.dataset.mapMounted = 'true'
+          }
+          destroy () {}
+        },
+        Portal,
+        PortalItem
+      ]
+    })
+
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-1'
+      }) as any,
+      useDataSources: [{ dataSourceId: 'dataSource_2', mainDataSourceId: 'dataSource_2' }] as any
+    })
+    const store = getAppStore() as unknown as { getState: () => unknown, dispatch: () => void }
+    const state = store.getState() as { appConfig?: { dataSources?: Record<string, unknown> } }
+    const previous = state.appConfig
+    state.appConfig = {
+      ...previous,
+      dataSources: {
+        dataSource_2: {
+          itemId: 'item-1',
+          portalUrl: 'https://data.example.com'
+        }
+      }
+    }
+    const { container, unmount } = render(<Widget widgetId="audiom-portal" />)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const item = created[0]?.map.properties.portalItem
+    expect(item?.id).toBe('item-1')
+    expect(item?.portal?.url).toBe('https://data.example.com')
+    expect(container.querySelector('#audiom-esri-map')!.getAttribute('data-map-mounted')).toBe('true')
+    unmount()
+    state.appConfig = previous
     setMapModuleLoader(null)
   })
 

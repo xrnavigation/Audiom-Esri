@@ -43,6 +43,10 @@ export interface MountedMapView {
     add?: (layer: unknown) => void
     remove?: (layer: unknown) => void
     layers?: { add?: (layer: unknown) => void, remove?: (layer: unknown) => void }
+    allLayers?: {
+      on?: (eventName: string, handler: () => void) => MapViewHandle
+    }
+    when?: () => Promise<unknown>
   }
   navigation?: { browserTouchPanEnabled?: boolean, mouseWheelZoomEnabled?: boolean }
   container?: HTMLElement
@@ -75,6 +79,8 @@ export interface MapModules {
     center?: [number, number]
     zoom?: number
   }) => MountedMapSurface['view']
+  Portal?: new (properties: { url: string }) => { url?: string }
+  PortalItem?: new (properties: { id: string, portal: { url?: string } }) => { id: string, portal: { url?: string } }
 }
 export interface AvatarModules {
   Graphic: new (properties: unknown) => unknown
@@ -87,6 +93,11 @@ type ModuleLoader = (modules: string[]) => Promise<unknown[]>
 let moduleLoader: ModuleLoader = async (modules) => {
   const loaded = await loadArcGISJSAPIModules(modules)
   return loaded as MapModules[]
+}
+
+/** The loader used by the map and by feature projection. */
+export function loadMapModules (modules: string[]): Promise<unknown[]> {
+  return moduleLoader(modules)
 }
 
 /** Tests replace the ArcGIS loader so jsdom never constructs a WebGL view. */
@@ -105,9 +116,9 @@ export function setMapModuleLoader (loader: ModuleLoader | null): void {
 export async function mountEsriMap (options: MapSurfaceOptions): Promise<MountedMapSurface> {
   const scene = Boolean(options.scene && options.mapItemId)
   const modules = scene
-    ? ['esri/WebScene', 'esri/views/SceneView']
+    ? ['esri/WebScene', 'esri/views/SceneView', 'esri/portal/Portal', 'esri/portal/PortalItem']
     : options.mapItemId
-      ? ['esri/WebMap', 'esri/views/MapView']
+      ? ['esri/WebMap', 'esri/views/MapView', 'esri/portal/Portal', 'esri/portal/PortalItem']
       : ['esri/Map', 'esri/views/MapView']
   const loaded = await moduleLoader(modules)
   // loadArcGISJSAPIModules resolves bare constructors in request order, not
@@ -116,13 +127,12 @@ export async function mountEsriMap (options: MapSurfaceOptions): Promise<Mounted
   const ViewCtor = loaded[1] as MapModules['MapView'] | undefined
   if (!MapCtor || !ViewCtor) throw new Error('Esri map modules did not load')
   const ownedMap = !options.existingMap
-  const map = options.existingMap || (options.mapItemId
-    ? new MapCtor({
-      portalItem: {
-        id: options.mapItemId,
-        portal: options.portalUrl ? { url: options.portalUrl } : undefined
-      }
-    })
+  const portalItem = options.mapItemId
+    ? await portalItemFor(loaded, options.mapItemId, options.portalUrl)
+    : undefined
+  console.error('Audiom map item', options.mapItemId || '', options.portalUrl || '')
+  const map = options.existingMap || (portalItem
+    ? new MapCtor({ portalItem })
     : new MapCtor({ basemap: 'streets-vector' }))
   const view = new ViewCtor({
     container: options.container,
@@ -135,6 +145,25 @@ export async function mountEsriMap (options: MapSurfaceOptions): Promise<Mounted
   disableArrowKeyMapPan(surface)
   attachIndicatorClick(surface)
   return surface
+}
+
+/**
+ * A plain `{ url }` is not an Esri Portal. Without a Portal instance the
+ * item request uses the Experience Builder app portal and fails CONT_0001.
+ */
+async function portalItemFor (
+  loaded: unknown[],
+  itemId: string,
+  portalUrl: string | undefined
+): Promise<{ id: string, portal?: { url?: string } }> {
+  const Portal = loaded[2] as MapModules['Portal']
+  const PortalItem = loaded[3] as MapModules['PortalItem']
+  if (!portalUrl || !Portal || !PortalItem) return { id: itemId }
+  const portal = new Portal({ url: portalUrl })
+  if (typeof (portal as { load?: () => Promise<unknown> }).load === 'function') {
+    await (portal as { load: () => Promise<unknown> }).load()
+  }
+  return new PortalItem({ id: itemId, portal })
 }
 
 /** Audiom's marker lives on its own layer. Shared view graphics are never cleared. */
