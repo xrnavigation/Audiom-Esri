@@ -12,7 +12,7 @@ import {
 } from '../setting/runtimeLocation'
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
-import { patternLegend, patternTileUrl } from './audiomSymbols'
+
 import { bundledFocusTarget, bundledStatus, restoreAudiomStyles, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
 import { StepSize, StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import {
@@ -177,10 +177,10 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
               onUnlock={() => { unlockBundledAudio(bundledHandle) }}
             />
           )}
-          {runtimeLocation === RuntimeLocation.Bundled && <AudiomPatternKey />}
+
           <div
             ref={embedOverlay}
-            style={{ position: 'absolute', inset: 0, overflow: 'visible', zIndex: 8, pointerEvents: 'none' }}
+            style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, overflow: 'visible', zIndex: 8, pointerEvents: 'none' }}
           />
         </div>
         <p className="sr-only" role="status">
@@ -406,35 +406,6 @@ function AudiomIndicator (props: {
       </button>
       <style>{AUDIOM_CURSOR_PULSE}</style>
     </>
-  )
-}
-
-/** Pattern key for Audiom's five fill tokens. A sibling of the map div. */
-function AudiomPatternKey () {
-  return (
-    <ul
-      aria-label="Audiom patterns"
-      style={{
-        position: 'absolute',
-        right: 8,
-        bottom: 8,
-        zIndex: 3,
-        margin: 0,
-        padding: '0.35rem 0.5rem',
-        listStyle: 'none',
-        background: '#fff',
-        color: '#04203e',
-        border: '1px solid #04203e',
-        borderRadius: 4
-      }}
-    >
-      {patternLegend.map((item) => (
-        <li key={item.token} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-          <img src={patternTileUrl(item.token)} alt="" width={16} height={16} />
-          {item.label}
-        </li>
-      ))}
-    </ul>
   )
 }
 
