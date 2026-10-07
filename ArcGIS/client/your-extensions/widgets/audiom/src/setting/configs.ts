@@ -2,7 +2,7 @@ import type { ValidityResult } from 'jimu-ui'
 import type { React, ImmutableObject } from 'jimu-core'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
-import { VisualStyle } from '../../../../shared/audiom-client/AudiomEmbedConfig'
+import { VisualStyle, VisualBaseLayerType } from '../../../../shared/audiom-client/AudiomEmbedConfig'
 import { FieldType, FilterType } from './enums'
 import type { LockableFieldName } from './configKeys'
 
@@ -16,6 +16,12 @@ export const MAP_TYPE_OPTIONS = [
   { label: 'Indoor', value: MapType.Indoor },
   { label: 'Heatmap', value: MapType.Heatmap },
   { label: 'Travel', value: MapType.Travel }
+] as const
+
+/** Visual base layer source options for the visual base layer setting card. */
+export const VISUAL_BASE_LAYER_TYPE_OPTIONS = [
+  { label: 'Static image', value: VisualBaseLayerType.Image },
+  { label: 'Image feature layer', value: VisualBaseLayerType.Feature }
 ] as const
 
 export const DEFAULT_CONFIG = {
@@ -56,12 +62,17 @@ export const DEFAULT_FILTER_CONFIG: IFilterConfig = {
 export interface IVisualBaseLayerConfig {
   /** URL for the visual base layer image overlay */
   url: string
+
+  /** Source kind. Defaults to Image for backward compatibility. */
+  type?: VisualBaseLayerType;
+
   /** Serialized GeoQuad position string: "[[lng,lat],[lng,lat],[lng,lat],[lng,lat]]" */
   position?: string
 }
 
 export const DEFAULT_VISUAL_BASE_LAYER: IVisualBaseLayerConfig = {
   url: '',
+  type: VisualBaseLayerType.Image,
   position: undefined
 }
 

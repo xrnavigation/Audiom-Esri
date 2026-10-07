@@ -23,12 +23,25 @@ export enum FilterMode {
   Scan = 'scan'
 }
 
+// Type of base layer for visual map: either a static image overlay or an ArcGIS feature layer
+export enum VisualBaseLayerType {
+  // Static image overlay URL
+  Image = 'image',
+  
+  // ArcGIS image feature layer
+  Feature = 'feature'
+}
+
 /**
  * Visual base layer input. `position` may be a GeoQuad or a plain corner object.
  */
 export interface IVisualBaseLayer {
   /** URL for the visual base layer image overlay */
   url: string;
+
+    /** Base layer source.  Defaults to Image for backward compatibility. */
+  type?: VisualBaseLayerType;
+
   /** Position quad for the visual base layer */
   position?: IGeoQuad;
 }
@@ -314,7 +327,14 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     }
     if (this.visualBaseLayers && this.visualBaseLayers.length > 0) {
       this.visualBaseLayers.forEach((layer, index) => {
+        const layerType = layer.type ?? VisualBaseLayerType.Image;
+        if (layerType === VisualBaseLayerType.Feature) {
+          params[`visualbaselayer${index}type`] = VisualBaseLayerType.Feature;
+          // TODO - For feature layers, we might need to handle additional parameters like layer ID or feature service URL. This is a placeholder for future implementation
+          params[`visualbaselayer${index}url`] = layer.url;
+        } else {
         params[`visualbaselayer${index}`] = layer.url;
+        }
         if (layer.position) {
           params[`visualbaselayerposition${index}`] = layer.position.toString();
         }

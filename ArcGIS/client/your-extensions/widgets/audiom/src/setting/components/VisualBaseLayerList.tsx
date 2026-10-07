@@ -1,5 +1,6 @@
 import { React } from 'jimu-core'
 import { Collapse, Button } from 'jimu-ui'
+import { VisualBaseLayerType } from '../../../../../shared/audiom-client/AudiomEmbedConfig'
 import { IVisualBaseLayerConfig, DEFAULT_VISUAL_BASE_LAYER } from '../configs'
 import { ButtonType, FlowType } from '../enums'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
@@ -34,6 +35,11 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
 
   const handleFieldChange = useCallback((index: number, field: keyof IVisualBaseLayerConfig, value: string | undefined) => {
     onChange(replaceAt(layers, index, { [field]: value } as Partial<IVisualBaseLayerConfig>))
+  }, [layers, onChange])
+
+  const handleTypeChange = useCallback((index: number, type: VisualBaseLayerType) => {
+    const patch: Partial<IVisualBaseLayerConfig> = { type }
+    onChange(replaceAt(layers, index, patch))
   }, [layers, onChange])
 
   const handleRemove = useCallback((index: number) => {
@@ -76,6 +82,7 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
               isExpanded={expandedLayers[index] ?? true}
               onToggleExpanded={() => toggleLayerExpanded(index)}
               onFieldChange={(field, value) => handleFieldChange(index, field, value)}
+              onBaseLayerTypeChange={(type) => handleTypeChange(index, type)}
               onRemove={() => handleRemove(index)}
             />
           ))
