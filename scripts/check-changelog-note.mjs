@@ -52,6 +52,32 @@ const git = (args) =>
 		maxBuffer: 32 * 1024 * 1024,
 	}).trim();
 export function checkRange(base, head = 'HEAD') {
+	const previous = git([
+		'ls-tree',
+		'-r',
+		'--name-only',
+		base,
+		'--',
+		'.changelog',
+	])
+		.split('\n')
+		.filter((file) => file.endsWith('.json'));
+	const immutable = new Set(previous);
+	// Index trees have no ancestry; inspect committed history through HEAD instead.
+	const historyHead = git(['cat-file', '-t', head]) === 'tree' ? 'HEAD' : head;
+	const historicalChanges = git([
+		'log',
+		'--format=',
+		'--name-only',
+		'--no-renames',
+		'--diff-filter=MDT',
+		'--diff-merges=first-parent',
+		`${base}..${historyHead}`,
+		'--',
+		'.changelog',
+	])
+		.split('\n')
+		.filter((file) => immutable.has(file));
 	const changedNotes = git([
 		'diff',
 		'--no-renames',
@@ -64,13 +90,32 @@ export function checkRange(base, head = 'HEAD') {
 	])
 		.split('\n')
 		.filter((file) => file.endsWith('.json'));
-	if (changedNotes.length)
+	const forbidden = [...new Set([...changedNotes, ...historicalChanges])];
+	if (forbidden.length)
 		throw new Error(
-			`Published change fragments are immutable; add a new correction note instead: ${changedNotes.join(', ')}`,
+			`Published change fragments are immutable; add a new correction note instead: ${forbidden.join(', ')}`,
 		);
-	const paths = git(['diff', '--name-only', base, head])
-		.split('\n')
-		.filter(Boolean);
+	// Match collection's per-commit evidence, including substantive work later
+	// reverted within the range. Combined merge diffs capture resolutions without
+	// treating ordinary replay of the base branch as a new implementation.
+	// A staged tree also contributes its net index changes after historyHead.
+	const paths = [
+		...new Set(
+			[
+				git(['diff', '--name-only', base, head]),
+				git([
+					'log',
+					'--format=',
+					'--name-only',
+					'--cc',
+					`${base}..${historyHead}`,
+				]),
+			]
+				.join('\n')
+				.split('\n')
+				.filter(Boolean),
+		),
+	];
 	const relevant = paths.filter(
 		(file) =>
 			!file.startsWith('.changelog/') &&
@@ -100,16 +145,6 @@ export function checkRange(base, head = 'HEAD') {
 		if (file !== `.changelog/${note.id}.json`)
 			throw new Error(`${file}: filename must match note id.`);
 	}
-	const previous = git([
-		'ls-tree',
-		'-r',
-		'--name-only',
-		base,
-		'--',
-		'.changelog',
-	])
-		.split('\n')
-		.filter((file) => file.endsWith('.json'));
 	const oldIds = new Set(
 		previous.map((file) => JSON.parse(git(['show', `${base}:${file}`])).id),
 	);
@@ -123,12 +158,16 @@ if (
 	process.argv[1]?.replace(/\\/g, '/').endsWith('/check-changelog-note.mjs')
 ) {
 	try {
-		const base = process.argv[2];
+		const staged = process.argv[2] === '--staged';
+		const base = staged ? process.argv[3] || 'HEAD' : process.argv[2];
 		if (!base)
 			throw new Error(
-				'Usage: node scripts/check-changelog-note.mjs <base-sha> [head-sha]',
+				'Usage: node scripts/check-changelog-note.mjs <base-sha> [head-sha] | --staged [base-sha]',
 			);
-		const result = checkRange(base, process.argv[3] || 'HEAD');
+		const result = checkRange(
+			base,
+			staged ? git(['write-tree']) : process.argv[3] || 'HEAD',
+		);
 		console.log(
 			result.required
 				? `${result.notes} valid new change note(s).`

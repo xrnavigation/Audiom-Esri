@@ -1,0 +1,5 @@
+{
+	"id": "human-changelog-maintenance",
+	"kind": "internal",
+	"reason": "Add guided contribution-note authoring and staged validation, preserve integrated fragments across edit-and-restore histories, and document source-owned recovery without changing this component's product behavior."
+}
