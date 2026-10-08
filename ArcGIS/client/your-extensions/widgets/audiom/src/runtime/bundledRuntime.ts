@@ -35,6 +35,8 @@ export interface BundledRuntimeHandle {
   activationRequired: boolean
   /** The compiled Audiom program, when it loaded. */
   program: AudiomProgram | null
+  /** The map mounted after this runtime started. Go pans this view. */
+  bindSurface?: (surface: MountedMapSurface | null) => void
 }
 
 const applied = (revision = 0): AppliedResult => ({ applied: true, revision })
@@ -57,16 +59,27 @@ export function startBundledRuntime (
     program: null
   }
   let program: AudiomProgram | null = null
+  // The map is mounted after this runtime starts. Go reads the surface that
+  // exists at report time, not the null passed into startBundledRuntime.
+  let drawnSurface = surface
   const host = {
     onAvatarChanged (state: AvatarState) {
       handle.avatar = state
       handle.reported = true
       handle.onReported?.(state)
-      void showAvatar(surface, {
+      const mapSurface = drawnSurface
+      void showAvatar(mapSurface, {
         longitude: state.position.longitude,
         latitude: state.position.latitude,
         heading: state.orientation
       })
+      // Go can land outside the current view. Pan there so the compass,
+      // which only draws inside the view, is not hidden.
+      if (mapSurface?.view.goTo) {
+        void mapSurface.view.goTo({
+          center: [state.position.longitude, state.position.latitude]
+        }).catch(() => undefined)
+      }
       return Promise.resolve(applied())
     },
     requestSelection () {
@@ -101,6 +114,9 @@ export function startBundledRuntime (
       onStatus(error.message)
       return Promise.resolve(applied())
     }
+  }
+  handle.bindSurface = (next) => {
+    drawnSurface = next
   }
   program = createAudiomProgram({
     instanceId,

@@ -647,6 +647,7 @@ function useBundledRuntime (
       null,
       { longitude, latitude, moveDistance, soundpackUrl }
     )
+    next.bindSurface?.(surface)
     next.onReported = (state) => {
       const position = {
         longitude: state.position.longitude,
@@ -665,6 +666,9 @@ function useBundledRuntime (
       void next.runtime.dispose()
     }
   }, [enabled, instanceId, jimuMapView, onStatus, onAvatar, longitude, latitude, moveDistance, soundpackUrl])
+  useEffect(() => {
+    handle?.bindSurface?.(surface)
+  }, [handle, surface])
   useEffect(() => {
     const drawn = surface?.view?.map || jimuMapView?.view?.map
     const map = drawn as {

@@ -91,4 +91,33 @@ describe('Audiom avatar', () => {
     expect(shared).toHaveLength(0)
     await handle.runtime.dispose()
   })
+
+  it('pans the map that exists when Go reports a position', async () => {
+    setAudiomProgram((_options, host) => gridProgram(host))
+    const centers: unknown[] = []
+    const surface = {
+      view: {
+        map: { layers: { add () {}, remove () {} } },
+        goTo (target: unknown) {
+          centers.push(target)
+          return Promise.resolve()
+        }
+      },
+      ownedMap: true
+    } as unknown as MountedMapSurface
+    const handle = startBundledRuntime('widget-1', undefined, () => undefined, null)
+    handle.bindSurface?.(surface)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    centers.length = 0
+
+    await handle.runtime.notifyAvatarChanged({
+      position: { longitude: -77.45, latitude: 38.77 },
+      orientation: 0,
+      visualState: 'grid'
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(centers).toEqual([{ center: [-77.45, 38.77] }])
+    await handle.runtime.dispose()
+  })
 })
