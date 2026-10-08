@@ -14,7 +14,8 @@ import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
 
 import { bundledFocusTarget, bundledStatus, paintAudiomStyles, restoreAudiomStyles, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
-import { snapshotFeaturesFromMapView } from './mapSnapshot'
+import { snapshotFeaturesFromMapView, type SnapshotMapTypeHint } from './mapSnapshot'
+import { resolveSoundpackUrl } from './soundpackUrl'
 import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
 import { StepSize, StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import {
@@ -142,6 +143,9 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   const embedUrl = mapConfig.toUrl(sanitizedConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
   const runtimeLocation = runtimeLocationOf(sanitizedConfig)
   const title = props.config.title || 'Audiom'
+  const soundpackUrl = runtimeLocation === RuntimeLocation.Bundled
+    ? resolveSoundpackUrl(sanitizedConfig.soundpackUrl, sanitizedConfig.assetBaseUrl)
+    : undefined
   const bundledHandle = useBundledRuntime(
     runtimeLocation === RuntimeLocation.Bundled,
     props.id,
@@ -152,7 +156,13 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     sanitizedConfig.centerLongitude,
     sanitizedConfig.centerLatitude,
     stepSizeMeters(sanitizedConfig.stepSize, sanitizedConfig.stepSizeUnit),
-    sanitizedConfig.soundpackUrl
+    soundpackUrl,
+    (sanitizedConfig.sourceConfigs || []).map((source) => ({
+      id: source.source,
+      title: source.name,
+      url: source.sourceUrl,
+      mapType: source.mapType
+    }))
   )
   const embedOverlay = useRef<HTMLDivElement>(null)
   useAudiomEmbed(
@@ -464,7 +474,8 @@ function AudiomSoundControl (props: {
         position: 'absolute',
         left: 8,
         bottom: 8,
-        zIndex: 3,
+        zIndex: 9,
+        pointerEvents: 'auto',
         padding: '0.4rem 0.7rem',
         border: '1px solid #04203e',
         borderRadius: 4,
@@ -629,7 +640,8 @@ function useBundledRuntime (
   longitude?: number,
   latitude?: number,
   moveDistance?: number,
-  soundpackUrl?: string
+  soundpackUrl?: string,
+  mapTypes?: readonly SnapshotMapTypeHint[]
 ): BundledRuntimeHandle | null {
   const [handle, setHandle] = useState<BundledRuntimeHandle | null>(null)
   const [reported, setReported] = useState<ReportedAvatar | null>(null)
@@ -639,6 +651,10 @@ function useBundledRuntime (
       setReported(null)
       onAvatar(null)
       return
+    }
+    if (soundpackUrl) {
+      // eslint-disable-next-line no-console
+      console.error('Audiom soundpack', soundpackUrl)
     }
     const next = startBundledRuntime(
       instanceId,
@@ -683,7 +699,7 @@ function useBundledRuntime (
     let layerHandle: { remove?: () => void } | undefined
     const view = { map }
     const apply = async () => {
-      // Do not await view.when() or map.when(). A portal item that the app
+      // Do not await view.when() or map.when(). A portal item that the a, mapTypespp
       // portal cannot see leaves those promises pending, and the legend
       // then never reads the layers that did load.
       if (cancelled) return
@@ -715,7 +731,7 @@ function useBundledRuntime (
       cancelled = true
       layerHandle?.remove?.()
     }
-  }, [handle, jimuMapView, surface, instanceId])
+  }, [handle, jimuMapView, surface, instanceId, mapTypes])
   useEffect(() => {
     if (!surface || !reported) return
     void showAvatar(surface, reported)

@@ -150,10 +150,16 @@ export function startBundledRuntime (
     const start = program?.avatarState?.()
     if (start) await handle.runtime.notifyAvatarChanged(start)
     if (program?.loadSoundpack) {
-      await program.loadSoundpack()
-      if (program.audioLocked?.()) {
-        handle.activationRequired = true
-        onStatus('Select the map to turn sound on')
+      try {
+        await program.loadSoundpack()
+        if (program.audioLocked?.()) {
+          handle.activationRequired = true
+          onStatus('Select the map to turn sound on')
+        }
+      } catch (error) {
+        // A missing pack must not cancel the feature snapshot below.
+        // eslint-disable-next-line no-console
+        console.error('Audiom soundpack failed', error)
       }
     }
     const snapshot = await snapshotFeaturesFromMapView(jimuMapView, instanceId)

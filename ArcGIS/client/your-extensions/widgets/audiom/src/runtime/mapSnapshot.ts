@@ -51,6 +51,8 @@ export interface SnapshotLayer {
   /** True for a basemap layer. Those are not data sources. */
   isBasemap?: boolean
   listMode?: string
+  /** Feature service URL. Used to match a configured source map type. */
+  url?: string
   /** Test double. Production layers are read through queryFeatures. */
   features?: SnapshotFeature[]
   /** Esri spatial reference. Prototype getter; read it, do not spread the layer. */
@@ -97,7 +99,8 @@ function withTimeout<T> (pending: Promise<T>, ms: number): Promise<T> {
 /** The existing map is the visual surface. This describes its layers and features. */
 export function snapshotFromMapView (
   jimuMapView: SnapshotMapView | undefined,
-  dataSourceId: string
+  dataSourceId: string,
+  mapTypes?: readonly SnapshotMapTypeHint[]
 ): MapSnapshot {
   const sources: SourceSnapshot[] = []
   const records: RecordSnapshot[] = []
@@ -120,7 +123,7 @@ export function snapshotFromMapView (
       sourceId,
       displayName: layer.title || sourceId,
       geometryFamily: FAMILY_BY_TYPE[layer.geometryType || ''] || null,
-      mapType: 'standard',
+      mapType: mapTypeForLayer(layer, mapTypes),
       rulesRef: null,
       disposition: bound ? LayerDisposition.Bound : LayerDisposition.VisualOnly,
       recordCount: 0,
@@ -146,9 +149,41 @@ export function snapshotFromMapView (
  * Query features already on the Esri map and return a snapshot Audiom can load.
  * Does not fetch layer URLs and does not invent geometry.
  */
+export interface SnapshotMapTypeHint {
+  id?: string
+  title?: string
+  url?: string
+  mapType?: string
+}
+
+/** Audiom map types. 'standard' is not one of them and becomes travel. */
+function audiomMapType (value: string | undefined): string {
+  if (value === 'heatmap' || value === 'indoor' || value === 'travel') return value
+  return 'travel'
+}
+
+function mapTypeForLayer (
+  layer: SnapshotLayer,
+  hints: readonly SnapshotMapTypeHint[] | undefined
+): string {
+  if (!hints?.length) return 'travel'
+  const id = layer.id || ''
+  const title = layer.title || ''
+  const url = layer.url || ''
+  const hint = hints.find((item) => {
+    if (!item.mapType) return false
+    if (item.id && id && item.id === id) return true
+    if (item.title && title && item.title === title) return true
+    if (item.url && url && (url === item.url || url.startsWith(item.url) || item.url.startsWith(url))) return true
+    return false
+  })
+  return audiomMapType(hint?.mapType)
+}
+
 export async function snapshotFeaturesFromMapView (
   jimuMapView: SnapshotMapView | undefined,
-  dataSourceId: string
+  dataSourceId: string,
+  mapTypes?: readonly SnapshotMapTypeHint[]
 ): Promise<MapSnapshot> {
   const layers = jimuMapView?.view?.map?.allLayers || jimuMapView?.map?.allLayers
   if (!layers) return snapshotFromMapView(jimuMapView, dataSourceId)
@@ -171,7 +206,7 @@ export async function snapshotFeaturesFromMapView (
   const view = {
     map: { allLayers: { forEach: (fn: (layer: SnapshotLayer) => void) => { loaded.forEach(fn) } } }
   }
-  const snapshot = snapshotFromMapView({ map: view.map }, dataSourceId)
+  const snapshot = snapshotFromMapView({ map: view.map }, dataSourceId, mapTypes)
   ;(snapshot as MapSnapshot & { queriedLayers?: SnapshotLayer[] }).queriedLayers = loaded
   return snapshot
 }
@@ -190,6 +225,7 @@ function layerCopy (layer: SnapshotLayer): SnapshotLayer & { features?: Snapshot
     scaleVisible: layer.scaleVisible,
     objectIdField: layer.objectIdField,
     displayField: layer.displayField,
+    url: layer.url,
     isBasemap: layer.isBasemap,
     listMode: layer.listMode,
     features: layer.features

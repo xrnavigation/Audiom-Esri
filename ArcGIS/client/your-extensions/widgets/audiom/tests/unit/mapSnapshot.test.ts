@@ -21,6 +21,31 @@ describe('map snapshot', () => {
       LayerDisposition.Bound
     ])
     expect(snapshot.records).toHaveLength(0)
+    expect(snapshot.sources[0].mapType).toBe('travel')
+  })
+
+  it('marks a configured service as a heatmap', () => {
+    const snapshot = snapshotFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'impervious',
+              title: 'Impervious',
+              type: 'feature',
+              visible: true,
+              geometryType: 'polygon',
+              url: 'https://gis.example/FeatureServer/0'
+            })
+          }
+        }
+      }
+    }, 'map-1', [{
+      url: 'https://gis.example/FeatureServer/0',
+      mapType: 'heatmap'
+    }])
+
+    expect(snapshot.sources[0].mapType).toBe('heatmap')
   })
 
   it('keeps a feature that is out of scale and drops a hidden one', () => {
