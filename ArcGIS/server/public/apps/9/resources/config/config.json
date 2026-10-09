@@ -703,7 +703,18 @@
           "mainDataSourceId": "dataSource_2"
         }
       ],
-      "useDataSourcesEnabled": true
+      "useDataSourcesEnabled": true,
+      "style": {
+        "borderRadius": {
+          "number": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "unit": "px"
+        }
+      }
     }
   },
   "exbVersion": "1.20.0",
@@ -816,7 +827,7 @@
     "portalUrl": "https://xrnavigation.maps.arcgis.com",
     "enableA11yForWidgetSettings": false
   },
-  "timestamp": 1791506178937,
+  "timestamp": 1791580628839,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {
