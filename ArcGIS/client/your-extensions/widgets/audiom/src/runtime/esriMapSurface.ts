@@ -50,7 +50,9 @@ export interface MountedMapView {
   }
   navigation?: { browserTouchPanEnabled?: boolean, mouseWheelZoomEnabled?: boolean }
   container?: HTMLElement
-  ui?: { components?: string[] }
+  ui?: {
+    components?: string[]
+  }
   watch?: (property: string, handler: () => void) => MapViewHandle
   when?: () => Promise<unknown>
   on?: (eventName: string, handler: (event: MapViewEvent) => void) => MapViewHandle
@@ -140,6 +142,12 @@ export async function mountEsriMap (options: MapSurfaceOptions): Promise<Mounted
     center: [options.longitude ?? 0, options.latitude ?? 0],
     zoom: options.zoom ?? 2
   })
+  // Hiding Esri's +/- must not abort the map. Audiom still mounts if this throws.
+  try {
+    hideNativeZoom(view)
+  } catch (error) {
+    console.error('Audiom could not hide Esri zoom', error)
+  }
   const surface: MountedMapSurface = { view, ownedMap }
   await attachAvatarLayer(surface)
   disableArrowKeyMapPan(surface)
@@ -177,6 +185,25 @@ async function attachAvatarLayer (surface: MountedMapSurface): Promise<void> {
   else if (map?.add) map.add(layer)
   else return
   surface.avatarLayer = layer
+}
+
+/** Esri adds zoom by default. Audiom already has zoom controls. */
+export function hideNativeZoom (view: MountedMapView): void {
+  const ui = view.ui
+  if (ui) {
+    // Setting components is how Experience Builder drops default widgets.
+    // remove() is not used: a missing component throws and aborts the map.
+    ui.components = (ui.components ?? ['attribution', 'zoom', 'navigation-toggle'])
+      .filter((name) => name !== 'zoom' && name !== 'navigation-toggle')
+  }
+  const root = view.container
+  if (!root?.appendChild) return
+  const styleId = 'audiom-hide-esri-zoom'
+  if (root.querySelector?.(`#${styleId}`)) return
+  const style = document.createElement('style')
+  style.id = styleId
+  style.textContent = '.esri-zoom, .esri-navigation-toggle { display: none !important; }'
+  root.appendChild(style)
 }
 
 /** Arrow keys move the Audiom avatar, not the map camera. */

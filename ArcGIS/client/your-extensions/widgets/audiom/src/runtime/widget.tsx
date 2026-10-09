@@ -165,6 +165,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     }))
   )
   const embedOverlay = useRef<HTMLDivElement>(null)
+  const headerHeight = useHeaderHeight(embedOverlay)
   useAudiomEmbed(
     embedOverlay,
     mapSurface,
@@ -201,6 +202,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
             longitude={sanitizedConfig.centerLongitude}
             latitude={sanitizedConfig.centerLatitude}
             zoom={sanitizedConfig.zoom}
+            headerHeight={headerHeight}
             avatar={avatar}
             onMove={runtimeLocation === RuntimeLocation.Bundled
               ? (direction) => { void bundledHandle?.runtime.moveAvatar(direction) }
@@ -210,16 +212,9 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
               : undefined}
             onSurface={setMapSurface}
           />
-          {runtimeLocation === RuntimeLocation.Bundled && (
-            <AudiomSoundControl
-              soundpackUrl={sanitizedConfig.soundpackUrl}
-              onUnlock={() => { unlockBundledAudio(bundledHandle) }}
-            />
-          )}
-
           <div
             ref={embedOverlay}
-            style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, overflow: 'hidden', zIndex: 8, pointerEvents: 'none' }}
+            style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, overflow: 'hidden', zIndex: 8, pointerEvents: 'none', display: 'flex', flexDirection: 'column' }}
           />
         </div>
         <p className="sr-only" role="status">
@@ -253,6 +248,31 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     </div>
   )
 }
+/**
+ * The embed paints its header into the overlay after mount. Measure that
+ * bar so the Esri map starts below it instead of showing through the bar.
+ */
+function useHeaderHeight (overlay: { current: HTMLDivElement | null }): number {
+  const [height, setHeight] = useState(0)
+  useEffect(() => {
+    const node = overlay.current
+    if (!node) return
+    const measure = () => {
+      const header = node.querySelector('.audiomHeader')
+      setHeight(header ? Math.ceil(header.getBoundingClientRect().height) : 0)
+    }
+    measure()
+    const observer = new MutationObserver(measure)
+    observer.observe(node, { childList: true, subtree: true })
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [overlay])
+  return height
+}
+
 
 function EsriMapSurface (props: {
   existingMap?: unknown
@@ -262,6 +282,7 @@ function EsriMapSurface (props: {
   longitude?: number
   latitude?: number
   zoom?: number
+  headerHeight?: number
   avatar?: ReportedAvatar | null
   onMove?: (direction: string) => void
   onSelect?: () => void
@@ -376,7 +397,7 @@ function EsriMapSurface (props: {
     props.onMove(direction)
   }
   return (
-    <div style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%' }}>
+    <div style={{ position: 'absolute', zIndex: 1, top: props.headerHeight || 0, right: 0, bottom: 0, left: 0 }}>
       <div
         id="audiom-esri-map"
         ref={container}
@@ -408,12 +429,8 @@ function AudiomIndicator (props: {
   onMove?: (direction: string) => void
   onSelect?: () => void
 }) {
-  const button = useRef<HTMLButtonElement>(null)
   const avatar = props.avatar
   const screen = props.screen
-  useEffect(() => {
-    if (avatar && screen) button.current?.focus()
-  }, [avatar, screen])
   if (!avatar || !screen) return null
   const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     const direction = movementDirection(event.key)
@@ -428,7 +445,6 @@ function AudiomIndicator (props: {
         type="button"
         className="audiom-cursor"
         aria-label="Audiom navigation indicator"
-        ref={button}
         onKeyDown={onKeyDown}
         onClick={() => { props.onSelect?.() }}
         style={{
@@ -483,7 +499,7 @@ function AudiomSoundControl (props: {
         color: '#04203e'
       }}
     >
-      Turn sound on
+      Enable sounds and skip to map
     </button>
   )
 }
