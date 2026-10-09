@@ -228,6 +228,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     // JSON and Immutable records satisfy IGeoQuad but are not class instances.
     this.visualBaseLayers = config.visualBaseLayers?.map(layer => ({
       url: layer.url,
+      type: layer.type,
       position: layer.position ? GeoQuad.from(layer.position) : undefined
     }));
     this.allowedOrigins = config.allowedOrigins;
@@ -264,17 +265,13 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     // Required
     params.apiKey = this.apiKey;
 
-    // Sources
-    if (this.sources && this.sources.length > 0) {
-      const sourceNames = this.sources.map(s => s.source).join(',');
+    // Sources, including feature visual base layers treated as Esri sources.
+    const sources = this.collectSources();
+    if (sources.length > 0) {
+      params.sources = sources.map(s => s.source).join(',');
 
-      const sourceKey = "sources"
-      params[sourceKey] = sourceNames;
-
-      // Add source-specific parameters
-      this.sources.forEach(source => {
-        const sourceParams = source.toQueryParams();
-        Object.assign(params, sourceParams);
+      sources.forEach(source => {
+        Object.assign(params, source.toQueryParams());
       });
     }
 
@@ -327,16 +324,13 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     }
     if (this.visualBaseLayers && this.visualBaseLayers.length > 0) {
       this.visualBaseLayers.forEach((layer, index) => {
-        const layerType = layer.type ?? VisualBaseLayerType.Image;
-        if (layerType === VisualBaseLayerType.Feature) {
-          params[`visualbaselayer${index}type`] = VisualBaseLayerType.Feature;
-          // TODO - For feature layers, we might need to handle additional parameters like layer ID or feature service URL. This is a placeholder for future implementation
-          params[`visualbaselayer${index}url`] = layer.url;
-        } else {
-        params[`visualbaselayer${index}`] = layer.url;
-        }
-        if (layer.position) {
-          params[`visualbaselayerposition${index}`] = layer.position.toString();
+        // Feature layers are serialized as Esri sources, not image overlays.
+        if ((layer.type ?? VisualBaseLayerType.Image) === VisualBaseLayerType.Image) {
+          params[`visualbaselayer${index}`] = layer.url;
+
+          if (layer.position) {
+            params[`visualbaselayerposition${index}`] = layer.position.toString();
+          }
         }
       });
     }
@@ -357,6 +351,32 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   }
 
   /**
+   * Configured sources plus feature visual base layers as Esri sources.
+   * Feature layers are not image overlays, so they join `sources` instead of
+   * `visualbaselayer*` params. Image layers keep their original indexes.
+   */
+  private collectSources(): AudiomSource[] {
+    const sources = [...(this.sources ?? [])];
+    const usedNames = new Set(sources.map(source => source.source));
+
+    this.visualBaseLayers?.forEach((layer, index) => {
+      if (layer.type !== VisualBaseLayerType.Feature || !layer.url) {
+        return;
+      }
+
+      const source = AudiomSource.fromEsri({
+        source: uniqueSourceName(`visualbaselayer${index}`, usedNames),
+        url: layer.url,
+        name: featureLayerName(layer.url, index)
+      });
+      usedNames.add(source.source);
+      sources.push(source);
+    });
+
+    return sources;
+  }
+
+  /**
    * Generate the complete embed URL
    */
   toUrl(baseUrl: string = AudiomEmbedConfig.defaultBaseURL): string {
@@ -368,10 +388,37 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     return `${baseUrl}/embed/${this.embedId}?${queryString}`;
   }
 
-  /** 
+  /**
    * Generate an embed URL with custom base URL
    */
   toUrlWithBase(baseUrl: string): string {
     return this.toUrl(baseUrl);
   }
+}
+
+/** Display name from the feature-service URL path, falling back to a numbered label. */
+function featureLayerName(url: string, index: number): string {
+  try {
+    const segment = new URL(url).pathname.split('/').filter(Boolean).pop();
+    if (segment) {
+      return decodeURIComponent(segment);
+    }
+  } catch {
+    // Relative or otherwise unparsable URLs keep the numbered fallback.
+  }
+
+  return `Visual base layer ${index + 1}`;
+}
+
+/** Append a numeric suffix when a source id is already in use. */
+function uniqueSourceName(baseName: string, usedNames: Set<string>): string {
+  if (!usedNames.has(baseName)) {
+    return baseName;
+  }
+
+  let suffix = 2;
+  while (usedNames.has(`${baseName}_${suffix}`)) {
+    suffix += 1;
+  }
+  return `${baseName}_${suffix}`;
 }
