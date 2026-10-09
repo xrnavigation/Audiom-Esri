@@ -732,21 +732,38 @@ function useBundledRuntime (
     if (!handle?.program || !map) return
     let cancelled = false
     let layerHandle: { remove?: () => void } | undefined
+    let latest: MapSnapshot | undefined
     const view = { map }
+    const paintChoice = async (snapshot: MapSnapshot) => {
+      const program = handle.program as {
+        world?: {
+          statistics?: { field?: string, fields?: Array<{ field?: string }> }
+          rootStore?: { settings?: { vectorStyleMode?: 'colors' | 'patterns' | 'both' | 'none' } }
+        }
+      } | null
+      const chosen = program?.world?.statistics?.field
+      const fields = program?.world?.statistics?.fields || []
+      const paletteIndex = Math.max(0, fields.findIndex((item) => item.field === chosen))
+      const mode = program?.world?.rootStore?.settings?.vectorStyleMode || 'colors'
+      await paintAudiomStyles(view, snapshot, mode, chosen, paletteIndex)
+    }
     const apply = async () => {
       // Do not await view.when() or map.when(). A portal item that the a, mapTypespp
       // portal cannot see leaves those promises pending, and the legend
       // then never reads the layers that did load.
       if (cancelled) return
-      const snapshot = await snapshotFeaturesFromMapView(view, instanceId)
+      const snapshot = await snapshotFeaturesFromMapView(view, instanceId, mapTypes)
       if (cancelled) return
+      latest = snapshot
       const listed = snapshot.records.filter((record) => record.navigable).length
       const names = snapshot.sources.map((source) => source.displayName).join(', ')
       // eslint-disable-next-line no-console
       console.error('Audiom feature snapshot', snapshot.sources.length, 'layers', listed, 'features', names)
-      await paintAudiomStyles(view, snapshot)
+      const program = handle.program as {
+        applySnapshot?: (snapshot: MapSnapshot) => Promise<unknown>
+      } | null
+      await paintChoice(snapshot)
       if (cancelled) return
-      const program = handle.program as { applySnapshot?: (snapshot: MapSnapshot) => Promise<unknown> } | null
       if (program?.applySnapshot) await program.applySnapshot(snapshot)
       else await handle.runtime.replaceSources(snapshot, 1)
     }
@@ -762,9 +779,20 @@ function useBundledRuntime (
         console.error('Audiom feature snapshot failed', error)
       })
     })
+    // The legend changes the statistic and the pattern/color mode. Repaint
+    // the snapshot already loaded. Querying again is what made recolor slow.
+    const onPaint = () => {
+      if (!latest) return
+      void paintChoice(latest).catch((error: unknown) => {
+        // eslint-disable-next-line no-console
+        console.error('Audiom repaint failed', error)
+      })
+    }
+    window.addEventListener('audiom-embed-paint', onPaint)
     return () => {
       cancelled = true
       layerHandle?.remove?.()
+      window.removeEventListener('audiom-embed-paint', onPaint)
     }
   }, [handle, jimuMapView, surface, instanceId, mapTypes])
   useEffect(() => {

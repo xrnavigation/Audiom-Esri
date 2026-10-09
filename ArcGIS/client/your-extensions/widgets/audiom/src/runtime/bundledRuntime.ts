@@ -163,7 +163,9 @@ export function startBundledRuntime (
       }
     }
     const snapshot = await snapshotFeaturesFromMapView(jimuMapView, instanceId)
-    await paintAudiomStyles(jimuMapView, snapshot)
+    // Colors only. The legend effect paints the chosen mode. A both-mode
+    // picture fill here blanked polygons and flashed the host colors.
+    await paintAudiomStyles(jimuMapView, snapshot, 'colors')
     return handle.runtime.replaceSources(snapshot, 1)
   }).then((result) => {
     handle.appliedSources = result.revision
@@ -207,7 +209,9 @@ export const bundledSelection = SelectionOp.Replace
 export async function paintAudiomStyles (
   jimuMapView: SnapshotMapView | undefined,
   snapshot?: MapSnapshot,
-  mode: VectorStyleMode = 'both'
+  mode: VectorStyleMode = 'both',
+  field?: string,
+  paletteIndex?: number
 ): Promise<void> {
   const layers = jimuMapView?.view?.map?.allLayers || jimuMapView?.map?.allLayers
   if (!layers || !snapshot) return
@@ -219,7 +223,8 @@ export async function paintAudiomStyles (
         'esri/symbols/SimpleLineSymbol',
         'esri/symbols/SimpleMarkerSymbol',
         'esri/renderers/UniqueValueRenderer',
-        'esri/symbols/PictureFillSymbol'
+        'esri/symbols/PictureFillSymbol',
+        'esri/renderers/ClassBreaksRenderer'
       ])
     ) as unknown[]
     modules = {
@@ -227,18 +232,27 @@ export async function paintAudiomStyles (
       SimpleLineSymbol: loaded[1] as SymbolModules['SimpleLineSymbol'],
       SimpleMarkerSymbol: loaded[2] as SymbolModules['SimpleMarkerSymbol'],
       UniqueValueRenderer: loaded[3] as SymbolModules['UniqueValueRenderer'],
-      PictureFillSymbol: loaded[4] as new (properties: unknown) => unknown
+      PictureFillSymbol: loaded[4] as new (properties: unknown) => unknown,
+      ClassBreaksRenderer: loaded[5] as SymbolModules['ClassBreaksRenderer']
     }
   } catch {
     return
   }
+  // Do not restore before painting. Restoring assigns the host renderer
+  // back, which is the flash of the original Esri colors. Unmount restores.
   const queried = (snapshot as MapSnapshot & { queriedLayers?: SnapshotLayer[] }).queriedLayers || []
   layers.forEach((layer) => {
     const sourceId = layer.id || layer.title || 'layer'
     const match = queried.find((item) => (item.id || item.title || 'layer') === sourceId)
-    const features = (match as (SnapshotLayer & { features?: Array<{ attributes?: Record<string, unknown> }> }) | undefined)?.features
+    const matched = match as (SnapshotLayer & { features?: Array<{ attributes?: Record<string, unknown> }> }) | undefined
+    const features = matched?.features
     if (!features?.length) return
-    applyAudiomSymbols(layer, modules, features, mode)
+    const paintable = layer as SymbolLayer
+    if (!paintable.objectIdField && matched?.objectIdField) {
+      paintable.objectIdField = matched.objectIdField
+    }
+    const extents = (matched as { fieldExtents?: Record<string, { min: number, max: number }> } | undefined)?.fieldExtents
+    applyAudiomSymbols(paintable, modules, features, mode, field, extents, paletteIndex)
   })
 }
 

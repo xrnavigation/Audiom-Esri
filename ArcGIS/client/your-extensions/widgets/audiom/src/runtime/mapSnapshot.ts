@@ -39,6 +39,11 @@ export interface SnapshotLayer {
     returnGeometry?: boolean
     outSpatialReference?: { wkid: number }
     num?: number
+    outStatistics?: Array<{
+      onStatisticField?: string
+      outStatisticFieldName?: string
+      statisticType?: string
+    }>
   }
   queryFeatures?: (query: unknown) => Promise<{ features?: SnapshotFeature[] }>
   /** Resolves when the layer can be queried. Absent means query immediately. */
@@ -177,7 +182,12 @@ function mapTypeForLayer (
     if (item.url && url && (url === item.url || url.startsWith(item.url) || item.url.startsWith(url))) return true
     return false
   })
-  return audiomMapType(hint?.mapType)
+  if (hint) return audiomMapType(hint.mapType)
+  // Experience Builder layer ids often differ from the widget source id.
+  // One configured heatmap source is the map the panel was asked to draw.
+  const configured = hints.filter((item) => item.mapType)
+  if (configured.length === 1) return audiomMapType(configured[0].mapType)
+  return 'travel'
 }
 
 export async function snapshotFeaturesFromMapView (
@@ -286,6 +296,7 @@ async function queryLayerFeatures (
     query.num = FEATURE_LIMIT
     const result = await layer.queryFeatures(query)
     copy.features = await geographicFeatures(layer, result?.features || [])
+    await attachFieldExtents(layer, copy)
     if (!copy.features.length) {
       // eslint-disable-next-line no-console
       console.error('Audiom layer query returned no features', copy.title || copy.id, copy.type)
@@ -297,6 +308,57 @@ async function queryLayerFeatures (
   }
 }
 
+/**
+ * Min and max of every numeric field on the service, not the 200-feature page.
+ * Class breaks built from the page leave the rest of the layer uncolored.
+ */
+async function attachFieldExtents (
+  layer: SnapshotLayer,
+  copy: SnapshotLayer & { features?: SnapshotFeature[] }
+): Promise<void> {
+  const features = copy.features
+  if (!features?.length || typeof layer.createQuery !== 'function' || typeof layer.queryFeatures !== 'function') return
+  const fields = numericFields(features)
+  if (!fields.length) return
+  try {
+    const query = layer.createQuery()
+    query.where = '1=1'
+    query.returnGeometry = false
+    query.outStatistics = fields.flatMap((field) => [
+      { onStatisticField: field, outStatisticFieldName: `${field}__min`, statisticType: 'min' },
+      { onStatisticField: field, outStatisticFieldName: `${field}__max`, statisticType: 'max' }
+    ])
+    const result = await layer.queryFeatures(query)
+    const stats = result?.features?.[0]?.attributes
+    if (!stats) return
+    const extents: Record<string, { min: number, max: number }> = {}
+    for (const field of fields) {
+      const min = Number(stats[`${field}__min`])
+      const max = Number(stats[`${field}__max`])
+      if (Number.isFinite(min) && Number.isFinite(max)) extents[field] = { min, max }
+    }
+    if (Object.keys(extents).length) {
+      (copy as SnapshotLayer & { fieldExtents?: Record<string, { min: number, max: number }> }).fieldExtents = extents
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Audiom field extent query failed', copy.title || copy.id, error)
+  }
+}
+
+function numericFields (features: SnapshotFeature[]): string[] {
+  const names = new Set<string>()
+  for (const feature of features) {
+    for (const [key, value] of Object.entries(feature.attributes || {})) {
+      if (key === 'OBJECTID' || key === 'objectid' || key === 'FID' || key === 'fid') continue
+      const numeric = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN
+      if (Number.isFinite(numeric)) names.add(key)
+    }
+  }
+  return [...names]
+}
+
+/**
 /** Audiom pattern tokens. Unknown tokens fall back to dots, matching Audiom's legend. */
 export { PATTERN_TOKENS as AUDIOM_PATTERN_TOKENS, patternToken } from './patternTiles'
 
@@ -364,18 +426,29 @@ function featureLabel (
 
 type StyleValue = string | number | boolean | null
 
-/** Keep rule outputs Audiom already computed. Do not invent colors or patterns. */
+const STYLE_KEYS = [
+  'fill', 'stroke', 'stroke-width', 'fill-pattern', 'fill-opacity',
+  'stroke-opacity', 'stroke-dasharray'
+]
+
+/**
+ * Keep rule outputs Audiom already computed, plus the numeric columns a
+ * heatmap quantizes. Do not invent colors or patterns.
+ */
 function styleAttributes (attributes: Record<string, unknown>): Record<string, StyleValue> {
   const kept: Record<string, StyleValue> = {}
   putStyle(kept, 'name', typeof attributes.name === 'string' ? attributes.name : attributes.Name)
   putStyle(kept, 'Name', attributes.Name)
-  putStyle(kept, 'fill', attributes.fill)
-  putStyle(kept, 'stroke', attributes.stroke)
-  putStyle(kept, 'stroke-width', attributes['stroke-width'])
-  putStyle(kept, 'fill-pattern', attributes['fill-pattern'])
-  putStyle(kept, 'fill-opacity', attributes['fill-opacity'])
-  putStyle(kept, 'stroke-opacity', attributes['stroke-opacity'])
-  putStyle(kept, 'stroke-dasharray', attributes['stroke-dasharray'])
+  for (const key of STYLE_KEYS) putStyle(kept, key, attributes[key])
+  for (const [key, value] of Object.entries(attributes)) {
+    if (kept[key] != null) continue
+    const numeric = typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim()
+        ? Number(value)
+        : Number.NaN
+    if (Number.isFinite(numeric)) kept[key] = numeric
+  }
   return kept
 }
 

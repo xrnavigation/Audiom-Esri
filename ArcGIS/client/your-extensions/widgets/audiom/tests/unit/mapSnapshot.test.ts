@@ -48,6 +48,30 @@ describe('map snapshot', () => {
     expect(snapshot.sources[0].mapType).toBe('heatmap')
   })
 
+  it('uses the only configured heatmap when the layer id does not match', () => {
+    const snapshot = snapshotFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'layer-from-experience-builder',
+              title: 'percentImpervious_allMP_compare_nai',
+              type: 'feature',
+              visible: true,
+              geometryType: 'polygon'
+            })
+          }
+        }
+      }
+    }, 'map-1', [{
+      id: 'dataSource_1',
+      title: 'Impervious',
+      mapType: 'heatmap'
+    }])
+
+    expect(snapshot.sources[0].mapType).toBe('heatmap')
+  })
+
   it('keeps a feature that is out of scale and drops a hidden one', () => {
     const snapshot = snapshotFromMapView({
       map: {

@@ -1,4 +1,4 @@
-import { applyAudiomSymbols, colorWithOpacity, restoreAudiomSymbols, styleKey, symbolFor, patternTileUrl } from '../../src/runtime/audiomSymbols'
+import { applyAudiomSymbols, colorWithOpacity, heatmapField, restoreAudiomSymbols, styleKey, symbolFor, patternTileUrl } from '../../src/runtime/audiomSymbols'
 
 class FakeSymbol {
   properties: unknown
@@ -12,6 +12,7 @@ const modules = {
   SimpleLineSymbol: FakeSymbol,
   SimpleMarkerSymbol: FakeSymbol,
   UniqueValueRenderer: FakeSymbol,
+  ClassBreaksRenderer: FakeSymbol,
   PictureFillSymbol: FakeSymbol
 }
 
@@ -54,7 +55,7 @@ describe('audiom symbols', () => {
       stroke: '#04203e'
     }) as FakeSymbol
     expect(patterned.properties).toMatchObject({
-      url: patternTileUrl('caret-pattern'),
+      url: patternTileUrl('caret-pattern', 16, '#7bbf75'),
       width: 16,
       height: 16
     })
@@ -81,11 +82,59 @@ describe('audiom symbols', () => {
     }
     expect(applyAudiomSymbols(layer, modules, layer.features)).toBe(true)
     expect(layer.renderer).not.toBe(host)
-    const painted = layer.features[0].attributes as Record<string, unknown>
-    expect(String(painted.audiomStyle)).toContain('#7bbf75')
+    const painted = layer.renderer as FakeSymbol
+    expect(String((painted.properties as { valueExpression?: string }).valueExpression)).toContain('OBJECTID')
+    expect(String((painted.properties as { valueExpression?: string }).valueExpression)).toContain('#7bbf75')
     expect(restoreAudiomSymbols(layer)).toBe(true)
     expect(layer.renderer).toBe(host)
     expect(restoreAudiomSymbols(layer)).toBe(false)
+  })
+
+  it('paints a varying numeric field with class breaks instead of an object-id expression', () => {
+    const host = { kind: 'host', type: 'simple' }
+    const features = [1, 2, 3, 4, 5].map((value) => ({
+      attributes: { OBJECTID: value, percent: value * 10 }
+    }))
+    const layer = { geometryType: 'polygon', objectIdField: 'OBJECTID', renderer: host, features }
+    expect(heatmapField(features)?.field).toBe('percent')
+    expect(applyAudiomSymbols(layer, modules, features, 'both')).toBe(true)
+    expect(layer.renderer).not.toBe(host)
+    const painted = layer.renderer as FakeSymbol
+    const properties = painted.properties as {
+      field?: string
+      valueExpression?: string
+      classBreakInfos?: Array<{ symbol: FakeSymbol }>
+    }
+    expect(properties.field).toBe('percent')
+    expect(properties.valueExpression).toBeUndefined()
+    expect(properties.classBreakInfos).toHaveLength(5)
+    expect(restoreAudiomSymbols(layer)).toBe(true)
+    expect(layer.renderer).toBe(host)
+  })
+
+  it('keeps a saved host renderer when a later paint has nothing to draw', () => {
+    const host = { kind: 'host', type: 'simple' }
+    const painted = { kind: 'painted' }
+    const layer = {
+      geometryType: 'polygon',
+      renderer: painted,
+      __audiomOriginalRenderer: host,
+      features: [{ attributes: { OBJECTID: 1, name: 'Hall' } }]
+    }
+    expect(applyAudiomSymbols(layer, modules, layer.features)).toBe(false)
+    expect(layer.renderer).toBe(painted)
+    expect(layer.__audiomOriginalRenderer).toBe(host)
+  })
+
+  it('does not replace a host heatmap renderer', () => {
+    const host = { kind: 'heatmap', type: 'heatmap' }
+    const layer = {
+      geometryType: 'polygon',
+      renderer: host,
+      features: [{ attributes: { OBJECTID: 1, percent: 10 } }, { attributes: { OBJECTID: 2, percent: 90 } }]
+    }
+    expect(applyAudiomSymbols(layer, modules, layer.features)).toBe(false)
+    expect(layer.renderer).toBe(host)
   })
 
   it('leaves a layer with no Audiom style keys untouched', () => {

@@ -36,11 +36,15 @@ export function patternToken (value: unknown): PatternToken {
   return isPatternToken(value) ? value : 'dot-pattern'
 }
 
-export function patternTileSvg (token: unknown, size = 16): string {
+export function patternTileSvg (token: unknown, size = 16, fill?: string): string {
   const resolved = patternToken(token)
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 16 16">${PATTERN_BODIES[resolved]}</svg>`
+  const ground = fill
+    ? `<rect width="16" height="16" fill="${fill}"/>`
+    : ''
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 16 16">${ground}${PATTERN_BODIES[resolved]}</svg>`
 }
 
-export function patternTileUrl (token: unknown, size = 16): string {
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(patternTileSvg(token, size))}`
+export function patternTileUrl (token: unknown, size = 16, fill?: string): string {
+  const svg = patternTileSvg(token, size, fill)
+  return `data:image/svg+xml;base64,${btoa(svg)}`
 }
