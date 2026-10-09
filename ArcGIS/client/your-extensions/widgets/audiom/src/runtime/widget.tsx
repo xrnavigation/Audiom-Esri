@@ -439,6 +439,24 @@ function AudiomIndicator (props: {
     event.stopPropagation()
     props.onMove(direction)
   }
+  // The compass sits above the map, so the wheel never reaches Esri.
+  // Replay it on the map view; click and keyboard stay on this button.
+  const onWheel = (event: React.WheelEvent<HTMLButtonElement>) => {
+    const map = document.getElementById('audiom-esri-map')
+    const view = map?.querySelector('.esri-view-surface')
+    if (!(view instanceof HTMLElement)) return
+    event.preventDefault()
+    view.dispatchEvent(new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      deltaX: event.deltaX,
+      deltaY: event.deltaY,
+      deltaMode: event.deltaMode,
+      ctrlKey: event.ctrlKey
+    }))
+  }
   return (
     <>
       <button
@@ -446,6 +464,7 @@ function AudiomIndicator (props: {
         className="audiom-cursor"
         aria-label="Audiom navigation indicator"
         onKeyDown={onKeyDown}
+        onWheel={onWheel}
         onClick={() => { props.onSelect?.() }}
         style={{
           position: 'absolute',
