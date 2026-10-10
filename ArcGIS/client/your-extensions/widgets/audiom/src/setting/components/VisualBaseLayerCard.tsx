@@ -132,10 +132,12 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
             checkValidityOnAccept={(text) => validateUrl(String(text))}
             aria-label={`${FIELD_LABEL_URL} for layer ${index + 1}`}
           />
-          <GeoQuadEditor
-            value={layer.position ?? ''}
-            onChange={handlePositionChange}
-          />
+          {!isFeature && (
+            <GeoQuadEditor
+              value={layer.position ?? ''}
+              onChange={handlePositionChange}
+            />
+          )}
         </div>
       </Collapse>
     </Card>
