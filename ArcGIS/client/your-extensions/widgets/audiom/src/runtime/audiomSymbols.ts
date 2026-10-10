@@ -237,11 +237,17 @@ function breaksBetween (low: number, high: number): number[] {
   return Array.from({ length: BANDS - 1 }, (_, index) => low + step * (index + 1))
 }
 
-function paletteIndexFor (features: SymbolFeature[], field: string, requested?: number): number {
+function paletteIndexFor (
+  features: SymbolFeature[],
+  field: string,
+  requested?: number,
+  propertyOrder?: string[]
+): number {
   if (requested != null && Number.isFinite(requested)) {
     return ((requested % HEATMAP_RAMPS.length) + HEATMAP_RAMPS.length) % HEATMAP_RAMPS.length
   }
-  const names = Object.keys(features[0]?.attributes || {})
+  // Raw attribute order is not the legend's order. Use the shared list.
+  const names = propertyOrder?.length ? propertyOrder : Object.keys(features[0]?.attributes || {})
   const index = names.indexOf(field)
   return index < 0 ? 0 : index % HEATMAP_RAMPS.length
 }
@@ -254,7 +260,8 @@ export function heatmapField (
   features: SymbolFeature[],
   field?: string,
   extents?: Record<string, { min: number, max: number }>,
-  paletteIndex?: number
+  paletteIndex?: number,
+  propertyOrder?: string[]
 ): HeatmapPaint | null {
   const columns = new Map<string, number[]>()
   for (const feature of features) {
@@ -282,7 +289,7 @@ export function heatmapField (
       breaks,
       min,
       max,
-      paletteIndex: paletteIndexFor(features, name, paletteIndex)
+      paletteIndex: paletteIndexFor(features, name, paletteIndex, propertyOrder)
     }
   })
   return best
@@ -345,7 +352,8 @@ export function applyAudiomSymbols (
   mode: VectorStyleMode = 'both',
   field?: string,
   extents?: Record<string, { min: number, max: number }>,
-  paletteIndex?: number
+  paletteIndex?: number,
+  propertyOrder?: string[]
 ): boolean {
   if (!layer || mode === 'none' || mode === 'hidden') return false
   // A host heatmap renderer already draws the surface. Replacing it with
@@ -358,7 +366,7 @@ export function applyAudiomSymbols (
   // object-id expression.
   const styled = features.filter((feature) => featureIsStyled(feature.attributes || {}))
   if (!styled.length) {
-    const paint = heatmapField(features, field, extents, paletteIndex)
+    const paint = heatmapField(features, field, extents, paletteIndex, propertyOrder)
     const renderer = paint ? classBreaksFor(modules, layer.geometryType, paint, mode) : null
     if (!renderer) return false
     if (layer.__audiomOriginalRenderer === undefined) {

@@ -396,6 +396,44 @@ describe('map snapshot', () => {
     setMapModuleLoader(null)
   })
 
+  it('copies field aliases as plain objects after the layer loads', async () => {
+    const snapshot = await snapshotFeaturesFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'impervious',
+              title: 'Parcels',
+              type: 'feature',
+              visible: true,
+              geometryType: 'polygon',
+              fields: [{ name: 'OBJECTID', alias: 'OBJECTID', type: 'oid' }],
+              when () {
+                this.fields = [{
+                  name: 'total_percent',
+                  alias: 'Percent Impervious (percent)',
+                  type: 'double'
+                }]
+                return Promise.resolve()
+              },
+              createQuery () { return {} },
+              queryFeatures () {
+                return Promise.resolve({ features: [] })
+              }
+            })
+          }
+        }
+      }
+    }, 'map-1')
+
+    const queried = (snapshot as { queriedLayers?: Array<{ fields?: Array<{ name?: string, alias?: string }> }> }).queriedLayers
+    expect(queried?.[0].fields).toEqual([{
+      name: 'total_percent',
+      alias: 'Percent Impervious (percent)',
+      type: 'double'
+    }])
+  })
+
   it('starts the bundled runtime against that snapshot', async () => {
     const statuses: string[] = []
     const handle = startBundledRuntime('widget-1', {

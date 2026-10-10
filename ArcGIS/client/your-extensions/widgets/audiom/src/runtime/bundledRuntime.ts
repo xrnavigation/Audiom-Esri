@@ -163,9 +163,8 @@ export function startBundledRuntime (
       }
     }
     const snapshot = await snapshotFeaturesFromMapView(jimuMapView, instanceId)
-    // Colors only. The legend effect paints the chosen mode. A both-mode
-    // picture fill here blanked polygons and flashed the host colors.
-    await paintAudiomStyles(jimuMapView, snapshot, 'colors')
+    // Do not paint here. This path has no field and no property order, so
+    // it colored the map with a different ramp than the legend.
     return handle.runtime.replaceSources(snapshot, 1)
   }).then((result) => {
     handle.appliedSources = result.revision
@@ -211,7 +210,8 @@ export async function paintAudiomStyles (
   snapshot?: MapSnapshot,
   mode: VectorStyleMode = 'both',
   field?: string,
-  paletteIndex?: number
+  paletteIndex?: number,
+  propertyOrder?: string[]
 ): Promise<void> {
   const layers = jimuMapView?.view?.map?.allLayers || jimuMapView?.map?.allLayers
   if (!layers || !snapshot) return
@@ -252,7 +252,7 @@ export async function paintAudiomStyles (
       paintable.objectIdField = matched.objectIdField
     }
     const extents = (matched as { fieldExtents?: Record<string, { min: number, max: number }> } | undefined)?.fieldExtents
-    applyAudiomSymbols(paintable, modules, features, mode, field, extents, paletteIndex)
+    applyAudiomSymbols(paintable, modules, features, mode, field, extents, paletteIndex, propertyOrder)
   })
 }
 

@@ -29,6 +29,52 @@ import type { ReportedAvatar } from './reportedAvatar'
 
 const { useState, useEffect, useRef } = React
 
+const SKIPPED_MEASURE_FIELDS = new Set([
+  'objectid', 'fid', 'oid', 'object_id', 'globalid', 'shape__length', 'shape__area'
+])
+
+/** First numeric service field the legend can select. Ids and geometry are not measures. */
+function firstMeasureField (
+  layers: Array<{ fields?: Array<{ name?: string, type?: string }> }> | undefined
+): string | undefined {
+  for (const layer of layers || []) {
+    for (const field of layer.fields || []) {
+      const name = field.name
+      if (!name) continue
+      const key = name.toLowerCase()
+      if (SKIPPED_MEASURE_FIELDS.has(key) || key.startsWith('shape__')) continue
+      const type = (field.type || '').toLowerCase()
+      if (
+        type.includes('integer') || type.includes('double') || type.includes('single') ||
+        type.includes('float') || type === 'number' || type === 'long'
+      ) return name
+    }
+  }
+  return undefined
+}
+
+/**
+ * The legend's ramp index is this key order, not the raw Esri attribute order.
+ * Keep it identical to the snapshot property list the legend reads.
+ */
+function legendPropertyOrder (snapshot: MapSnapshot): string[] {
+  const record = snapshot.records.find((item) => item.navigable && item.geometry)
+  if (record) {
+    return Object.keys({
+      id: record.key.recordId,
+      name: String(record.attributes.name ?? record.key.recordId),
+      ruleType: String(record.attributes.ruleType ?? 'feature'),
+      _sourceName: record.sourceId,
+      ...record.attributes
+    })
+  }
+  const queried = (snapshot as MapSnapshot & {
+    queriedLayers?: Array<{ features?: Array<{ attributes?: Record<string, unknown> }> }>
+  }).queriedLayers
+  const attributes = queried?.find((layer) => layer.features?.length)?.features?.[0]?.attributes
+  return attributes ? Object.keys(attributes) : []
+}
+
 // Typed styles with full key/value validation
 const styles = {
   container: {
@@ -734,18 +780,44 @@ function useBundledRuntime (
     let layerHandle: { remove?: () => void } | undefined
     let latest: MapSnapshot | undefined
     const view = { map }
-    const paintChoice = async (snapshot: MapSnapshot) => {
+    const paintChoice = async (snapshot: MapSnapshot, startup = false) => {
       const program = handle.program as {
         world?: {
           statistics?: { field?: string, fields?: Array<{ field?: string }> }
+          metadata?: { propertyOrder?: string[] }
           rootStore?: { settings?: { vectorStyleMode?: 'colors' | 'patterns' | 'both' | 'none' } }
         }
       } | null
-      const chosen = program?.world?.statistics?.field
-      const fields = program?.world?.statistics?.fields || []
-      const paletteIndex = Math.max(0, fields.findIndex((item) => item.field === chosen))
-      const mode = program?.world?.rootStore?.settings?.vectorStyleMode || 'colors'
-      await paintAudiomStyles(view, snapshot, mode, chosen, paletteIndex)
+      // The legend's field. Startup has no selection yet, so use the same
+      // first measure the legend shows. A missing field paints a different ramp.
+      const chosen = startup
+        ? firstMeasureField((snapshot as MapSnapshot & {
+          queriedLayers?: Array<{ fields?: Array<{ name?: string, type?: string }> }>
+        }).queriedLayers)
+        : program?.world?.statistics?.field
+      const mode = program?.world?.rootStore?.settings?.vectorStyleMode || 'both'
+      // The legend counts the snapshot property keys, not raw Esri attributes.
+      // Pass that same list so the map cannot pick a different ramp.
+      const propertyNames = startup
+        ? legendPropertyOrder(snapshot)
+        : program?.world?.metadata?.propertyOrder || legendPropertyOrder(snapshot)
+      const catalogIndex = chosen
+        ? program?.world?.statistics?.fields?.findIndex((item) => item.field === chosen) ?? 0
+        : 0
+      const fromProperties = chosen ? propertyNames.indexOf(chosen) : -1
+      const paletteIndex = !chosen
+        ? undefined
+        : fromProperties >= 0
+          ? fromProperties
+          : propertyNames.length + Math.max(0, catalogIndex)
+      await paintAudiomStyles(
+        view,
+        snapshot,
+        mode,
+        chosen,
+        paletteIndex != null && paletteIndex >= 0 ? paletteIndex : undefined,
+        propertyNames
+      )
     }
     const apply = async () => {
       // Do not await view.when() or map.when(). A portal item that the a, mapTypespp
@@ -762,10 +834,16 @@ function useBundledRuntime (
       const program = handle.program as {
         applySnapshot?: (snapshot: MapSnapshot) => Promise<unknown>
       } | null
-      await paintChoice(snapshot)
+      // The load paint is colors with no field, before apply. A field here
+      // is the regression: styles stayed off until the statistic changed.
+      await paintChoice(snapshot, true)
       if (cancelled) return
       if (program?.applySnapshot) await program.applySnapshot(snapshot)
       else await handle.runtime.replaceSources(snapshot, 1)
+      if (cancelled) return
+      // The load paint has no field, so its ramp is not the legend's.
+      // Paint the legend's field once the snapshot has published that index.
+      await paintChoice(snapshot)
     }
     void apply().catch((error: unknown) => {
       // eslint-disable-next-line no-console

@@ -33,6 +33,12 @@ export interface SnapshotLayer {
   objectIdField?: string
   /** Esri field used as the feature's display name, when the layer publishes one. */
   displayField?: string
+  /** Service field catalog. Aliases and units are the statistic labels. */
+  fields?: Array<{
+    name?: string
+    alias?: string
+    type?: string
+  }>
   createQuery?: () => {
     where?: string
     outFields?: string[]
@@ -235,11 +241,28 @@ function layerCopy (layer: SnapshotLayer): SnapshotLayer & { features?: Snapshot
     scaleVisible: layer.scaleVisible,
     objectIdField: layer.objectIdField,
     displayField: layer.displayField,
+    fields: fieldCatalog(layer.fields),
     url: layer.url,
     isBasemap: layer.isBasemap,
     listMode: layer.listMode,
     features: layer.features
   }
+}
+
+/** Plain copies. Esri field objects are prototype getters and do not survive a spread. */
+function fieldCatalog (fields: SnapshotLayer['fields']): SnapshotLayer['fields'] {
+  if (!fields) return undefined
+  const catalog: NonNullable<SnapshotLayer['fields']> = []
+  const list = fields as ArrayLike<{ name?: string, alias?: string, type?: string }> & {
+    forEach?: (fn: (field: { name?: string, alias?: string, type?: string }) => void) => void
+  }
+  const push = (field: { name?: string, alias?: string, type?: string }) => {
+    if (!field?.name) return
+    catalog.push({ name: field.name, alias: field.alias, type: field.type })
+  }
+  if (typeof list.forEach === 'function') list.forEach(push)
+  else Array.from(list).forEach(push)
+  return catalog
 }
 
 /** The avatar marker, basemap tiles, and rasters are not feature data sources. */
@@ -280,6 +303,7 @@ async function queryLayerFeatures (
   copy.type = layer.type
   copy.geometryType = layer.geometryType
   copy.displayField = layer.displayField
+  copy.fields = fieldCatalog(layer.fields)
   copy.objectIdField = layer.objectIdField
   if (typeof layer.queryFeatures !== 'function' || typeof layer.createQuery !== 'function') {
     copy.features = []
