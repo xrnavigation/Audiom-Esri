@@ -20,8 +20,8 @@ export const MAP_TYPE_OPTIONS = [
 
 /** Visual base layer source options for the visual base layer setting card. */
 export const VISUAL_BASE_LAYER_TYPE_OPTIONS = [
-  { label: 'Static image', value: VisualBaseLayerType.Image },
-  { label: 'Image feature layer', value: VisualBaseLayerType.Feature }
+  { label: 'Static Image', value: VisualBaseLayerType.Image },
+  { label: 'Image Feature Layer', value: VisualBaseLayerType.Feature }
 ] as const
 
 export const DEFAULT_CONFIG = {
