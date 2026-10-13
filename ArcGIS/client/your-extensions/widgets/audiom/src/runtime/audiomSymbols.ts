@@ -36,7 +36,14 @@ export interface SymbolModules {
   PictureFillSymbol?: new (properties: unknown) => unknown
 }
 
-export type VectorStyleMode = 'colors' | 'patterns' | 'both' | 'none' | 'hidden'
+/** How the legend asks the map to draw a statistic. Values match the Front-End store. */
+export enum VectorStyleMode {
+  Colors = 'colors',
+  Patterns = 'patterns',
+  Both = 'both',
+  None = 'none',
+  Hidden = 'hidden'
+}
 
 const NAVY = '#04203e'
 const DEFAULT_FILL = '#7bbf75'
@@ -140,11 +147,11 @@ export function symbolFor (
   modules: SymbolModules,
   geometryType: string | undefined,
   attributes: Record<string, unknown> | undefined,
-  mode: VectorStyleMode = 'both'
+  mode: VectorStyleMode = VectorStyleMode.Both
 ): unknown | null {
-  if (mode === 'none' || mode === 'hidden') return null
-  const showColor = mode === 'colors' || mode === 'both'
-  const showPattern = mode === 'patterns' || mode === 'both'
+  if (mode === VectorStyleMode.None || mode === VectorStyleMode.Hidden) return null
+  const showColor = mode === VectorStyleMode.Colors || mode === VectorStyleMode.Both
+  const showPattern = mode === VectorStyleMode.Patterns || mode === VectorStyleMode.Both
   const fill = colorOf(attributes?.fill, DEFAULT_FILL)
   const patterned = showPattern && hasPattern(attributes)
   const outline = outlineFor(modules, attributes, geometryType === 'polyline' ? 2 : 1.5)
@@ -280,8 +287,14 @@ export function heatmapField (
   columns.forEach((values, name) => {
     if (best) return
     const extent = extents?.[name]
-    const min = extent && Number.isFinite(extent.min) ? extent.min : Math.min(...values)
-    const max = extent && Number.isFinite(extent.max) ? extent.max : Math.max(...values)
+    const pageMin = Math.min(...values)
+    const pageMax = Math.max(...values)
+    const extentMin = extent && Number.isFinite(extent.min) ? extent.min : pageMin
+    const extentMax = extent && Number.isFinite(extent.max) ? extent.max : pageMax
+    // A service extent that does not vary still leaves the page uncolored.
+    // Use the page when that is the range that actually changes.
+    const min = extentMin === extentMax && pageMin !== pageMax ? pageMin : extentMin
+    const max = extentMin === extentMax && pageMin !== pageMax ? pageMax : extentMax
     const breaks = breaksBetween(min, max)
     if (!breaks.length) return
     best = {
@@ -299,8 +312,8 @@ function heatmapAttributes (paint: HeatmapPaint, value: number, mode: VectorStyl
   let band = 0
   while (band < paint.breaks.length && value >= paint.breaks[band]) band += 1
   const colors = HEATMAP_RAMPS[paint.paletteIndex] || HEATMAP_RAMPS[0]
-  const showColor = mode === 'colors' || mode === 'both'
-  const showPattern = mode === 'patterns' || mode === 'both'
+  const showColor = mode === VectorStyleMode.Colors || mode === VectorStyleMode.Both
+  const showPattern = mode === VectorStyleMode.Patterns || mode === VectorStyleMode.Both
   const attributes: Record<string, unknown> = {
     fill: showColor ? colors[Math.min(band, colors.length - 1)] : '#ffffff',
     stroke: NAVY,
@@ -349,16 +362,18 @@ export function applyAudiomSymbols (
   layer: SymbolLayer & { geometryType?: string, features?: SymbolFeature[] },
   modules: SymbolModules,
   features: SymbolFeature[] = layer.features || [],
-  mode: VectorStyleMode = 'both',
+  mode: VectorStyleMode = VectorStyleMode.Both,
   field?: string,
   extents?: Record<string, { min: number, max: number }>,
   paletteIndex?: number,
   propertyOrder?: string[]
 ): boolean {
-  if (!layer || mode === 'none' || mode === 'hidden') return false
+  if (!layer || mode === VectorStyleMode.None || mode === VectorStyleMode.Hidden) return false
   // A host heatmap renderer already draws the surface. Replacing it with
-  // polygon fills would erase that draw.
-  if (layer.renderer?.type === 'heatmap') return false
+  // polygon fills would erase that draw. An Audiom class-breaks renderer is
+  // not that host: mode toggles have to rebuild it.
+  const current = layer.renderer
+  if (current?.type === 'heatmap' && layer.__audiomOriginalRenderer === undefined) return false
   // A previous paint saved the host renderer. Keep that copy. Assigning it
   // back here is the flash of the original Esri colors between paints.
   // Style keys win. Otherwise color a varying numeric field with class
@@ -366,7 +381,13 @@ export function applyAudiomSymbols (
   // object-id expression.
   const styled = features.filter((feature) => featureIsStyled(feature.attributes || {}))
   if (!styled.length) {
-    const paint = heatmapField(features, field, extents, paletteIndex, propertyOrder)
+    let paint = heatmapField(features, field, extents, paletteIndex, propertyOrder)
+    // The requested field can be a placeholder, or a column that does not
+    // vary. Either makes this paint return false and leave the host renderer.
+    // Fall back to the first varying measure so the first load still draws.
+    if (!paint && field) {
+      paint = heatmapField(features, undefined, extents, paletteIndex, propertyOrder)
+    }
     const renderer = paint ? classBreaksFor(modules, layer.geometryType, paint, mode) : null
     if (!renderer) return false
     if (layer.__audiomOriginalRenderer === undefined) {

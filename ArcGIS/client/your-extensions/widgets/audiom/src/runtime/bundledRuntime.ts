@@ -16,7 +16,7 @@ import {
   createInProcessRuntime,
   type InProcessRuntime
 } from '../../../../shared/audiom-runtime/src/factory'
-import { applyAudiomSymbols, restoreAudiomSymbols, type SymbolLayer, type SymbolModules, type VectorStyleMode } from './audiomSymbols'
+import { applyAudiomSymbols, restoreAudiomSymbols, VectorStyleMode, type SymbolLayer, type SymbolModules } from './audiomSymbols'
 import { snapshotFeaturesFromMapView, type SnapshotLayer, type SnapshotMapView } from './mapSnapshot'
 import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
 import { showAvatar, type MountedMapSurface } from './esriMapSurface'
@@ -208,7 +208,7 @@ export const bundledSelection = SelectionOp.Replace
 export async function paintAudiomStyles (
   jimuMapView: SnapshotMapView | undefined,
   snapshot?: MapSnapshot,
-  mode: VectorStyleMode = 'both',
+  mode: VectorStyleMode = VectorStyleMode.Both,
   field?: string,
   paletteIndex?: number,
   propertyOrder?: string[]

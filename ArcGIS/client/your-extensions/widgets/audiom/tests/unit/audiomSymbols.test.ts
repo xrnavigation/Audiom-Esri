@@ -1,4 +1,4 @@
-import { applyAudiomSymbols, colorWithOpacity, heatmapField, restoreAudiomSymbols, styleKey, symbolFor, patternTileUrl } from '../../src/runtime/audiomSymbols'
+import { applyAudiomSymbols, colorWithOpacity, heatmapField, restoreAudiomSymbols, styleKey, symbolFor, patternTileUrl, VectorStyleMode } from '../../src/runtime/audiomSymbols'
 
 class FakeSymbol {
   properties: unknown
@@ -66,11 +66,11 @@ describe('audiom symbols', () => {
     const patterned = symbolFor(modules, 'polygon', {
       fill: '#ff0000',
       'fill-pattern': 'dot-pattern'
-    }, 'patterns') as FakeSymbol
+    }, VectorStyleMode.Patterns) as FakeSymbol
     expect((patterned.properties as { url?: string }).url).toBe(patternTileUrl('dot-pattern'))
     expect((patterned.properties as { color?: string }).color).toBeUndefined()
-    expect(symbolFor(modules, 'polygon', { fill: '#ff0000' }, 'none')).toBeNull()
-    expect(symbolFor(modules, 'polygon', { fill: '#ff0000' }, 'hidden')).toBeNull()
+    expect(symbolFor(modules, 'polygon', { fill: '#ff0000' }, VectorStyleMode.None)).toBeNull()
+    expect(symbolFor(modules, 'polygon', { fill: '#ff0000' }, VectorStyleMode.Hidden)).toBeNull()
   })
 
   it('saves the host renderer and restores it', () => {
@@ -97,7 +97,7 @@ describe('audiom symbols', () => {
     }))
     const layer = { geometryType: 'polygon', objectIdField: 'OBJECTID', renderer: host, features }
     expect(heatmapField(features)?.field).toBe('percent')
-    expect(applyAudiomSymbols(layer, modules, features, 'both')).toBe(true)
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Both)).toBe(true)
     expect(layer.renderer).not.toBe(host)
     const painted = layer.renderer as FakeSymbol
     const properties = painted.properties as {
@@ -135,6 +135,64 @@ describe('audiom symbols', () => {
     }
     expect(applyAudiomSymbols(layer, modules, layer.features)).toBe(false)
     expect(layer.renderer).toBe(host)
+  })
+
+  it('rebuilds class breaks when the pattern or color mode changes', () => {
+    const features = [1, 2, 3, 4, 5].map((value) => ({
+      attributes: { OBJECTID: value, percent: value * 10 }
+    }))
+    const layer = {
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      renderer: { kind: 'host', type: 'simple' },
+      features
+    }
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent')).toBe(true)
+    const colors = layer.renderer as FakeSymbol
+    const colorSymbol = (colors.properties as {
+      classBreakInfos: Array<{ symbol: FakeSymbol }>
+    }).classBreakInfos[0].symbol
+    expect((colorSymbol.properties as { url?: string }).url).toBeUndefined()
+    expect((colorSymbol.properties as { color?: string }).color).toBeTruthy()
+
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Patterns, 'percent')).toBe(true)
+    const patterns = layer.renderer as FakeSymbol
+    expect(patterns).not.toBe(colors)
+    const patternSymbol = (patterns.properties as {
+      classBreakInfos: Array<{ symbol: FakeSymbol }>
+    }).classBreakInfos[0].symbol
+    expect(String((patternSymbol.properties as { url?: string }).url)).toContain('svg')
+    expect((patternSymbol.properties as { color?: string }).color).toBeUndefined()
+  })
+
+  it('paints a varying measure when the requested field is missing or flat', () => {
+    const features = [1, 2, 3, 4, 5].map((value) => ({
+      attributes: { OBJECTID: value, percent: value * 10, code: 1 }
+    }))
+    const layer = {
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      renderer: { kind: 'host', type: 'simple' },
+      features
+    }
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'casesPerOneMillion')).toBe(true)
+    expect((layer.renderer as FakeSymbol).properties).toMatchObject({ field: 'percent' })
+
+    const flat = {
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      renderer: { kind: 'host', type: 'simple' },
+      features
+    }
+    expect(applyAudiomSymbols(flat, modules, features, VectorStyleMode.Patterns, 'code', {
+      code: { min: 1, max: 1 }
+    })).toBe(true)
+    const painted = flat.renderer as FakeSymbol
+    expect(painted.properties).toMatchObject({ field: 'percent' })
+    const symbol = (painted.properties as {
+      classBreakInfos: Array<{ symbol: FakeSymbol }>
+    }).classBreakInfos[0].symbol
+    expect(String((symbol.properties as { url?: string }).url)).toContain('svg')
   })
 
   it('leaves a layer with no Audiom style keys untouched', () => {

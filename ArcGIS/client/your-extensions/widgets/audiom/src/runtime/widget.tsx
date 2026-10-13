@@ -14,6 +14,7 @@ import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
 
 import { bundledFocusTarget, bundledStatus, paintAudiomStyles, restoreAudiomStyles, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
+import { VectorStyleMode } from './audiomSymbols'
 import { snapshotFeaturesFromMapView, type SnapshotMapTypeHint } from './mapSnapshot'
 import { resolveSoundpackUrl } from './soundpackUrl'
 import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
@@ -32,6 +33,27 @@ const { useState, useEffect, useRef } = React
 const SKIPPED_MEASURE_FIELDS = new Set([
   'objectid', 'fid', 'oid', 'object_id', 'globalid', 'shape__length', 'shape__area'
 ])
+
+const PAINT_STYLE_MODES = new Set<string>(Object.values(VectorStyleMode))
+
+/**
+ * The legend writes vectorStyleMode on the singleton the menus inject.
+ * The session world keeps a copy of that store only when it was constructed
+ * with it. Read the injected store first so a toggle is the mode that paints.
+ */
+function paintStyleMode (
+  program: {
+    world?: {
+      settings?: { vectorStyleMode?: VectorStyleMode }
+      rootStore?: { settings?: { vectorStyleMode?: VectorStyleMode } }
+    }
+  } | null
+): VectorStyleMode {
+  const world = program?.world
+  const mode = world?.rootStore?.settings?.vectorStyleMode
+    || world?.settings?.vectorStyleMode
+  return mode && PAINT_STYLE_MODES.has(mode) ? mode : VectorStyleMode.Colors
+}
 
 /** First numeric service field the legend can select. Ids and geometry are not measures. */
 function firstMeasureField (
@@ -780,27 +802,31 @@ function useBundledRuntime (
     let layerHandle: { remove?: () => void } | undefined
     let latest: MapSnapshot | undefined
     const view = { map }
-    const paintChoice = async (snapshot: MapSnapshot, startup = false) => {
+    const paintChoice = async (snapshot: MapSnapshot) => {
       const program = handle.program as {
         world?: {
           statistics?: { field?: string, fields?: Array<{ field?: string }> }
           metadata?: { propertyOrder?: string[] }
-          rootStore?: { settings?: { vectorStyleMode?: 'colors' | 'patterns' | 'both' | 'none' } }
+          settings?: { vectorStyleMode?: VectorStyleMode }
+          rootStore?: { settings?: { vectorStyleMode?: VectorStyleMode } }
         }
       } | null
-      // The legend's field. Startup has no selection yet, so use the same
-      // first measure the legend shows. A missing field paints a different ramp.
-      const chosen = startup
-        ? firstMeasureField((snapshot as MapSnapshot & {
-          queriedLayers?: Array<{ fields?: Array<{ name?: string, type?: string }> }>
-        }).queriedLayers)
-        : program?.world?.statistics?.field
-      const mode = program?.world?.rootStore?.settings?.vectorStyleMode || 'both'
+      // The legend's field. A placeholder such as casesPerOneMillion is not in
+      // the catalog, so it is not a selection. Fall back to the first measure
+      // the legend can show. A missing field paints a different ramp.
+      const statistics = program?.world?.statistics
+      const published = statistics?.fields?.some((item) => item.field === statistics.field)
+        ? statistics.field
+        : undefined
+      const chosen = published || firstMeasureField((snapshot as MapSnapshot & {
+        queriedLayers?: Array<{ fields?: Array<{ name?: string, type?: string }> }>
+      }).queriedLayers)
+      // The legend toggles the injected store, not a private world copy.
+      // Default is colors, matching SettingsStore, not both.
+      const mode = paintStyleMode(program)
       // The legend counts the snapshot property keys, not raw Esri attributes.
       // Pass that same list so the map cannot pick a different ramp.
-      const propertyNames = startup
-        ? legendPropertyOrder(snapshot)
-        : program?.world?.metadata?.propertyOrder || legendPropertyOrder(snapshot)
+      const propertyNames = program?.world?.metadata?.propertyOrder || legendPropertyOrder(snapshot)
       const catalogIndex = chosen
         ? program?.world?.statistics?.fields?.findIndex((item) => item.field === chosen) ?? 0
         : 0
@@ -834,15 +860,16 @@ function useBundledRuntime (
       const program = handle.program as {
         applySnapshot?: (snapshot: MapSnapshot) => Promise<unknown>
       } | null
-      // The load paint is colors with no field, before apply. A field here
-      // is the regression: styles stayed off until the statistic changed.
-      await paintChoice(snapshot, true)
+      // Paint before publish. The publish can reject, and waiting on it left
+      // the host renderer in place so the first load had no Audiom colors.
+      // The mode is already on the settings store, so this paint honors it.
+      await paintChoice(snapshot)
       if (cancelled) return
       if (program?.applySnapshot) await program.applySnapshot(snapshot)
       else await handle.runtime.replaceSources(snapshot, 1)
       if (cancelled) return
-      // The load paint has no field, so its ramp is not the legend's.
-      // Paint the legend's field once the snapshot has published that index.
+      // Publish can replace the placeholder field with the legend's statistic.
+      // Paint that field too. A failed paint keeps the renderer just applied.
       await paintChoice(snapshot)
     }
     void apply().catch((error: unknown) => {
