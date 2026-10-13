@@ -30,9 +30,7 @@ import type { ReportedAvatar } from './reportedAvatar'
 
 const { useState, useEffect, useRef } = React
 
-const SKIPPED_MEASURE_FIELDS = new Set([
-  'objectid', 'fid', 'oid', 'object_id', 'globalid', 'shape__length', 'shape__area'
-])
+
 
 const PAINT_STYLE_MODES = new Set<string>(Object.values(VectorStyleMode))
 
@@ -55,47 +53,74 @@ function paintStyleMode (
   return mode && PAINT_STYLE_MODES.has(mode) ? mode : VectorStyleMode.Colors
 }
 
-/** First numeric service field the legend can select. Ids and geometry are not measures. */
-function firstMeasureField (
-  layers: Array<{ fields?: Array<{ name?: string, type?: string }> }> | undefined
-): string | undefined {
-  for (const layer of layers || []) {
-    for (const field of layer.fields || []) {
-      const name = field.name
-      if (!name) continue
-      const key = name.toLowerCase()
-      if (SKIPPED_MEASURE_FIELDS.has(key) || key.startsWith('shape__')) continue
-      const type = (field.type || '').toLowerCase()
-      if (
-        type.includes('integer') || type.includes('double') || type.includes('single') ||
-        type.includes('float') || type === 'number' || type === 'long'
-      ) return name
-    }
+function numericFieldType (type: string | undefined): boolean {
+  const key = (type || '').toLowerCase()
+  return key.includes('integer') || key.includes('double') || key.includes('single') ||
+    key.includes('float') || key === 'number' || key === 'oid' ||
+    key === 'small-integer' || key === 'long'
+}
+
+/** Same exclusions as the legend dropdown. Codes and labels are not statistics. */
+function isMeasureField (field: string): boolean {
+  const key = field.toLowerCase()
+  if (
+    key === 'objectid' || key === 'fid' || key === 'audiomstyle' || key === 'id' ||
+    key === 'name' || key === 'state' || key === 'updated' || key === 'ruletype' ||
+    key === 'rulename' || key === 'level' || key === 'origid'
+  ) return false
+  if (
+    key === 'shape__length' || key === 'shape__area' || key === 'shape_length' ||
+    key === 'shape_area' || key === 'st_area(shape)' || key === 'st_length(shape)' ||
+    key.endsWith('_length') || key.endsWith('_area')
+  ) return false
+  if (key.startsWith('label') || key.includes('zip') || key.endsWith('code') || key.endsWith('_id')) {
+    return false
   }
-  return undefined
+  return true
+}
+
+function columnVaries (
+  features: Array<{ attributes?: Record<string, unknown> }> | undefined,
+  field: string
+): boolean {
+  let seen: number | undefined
+  for (const feature of features || []) {
+    const value = feature.attributes?.[field]
+    const parsed = typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim() ? Number(value) : NaN
+    if (!Number.isFinite(parsed)) continue
+    if (seen !== undefined && seen !== parsed) return true
+    seen = parsed
+  }
+  return false
 }
 
 /**
- * The legend's ramp index is this key order, not the raw Esri attribute order.
- * Keep it identical to the snapshot property list the legend reads.
+ * Statistics the legend dropdown lists: numeric service fields that vary,
+ * in service order. The first of these is ramp 0.
  */
-function legendPropertyOrder (snapshot: MapSnapshot): string[] {
-  const record = snapshot.records.find((item) => item.navigable && item.geometry)
-  if (record) {
-    return Object.keys({
-      id: record.key.recordId,
-      name: String(record.attributes.name ?? record.key.recordId),
-      ruleType: String(record.attributes.ruleType ?? 'feature'),
-      _sourceName: record.sourceId,
-      ...record.attributes
-    })
+function catalogFields (
+  layers: Array<{
+    fields?: Array<{ name?: string, type?: string }>
+    features?: Array<{ attributes?: Record<string, unknown> }>
+  }> | undefined
+): string[] {
+  const seen = new Set<string>()
+  const names: string[] = []
+  for (const layer of layers || []) {
+    for (const field of layer.fields || []) {
+      const name = field.name
+      if (!name || seen.has(name) || !numericFieldType(field.type) || !isMeasureField(name)) continue
+      if (!columnVaries(layer.features, name)) continue
+      seen.add(name)
+      names.push(name)
+    }
   }
-  const queried = (snapshot as MapSnapshot & {
-    queriedLayers?: Array<{ features?: Array<{ attributes?: Record<string, unknown> }> }>
-  }).queriedLayers
-  const attributes = queried?.find((layer) => layer.features?.length)?.features?.[0]?.attributes
-  return attributes ? Object.keys(attributes) : []
+  return names
 }
+
+
 
 // Typed styles with full key/value validation
 const styles = {
@@ -806,43 +831,40 @@ function useBundledRuntime (
       const program = handle.program as {
         world?: {
           statistics?: { field?: string, fields?: Array<{ field?: string }> }
-          metadata?: { propertyOrder?: string[] }
           settings?: { vectorStyleMode?: VectorStyleMode }
           rootStore?: { settings?: { vectorStyleMode?: VectorStyleMode } }
         }
       } | null
       // The legend's field. A placeholder such as casesPerOneMillion is not in
-      // the catalog, so it is not a selection. Fall back to the first measure
-      // the legend can show. A missing field paints a different ramp.
+      // the catalog, so it is not a selection. Count only columns the dropdown
+      // lists. The first of those is ramp 0 on the first paint and after a
+      // statistic change.
       const statistics = program?.world?.statistics
-      const published = statistics?.fields?.some((item) => item.field === statistics.field)
-        ? statistics.field
-        : undefined
-      const chosen = published || firstMeasureField((snapshot as MapSnapshot & {
-        queriedLayers?: Array<{ fields?: Array<{ name?: string, type?: string }> }>
-      }).queriedLayers)
+      const queried = (snapshot as MapSnapshot & {
+        queriedLayers?: Array<{
+          fields?: Array<{ name?: string, type?: string }>
+          features?: Array<{ attributes?: Record<string, unknown> }>
+        }>
+      }).queriedLayers
+      const known = statistics?.fields?.map((item) => item.field)
+      const varying = catalogFields(queried)
+      const published = (known?.length ? known : varying).filter((name) => varying.includes(name))
+      const chosen = published.includes(statistics?.field || '')
+        ? statistics?.field
+        : published[0]
       // The legend toggles the injected store, not a private world copy.
       // Default is colors, matching SettingsStore, not both.
       const mode = paintStyleMode(program)
-      // The legend counts the snapshot property keys, not raw Esri attributes.
-      // Pass that same list so the map cannot pick a different ramp.
-      const propertyNames = program?.world?.metadata?.propertyOrder || legendPropertyOrder(snapshot)
-      const catalogIndex = chosen
-        ? program?.world?.statistics?.fields?.findIndex((item) => item.field === chosen) ?? 0
-        : 0
-      const fromProperties = chosen ? propertyNames.indexOf(chosen) : -1
-      const paletteIndex = !chosen
-        ? undefined
-        : fromProperties >= 0
-          ? fromProperties
-          : propertyNames.length + Math.max(0, catalogIndex)
+      // The embedded map counts the statistic's place in the dropdown.
+      // The first statistic is ramp 0. A property-key index paints another ramp.
+      const catalogIndex = chosen ? published.indexOf(chosen) : -1
+      const paletteIndex = catalogIndex >= 0 ? catalogIndex : 0
       await paintAudiomStyles(
         view,
         snapshot,
         mode,
         chosen,
-        paletteIndex != null && paletteIndex >= 0 ? paletteIndex : undefined,
-        propertyNames
+        paletteIndex
       )
     }
     const apply = async () => {

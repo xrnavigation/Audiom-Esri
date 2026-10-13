@@ -245,18 +245,11 @@ function breaksBetween (low: number, high: number): number[] {
 }
 
 function paletteIndexFor (
-  features: SymbolFeature[],
-  field: string,
-  requested?: number,
-  propertyOrder?: string[]
+  requested?: number
 ): number {
-  if (requested != null && Number.isFinite(requested)) {
-    return ((requested % HEATMAP_RAMPS.length) + HEATMAP_RAMPS.length) % HEATMAP_RAMPS.length
-  }
-  // Raw attribute order is not the legend's order. Use the shared list.
-  const names = propertyOrder?.length ? propertyOrder : Object.keys(features[0]?.attributes || {})
-  const index = names.indexOf(field)
-  return index < 0 ? 0 : index % HEATMAP_RAMPS.length
+  // The dropdown index. Missing means the first statistic, which is ramp 0.
+  if (requested == null || !Number.isFinite(requested)) return 0
+  return ((requested % HEATMAP_RAMPS.length) + HEATMAP_RAMPS.length) % HEATMAP_RAMPS.length
 }
 
 /**
@@ -267,8 +260,7 @@ export function heatmapField (
   features: SymbolFeature[],
   field?: string,
   extents?: Record<string, { min: number, max: number }>,
-  paletteIndex?: number,
-  propertyOrder?: string[]
+  paletteIndex?: number
 ): HeatmapPaint | null {
   const columns = new Map<string, number[]>()
   for (const feature of features) {
@@ -302,7 +294,7 @@ export function heatmapField (
       breaks,
       min,
       max,
-      paletteIndex: paletteIndexFor(features, name, paletteIndex, propertyOrder)
+      paletteIndex: paletteIndexFor(paletteIndex)
     }
   })
   return best
@@ -365,8 +357,7 @@ export function applyAudiomSymbols (
   mode: VectorStyleMode = VectorStyleMode.Both,
   field?: string,
   extents?: Record<string, { min: number, max: number }>,
-  paletteIndex?: number,
-  propertyOrder?: string[]
+  paletteIndex?: number
 ): boolean {
   if (!layer || mode === VectorStyleMode.None || mode === VectorStyleMode.Hidden) return false
   // A host heatmap renderer already draws the surface. Replacing it with
@@ -381,12 +372,12 @@ export function applyAudiomSymbols (
   // object-id expression.
   const styled = features.filter((feature) => featureIsStyled(feature.attributes || {}))
   if (!styled.length) {
-    let paint = heatmapField(features, field, extents, paletteIndex, propertyOrder)
+    let paint = heatmapField(features, field, extents, paletteIndex)
     // The requested field can be a placeholder, or a column that does not
     // vary. Either makes this paint return false and leave the host renderer.
     // Fall back to the first varying measure so the first load still draws.
     if (!paint && field) {
-      paint = heatmapField(features, undefined, extents, paletteIndex, propertyOrder)
+      paint = heatmapField(features, undefined, extents, paletteIndex)
     }
     const renderer = paint ? classBreaksFor(modules, layer.geometryType, paint, mode) : null
     if (!renderer) return false

@@ -108,8 +108,34 @@ describe('audiom symbols', () => {
     expect(properties.field).toBe('percent')
     expect(properties.valueExpression).toBeUndefined()
     expect(properties.classBreakInfos).toHaveLength(5)
+    const first = properties.classBreakInfos?.[0].symbol.properties as { url?: string }
+    const last = properties.classBreakInfos?.[4].symbol.properties as { url?: string }
+    expect(Buffer.from(String(first.url).split(',')[1], 'base64').toString()).toContain('#edf8fb')
+    expect(Buffer.from(String(last.url).split(',')[1], 'base64').toString()).toContain('#810f7c')
     expect(restoreAudiomSymbols(layer)).toBe(true)
     expect(layer.renderer).toBe(host)
+  })
+
+  it('uses the dropdown index for the ramp, not the property-key index', () => {
+    const features = [1, 2, 3, 4, 5].map((value) => ({
+      attributes: { OBJECTID: value, parcel_int: value, total_percent: value * 10 }
+    }))
+    const layer = {
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      renderer: { kind: 'host', type: 'simple' },
+      features
+    }
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'total_percent', undefined, 1)).toBe(true)
+    const painted = layer.renderer as FakeSymbol
+    const infos = (painted.properties as { classBreakInfos?: Array<{ symbol: FakeSymbol }> }).classBreakInfos
+    expect((infos?.[0].symbol.properties as { color?: string }).color).toBe('#fafa6e')
+    expect((infos?.[4].symbol.properties as { color?: string }).color).toBe('#2a4858')
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'parcel_int', undefined, 0)).toBe(true)
+    const firstStatistic = layer.renderer as FakeSymbol
+    const firstInfos = (firstStatistic.properties as { classBreakInfos?: Array<{ symbol: FakeSymbol }> }).classBreakInfos
+    expect((firstInfos?.[0].symbol.properties as { color?: string }).color).toBe('#edf8fb')
+    expect((firstInfos?.[4].symbol.properties as { color?: string }).color).toBe('#810f7c')
   })
 
   it('keeps a saved host renderer when a later paint has nothing to draw', () => {

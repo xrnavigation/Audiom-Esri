@@ -210,8 +210,7 @@ export async function paintAudiomStyles (
   snapshot?: MapSnapshot,
   mode: VectorStyleMode = VectorStyleMode.Both,
   field?: string,
-  paletteIndex?: number,
-  propertyOrder?: string[]
+  paletteIndex?: number
 ): Promise<void> {
   const layers = jimuMapView?.view?.map?.allLayers || jimuMapView?.map?.allLayers
   if (!layers || !snapshot) return
@@ -252,7 +251,7 @@ export async function paintAudiomStyles (
       paintable.objectIdField = matched.objectIdField
     }
     const extents = (matched as { fieldExtents?: Record<string, { min: number, max: number }> } | undefined)?.fieldExtents
-    applyAudiomSymbols(paintable, modules, features, mode, field, extents, paletteIndex, propertyOrder)
+    applyAudiomSymbols(paintable, modules, features, mode, field, extents, paletteIndex)
   })
 }
 
