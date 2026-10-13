@@ -919,12 +919,14 @@ function useBundledRuntime (
       if (cancelled) return
       const snapshot = await snapshotFeaturesFromMapView(view, instanceId, mapTypes)
       if (cancelled) return
+      // Record the snapshot before the extent lookup so a pattern/color
+      // repaint has it even while that async step is still running.
+      latest = snapshot
       // The navigation wall is the whole drawn map, not the bbox of the
       // features that loaded. Publish the view extent so the world fences to it.
       const extent = await geographicExtentOf(drawnView)
       if (cancelled) return
       if (extent) (snapshot as MapSnapshot & { extent?: [number, number, number, number] }).extent = extent
-      latest = snapshot
       const listed = snapshot.records.filter((record) => record.navigable).length
       const names = snapshot.sources.map((source) => source.displayName).join(', ')
       // eslint-disable-next-line no-console
