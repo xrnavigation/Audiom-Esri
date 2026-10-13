@@ -1,4 +1,4 @@
-import { type AllWidgetProps, React, ReactRedux, AppMode, getAppStore, type IMState, type ImmutableObject } from 'jimu-core'
+﻿import { type AllWidgetProps, React, ReactRedux, AppMode, getAppStore, loadArcGISJSAPIModules, type IMState, type ImmutableObject } from 'jimu-core'
 import { audiomConfigToEmbedConfig } from '../utils/mapUtils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { serializeLockedForDiff } from '../utils/sourceConfigUtils'
@@ -758,6 +758,50 @@ function projectEmbedPoint (
   )
 }
 
+/** The slice of a view extent the navigation wall needs. */
+interface ViewExtent {
+  xmin?: number
+  ymin?: number
+  xmax?: number
+  ymax?: number
+  spatialReference?: { wkid?: number, isWGS84?: boolean, isWebMercator?: boolean }
+}
+
+/**
+ * The drawn view extent as [west, south, east, north] in longitude and
+ * latitude. The projection comes from the view's own spatial reference,
+ * converted by the ArcGIS API, so no coordinate math is hard-coded here.
+ */
+async function geographicExtentOf (
+  view: { extent?: ViewExtent } | undefined
+): Promise<[number, number, number, number] | undefined> {
+  const extent = view?.extent
+  if (!extent) return undefined
+  const { xmin, ymin, xmax, ymax, spatialReference: sr } = extent
+  if (xmin == null || ymin == null || xmax == null || ymax == null) return undefined
+  if (sr?.isWGS84 || sr?.wkid === 4326) return [xmin, ymin, xmax, ymax]
+  if (!(sr?.isWebMercator || sr?.wkid === 102100 || sr?.wkid === 3857 || sr?.wkid === 102113)) {
+    // An unsupported projection is left to the feature bbox fallback.
+    return undefined
+  }
+  try {
+    const [webMercatorUtils] = await loadArcGISJSAPIModules([
+      'esri/geometry/support/webMercatorUtils'
+    ]) as [{
+      webMercatorToGeographic: (geometry: unknown) => {
+        xmin?: number, ymin?: number, xmax?: number, ymax?: number
+      } | null
+    }]
+    const geo = webMercatorUtils.webMercatorToGeographic(extent)
+    if (!geo || geo.xmin == null || geo.ymin == null || geo.xmax == null || geo.ymax == null) {
+      return undefined
+    }
+    return [geo.xmin, geo.ymin, geo.xmax, geo.ymax]
+  } catch {
+    return undefined
+  }
+}
+
 function useBundledRuntime (
   enabled: boolean,
   instanceId: string,
@@ -826,6 +870,7 @@ function useBundledRuntime (
     let cancelled = false
     let layerHandle: { remove?: () => void } | undefined
     let latest: MapSnapshot | undefined
+    const drawnView = (surface?.view || jimuMapView?.view) as { extent?: ViewExtent } | undefined
     const view = { map }
     const paintChoice = async (snapshot: MapSnapshot) => {
       const program = handle.program as {
@@ -874,6 +919,11 @@ function useBundledRuntime (
       if (cancelled) return
       const snapshot = await snapshotFeaturesFromMapView(view, instanceId, mapTypes)
       if (cancelled) return
+      // The navigation wall is the whole drawn map, not the bbox of the
+      // features that loaded. Publish the view extent so the world fences to it.
+      const extent = await geographicExtentOf(drawnView)
+      if (cancelled) return
+      if (extent) (snapshot as MapSnapshot & { extent?: [number, number, number, number] }).extent = extent
       latest = snapshot
       const listed = snapshot.records.filter((record) => record.navigable).length
       const names = snapshot.sources.map((source) => source.displayName).join(', ')
