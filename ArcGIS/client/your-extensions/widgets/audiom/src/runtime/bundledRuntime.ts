@@ -37,6 +37,11 @@ export interface BundledRuntimeHandle {
   program: AudiomProgram | null
   /** The map mounted after this runtime started. Go pans this view. */
   bindSurface?: (surface: MountedMapSurface | null) => void
+  /**
+   * Drop the navigation indicator. True when Audiom accepted the point.
+   * A blocked drop leaves the avatar where it was.
+   */
+  dropAvatar?: (longitude: number, latitude: number) => Promise<boolean>
 }
 
 const applied = (revision = 0): AppliedResult => ({ applied: true, revision })
@@ -117,6 +122,12 @@ export function startBundledRuntime (
   }
   handle.bindSurface = (next) => {
     drawnSurface = next
+  }
+  handle.dropAvatar = async (longitude, latitude) => {
+    const dropped = program?.dropAvatar?.(longitude, latitude) ?? null
+    if (!dropped) return false
+    await handle.runtime.notifyAvatarChanged(dropped)
+    return true
   }
   program = createAudiomProgram({
     instanceId,

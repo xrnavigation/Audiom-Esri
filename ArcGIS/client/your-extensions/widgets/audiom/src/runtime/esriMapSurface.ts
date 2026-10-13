@@ -39,6 +39,7 @@ export interface MountedMapView {
   destroy?: () => void
   goTo?: (target: unknown) => Promise<unknown>
   toScreen?: (point: unknown) => { x?: number, y?: number } | null
+  toMap?: (point: { x: number, y: number }) => { longitude?: number, latitude?: number } | null
   map?: {
     add?: (layer: unknown) => void
     remove?: (layer: unknown) => void
@@ -297,6 +298,33 @@ export async function avatarScreenPoint (
   const x = clamp(projected.x, viewBox.width) + viewBox.left - overlayBox.left
   const y = clamp(projected.y, viewBox.height) + viewBox.top - overlayBox.top
   return { x, y }
+}
+
+/**
+ * Geographic point under a screen position in the compass overlay.
+ * The overlay is a sibling of the view, so the point is shifted into the
+ * view before Esri converts it. Null when the view cannot project it.
+ */
+export function mapPointFromScreen (
+  surface: MountedMapSurface | null,
+  screen: { x: number, y: number }
+): { longitude: number, latitude: number } | null {
+  const view = surface?.view
+  if (!view?.toMap) return null
+  const viewNode = view.container
+  const overlay = viewNode?.parentElement
+  const viewBox = viewNode?.getBoundingClientRect?.()
+  const overlayBox = overlay?.getBoundingClientRect?.()
+  const x = viewBox && overlayBox
+    ? screen.x - (viewBox.left - overlayBox.left)
+    : screen.x
+  const y = viewBox && overlayBox
+    ? screen.y - (viewBox.top - overlayBox.top)
+    : screen.y
+  const mapped = view.toMap({ x, y })
+  if (mapped?.longitude == null || mapped.latitude == null) return null
+  if (!Number.isFinite(mapped.longitude) || !Number.isFinite(mapped.latitude)) return null
+  return { longitude: mapped.longitude, latitude: mapped.latitude }
 }
 
 export function destroyMapSurface (surface: MountedMapSurface | null): void {

@@ -1,7 +1,7 @@
 import { startBundledRuntime } from '../../src/runtime/bundledRuntime'
 import { setAudiomProgram, type AudiomProgram } from '../../src/runtime/audiomProgram'
 import type { AvatarState } from '../../../../shared/audiom-runtime/src/types'
-import { setMapModuleLoader, showAvatar, type MountedMapSurface } from '../../src/runtime/esriMapSurface'
+import { mapPointFromScreen, setMapModuleLoader, showAvatar, type MountedMapSurface } from '../../src/runtime/esriMapSurface'
 import { createInProcessRuntime } from '../../../../shared/audiom-runtime/src/factory'
 
 /** Stand-in for Audiom grid movement. Left and right slide sideways. */
@@ -119,5 +119,72 @@ describe('Audiom avatar', () => {
 
     expect(centers).toEqual([{ center: [-77.45, 38.77] }])
     await handle.runtime.dispose()
+  })
+
+  it('drops the indicator only when Audiom accepts the point', async () => {
+    const drops: Array<[number, number]> = []
+    setAudiomProgram((_options, host) => {
+      const program = gridProgram(host)
+      program.dropAvatar = (longitude, latitude) => {
+        drops.push([longitude, latitude])
+        if (longitude < 0) return null
+        return {
+          position: { longitude, latitude },
+          orientation: 90,
+          visualState: 'grid'
+        }
+      }
+      return program
+    })
+    const centers: unknown[] = []
+    const surface = {
+      view: {
+        map: { layers: { add () {}, remove () {} } },
+        goTo (target: unknown) {
+          centers.push(target)
+          return Promise.resolve()
+        }
+      },
+      ownedMap: true
+    } as unknown as MountedMapSurface
+    const handle = startBundledRuntime('widget-1', undefined, () => undefined, surface)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    centers.length = 0
+
+    await expect(handle.dropAvatar?.(-1, 5)).resolves.toBe(false)
+    expect(handle.avatar?.position).toEqual({ longitude: 10, latitude: 20 })
+    expect(centers).toEqual([])
+
+    await expect(handle.dropAvatar?.(11, 21)).resolves.toBe(true)
+    expect(handle.avatar?.position).toEqual({ longitude: 11, latitude: 21 })
+    expect(handle.avatar?.orientation).toBe(90)
+    expect(centers).toEqual([{ center: [11, 21] }])
+    expect(drops).toEqual([[-1, 5], [11, 21]])
+    await handle.runtime.dispose()
+  })
+
+  it('converts an overlay screen point back into the view before asking Esri', () => {
+    const asked: Array<{ x: number, y: number }> = []
+    const surface = {
+      view: {
+        container: {
+          parentElement: {},
+          getBoundingClientRect: () => ({ left: 20, top: 30, width: 100, height: 100 })
+        },
+        toMap (point: { x: number, y: number }) {
+          asked.push(point)
+          return { longitude: point.x, latitude: point.y }
+        }
+      }
+    } as unknown as MountedMapSurface
+    const parent = surface.view.container?.parentElement as { getBoundingClientRect?: () => { left: number, top: number } }
+    parent.getBoundingClientRect = () => ({ left: 0, top: 0 })
+
+    expect(mapPointFromScreen(surface, { x: 50, y: 70 })).toEqual({
+      longitude: 30,
+      latitude: 40
+    })
+    expect(asked).toEqual([{ x: 30, y: 40 }])
+    expect(mapPointFromScreen(null, { x: 1, y: 1 })).toBeNull()
   })
 })

@@ -29,6 +29,11 @@ export interface AudiomProgram {
   /** Audiom's current avatar. Present as soon as the program exists. */
   avatarState?(): AvatarState
   moveAvatar(direction: string): AvatarState
+  /**
+   * Drop the indicator at a longitude and latitude. Null when Audiom
+   * blocked the move, same as a marker drop against a wall.
+   */
+  dropAvatar?(longitude: number, latitude: number): AvatarState | null
   /** True when Audiom has a soundpack the browser has not unlocked. */
   audioLocked?(): boolean
   /** Resume Audiom's audio context from a user gesture. */

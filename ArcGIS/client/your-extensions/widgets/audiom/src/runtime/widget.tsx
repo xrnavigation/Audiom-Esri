@@ -22,6 +22,7 @@ import { StepSize, StepSizeUnit } from '../../../../shared/audiom-client/StepSiz
 import {
   avatarScreenPoint,
   destroyMapSurface,
+  mapPointFromScreen,
   mountEsriMap,
   showAvatar,
   type MountedMapSurface
@@ -300,6 +301,9 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
             onMove={runtimeLocation === RuntimeLocation.Bundled
               ? (direction) => { void bundledHandle?.runtime.moveAvatar(direction) }
               : undefined}
+            onDrop={runtimeLocation === RuntimeLocation.Bundled
+              ? (longitude, latitude) => bundledHandle?.dropAvatar?.(longitude, latitude) ?? Promise.resolve(false)
+              : undefined}
             onSelect={runtimeLocation === RuntimeLocation.Bundled
               ? () => { void bundledHandle?.runtime.focusRuntime(bundledFocusTarget) }
               : undefined}
@@ -378,6 +382,7 @@ function EsriMapSurface (props: {
   headerHeight?: number
   avatar?: ReportedAvatar | null
   onMove?: (direction: string) => void
+  onDrop?: (longitude: number, latitude: number) => Promise<boolean>
   onSelect?: () => void
   onScreen?: (point: { x: number, y: number } | null) => void
   onSurface?: (surface: MountedMapSurface | null) => void
@@ -385,8 +390,10 @@ function EsriMapSurface (props: {
   const container = useRef<HTMLDivElement>(null)
   const onSurface = props.onSurface
   const onScreen = props.onScreen
+  const onDrop = props.onDrop
   const onSelect = props.onSelect
   const [screen, setScreen] = useState<{ x: number, y: number } | null>(null)
+  const [dragScreen, setDragScreen] = useState<{ x: number, y: number } | null>(null)
   const [surfaceReady, setSurfaceReady] = useState(false)
   const avatar = props.avatar
   // The compass is the configured center until Audiom reports a position.
@@ -503,9 +510,26 @@ function EsriMapSurface (props: {
       />
       <AudiomIndicator
         avatar={placed}
-        screen={screen}
+        screen={dragScreen ?? screen}
+        draggable={Boolean(onDrop)}
         onMove={props.onMove}
         onSelect={onSelect}
+        onDragStart={() => {
+          if (screen) setDragScreen(screen)
+        }}
+        onDrag={(point) => { setDragScreen(point) }}
+        onDragEnd={(point) => {
+          const node = container.current as { __audiomSurface?: MountedMapSurface } | null
+          const geographic = mapPointFromScreen(node?.__audiomSurface ?? null, point)
+          if (!geographic || !onDrop) {
+            setDragScreen(null)
+            return
+          }
+          void onDrop(geographic.longitude, geographic.latitude).finally(() => {
+            setDragScreen(null)
+          })
+        }}
+        onDragCancel={() => { setDragScreen(null) }}
       />
     </div>
   )
@@ -515,16 +539,83 @@ function EsriMapSurface (props: {
  * Audiom's compass, drawn by this widget's React. The component cannot be
  * mounted inside the map div: Esri replaces that node's children.
  * Paths are Audiom's VisualCursor paths.
+ * Bundled mode drags this button the way Audiom drags its marker. The
+ * avatar does not move until the pointer is released.
  */
 function AudiomIndicator (props: {
   avatar: ReportedAvatar | null
   screen: { x: number, y: number } | null
+  draggable?: boolean
   onMove?: (direction: string) => void
   onSelect?: () => void
+  onDragStart?: () => void
+  onDrag?: (point: { x: number, y: number }) => void
+  onDragEnd?: (point: { x: number, y: number }) => void
+  onDragCancel?: () => void
 }) {
   const avatar = props.avatar
   const screen = props.screen
+  const button = useRef<HTMLButtonElement>(null)
+  const drag = useRef<{
+    pointerId: number
+    originX: number
+    originY: number
+    grabX: number
+    grabY: number
+    moved: boolean
+  } | null>(null)
   if (!avatar || !screen) return null
+  const overlayPoint = (event: { clientX: number, clientY: number }): { x: number, y: number } | null => {
+    const overlay = button.current?.offsetParent
+    if (!(overlay instanceof HTMLElement)) return null
+    const box = overlay.getBoundingClientRect()
+    return { x: event.clientX - box.left, y: event.clientY - box.top }
+  }
+  const onPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!props.draggable || event.button !== 0) return
+    const point = overlayPoint(event)
+    drag.current = {
+      pointerId: event.pointerId,
+      originX: event.clientX,
+      originY: event.clientY,
+      grabX: point ? point.x - screen.x : 0,
+      grabY: point ? point.y - screen.y : 0,
+      moved: false
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    event.stopPropagation()
+  }
+  const onPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const active = drag.current
+    if (!active || active.pointerId !== event.pointerId) return
+    const dx = event.clientX - active.originX
+    const dy = event.clientY - active.originY
+    if (!active.moved && Math.hypot(dx, dy) < 4) return
+    if (!active.moved) {
+      active.moved = true
+      props.onDragStart?.()
+    }
+    const point = overlayPoint(event)
+    if (point && active) props.onDrag?.({ x: point.x - active.grabX, y: point.y - active.grabY })
+  }
+  const finishDrag = (event: React.PointerEvent<HTMLButtonElement>, commit: boolean) => {
+    const active = drag.current
+    if (!active || active.pointerId !== event.pointerId) return
+    drag.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    if (!active.moved) {
+      if (commit) props.onSelect?.()
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    const point = overlayPoint(event)
+    if (commit && point && active) {
+      props.onDragEnd?.({ x: point.x - active.grabX, y: point.y - active.grabY })
+    } else props.onDragCancel?.()
+  }
   const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     const direction = movementDirection(event.key)
     if (!direction || !props.onMove) return
@@ -553,12 +644,21 @@ function AudiomIndicator (props: {
   return (
     <>
       <button
+        ref={button}
         type="button"
         className="audiom-cursor"
         aria-label="Audiom navigation indicator"
         onKeyDown={onKeyDown}
         onWheel={onWheel}
-        onClick={() => { props.onSelect?.() }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={(event) => { finishDrag(event, true) }}
+        onPointerCancel={(event) => { finishDrag(event, false) }}
+        onClick={() => {
+          // Keyboard activation has no pointer. A pointer click is the
+          // pointerup above; handling both would select twice.
+          if (!props.draggable) props.onSelect?.()
+        }}
         style={{
           position: 'absolute',
           left: screen.x,
@@ -572,7 +672,8 @@ function AudiomIndicator (props: {
           borderRadius: '50%',
           background: 'transparent',
           zIndex: 30,
-          cursor: 'pointer',
+          cursor: props.draggable ? 'grab' : 'pointer',
+          touchAction: 'none',
           transform: `rotate(${avatar.heading}deg)`
         }}
       >
