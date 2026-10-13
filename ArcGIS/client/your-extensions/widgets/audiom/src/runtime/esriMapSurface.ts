@@ -282,18 +282,20 @@ export async function avatarScreenPoint (
   }))
   if (projected?.x == null || projected.y == null) return null
   // toScreen is relative to the view container. The compass is a sibling of
-  // that node, so shift into the overlay's box. A point outside the view is
-  // not drawn: that is what made the indicator vanish off the map.
+  // that node, so shift into the overlay's box.
   const viewNode = surface.view.container
   const overlay = viewNode?.parentElement
   if (!viewNode || !overlay) return { x: projected.x, y: projected.y }
   const viewBox = viewNode.getBoundingClientRect()
   const overlayBox = overlay.getBoundingClientRect()
-  const x = projected.x + viewBox.left - overlayBox.left
-  const y = projected.y + viewBox.top - overlayBox.top
-  if (projected.x < 0 || projected.y < 0 || projected.x > viewBox.width || projected.y > viewBox.height) {
-    return null
-  }
+  // Pin the indicator to the map edge rather than unmounting it off-screen.
+  // Removing the node drops keyboard focus, which is what stopped navigation
+  // at the corners once the avatar projected outside the view.
+  const margin = 26
+  const clamp = (value: number, size: number): number =>
+    Math.min(Math.max(value, margin), Math.max(margin, size - margin))
+  const x = clamp(projected.x, viewBox.width) + viewBox.left - overlayBox.left
+  const y = clamp(projected.y, viewBox.height) + viewBox.top - overlayBox.top
   return { x, y }
 }
 
