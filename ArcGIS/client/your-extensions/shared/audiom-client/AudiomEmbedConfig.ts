@@ -39,6 +39,9 @@ export interface IVisualBaseLayer {
   /** URL for the visual base layer image overlay */
   url: string;
 
+  // Optional display name for visual base layer is url prediction is not sufficient.  If not provided, a name will be generated from the URL.
+  layerName?: string;
+
     /** Base layer source.  Defaults to Image for backward compatibility. */
   type?: VisualBaseLayerType;
 
@@ -228,6 +231,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     // JSON and Immutable records satisfy IGeoQuad but are not class instances.
     this.visualBaseLayers = config.visualBaseLayers?.map(layer => ({
       url: layer.url,
+      layerName: layer.layerName,
       type: layer.type,
       position: layer.position ? GeoQuad.from(layer.position) : undefined
     }));
@@ -328,6 +332,11 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
         if ((layer.type ?? VisualBaseLayerType.Image) === VisualBaseLayerType.Image) {
           params[`visualbaselayer${index}`] = layer.url;
 
+          const layerName = layer.layerName?.trim();
+          if (layerName) {
+            params[`visualbaselayername${index}`] = layerName;
+          }
+
           if (layer.position) {
             params[`visualbaselayerposition${index}`] = layer.position.toString();
           }
@@ -367,7 +376,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
       const source = AudiomSource.fromEsri({
         source: uniqueSourceName(`visualbaselayer${index}`, usedNames),
         url: layer.url,
-        name: featureLayerName(layer.url, index)
+        name: featureLayerName(layer, index)
       });
       usedNames.add(source.source);
       sources.push(source);
@@ -396,10 +405,15 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   }
 }
 
-/** Display name from the feature-service URL path, falling back to a numbered label. */
-function featureLayerName(url: string, index: number): string {
+/** Display name from layerName, then the feature-service URL path, then a numbered label. */
+function featureLayerName(layer: IVisualBaseLayer, index: number): string {
+  const layerName = layer.layerName?.trim();
+  if (layerName) {
+    return layerName;
+  }
+
   try {
-    const segment = new URL(url).pathname.split('/').filter(Boolean).pop();
+    const segment = new URL(layer.url).pathname.split('/').filter(Boolean).pop();
     if (segment) {
       return decodeURIComponent(segment);
     }

@@ -63,6 +63,9 @@ export interface IVisualBaseLayerConfig {
   /** URL for the visual base layer image overlay */
   url: string
 
+  // Optional display name for visual base layer is url prediction is not sufficient.  If not provided, a name will be generated from the URL.
+  layerName?: string;
+
   /** Source kind. Defaults to Image for backward compatibility. */
   type?: VisualBaseLayerType;
 
@@ -72,6 +75,7 @@ export interface IVisualBaseLayerConfig {
 
 export const DEFAULT_VISUAL_BASE_LAYER: IVisualBaseLayerConfig = {
   url: '',
+  layerName: "",
   type: VisualBaseLayerType.Image,
   position: undefined
 }
