@@ -36,6 +36,10 @@ export interface MapHitGraphic {
     displayField?: string
     objectIdField?: string
     popupTemplate?: { title?: string }
+    /** Host renderer, or the Audiom renderer that paints patterns and colors. */
+    renderer?: { type?: string }
+    /** Set only after Audiom replaces the host renderer. Absent on the visual base. */
+    __audiomOriginalRenderer?: unknown
     queryFeatures?: (query: unknown) => Promise<{ features?: Array<{ attributes?: Record<string, unknown> }> }>
   }
 }
@@ -324,6 +328,30 @@ export function hitFeatureData (hit: MapViewHit | null | undefined): { name: str
     return { name: graphicName(graphic), attributes: graphic.attributes ?? null }
   }
   return { name: null, attributes: null }
+}
+
+/**
+ * A popup belongs only on a feature Audiom actually painted. The visual base
+ * layer keeps the host renderer, so a click there must not open one. A
+ * class-breaks or unique-value renderer is Audiom's color or pattern paint.
+ * A host heatmap is already a rendered surface and is included.
+ */
+export function graphicIsRendered (graphic: MapHitGraphic | null | undefined): boolean {
+  if (!graphic || graphic.attributes?.audiomAvatar) return false
+  const layer = graphic.layer
+  if (!layer) return false
+  if (layer.__audiomOriginalRenderer !== undefined) return true
+  const type = layer.renderer?.type
+  return type === 'class-breaks' || type === 'unique-value' || type === 'heatmap'
+}
+
+/** Topmost non-avatar graphic that Audiom painted. Null on the visual base. */
+export function renderedGraphic (hit: MapViewHit | null | undefined): MapHitGraphic | null {
+  for (const result of hit?.results || []) {
+    const graphic = result.graphic
+    if (graphicIsRendered(graphic)) return graphic ?? null
+  }
+  return null
 }
 
 /**

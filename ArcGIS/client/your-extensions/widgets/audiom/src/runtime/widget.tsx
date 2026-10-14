@@ -24,8 +24,8 @@ import {
   destroyMapSurface,
   featureDetails,
   featureScreenPoint,
-  hitFeatureNames,
   mapPointFromScreen,
+  renderedGraphic,
   mountEsriMap,
   showAvatar,
   type FeatureClickPoint,
@@ -318,9 +318,6 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
       return
     }
     const world = bundledHandle?.program?.world
-    // Temporary: surface the clicked feature's fields so the name column is known.
-    // eslint-disable-next-line no-console
-    console.log('[AudiomPopup] fields', { name: point.name, attributes: point.attributes })
     const lines: string[] = []
     const name = point.name?.trim()
     if (name) lines.push(name)
@@ -591,14 +588,16 @@ function EsriMapSurface (props: {
     void avatarScreenPoint(surface, avatar).then((screen) => {
       if (cancelled || !screen) return
       const { x, y } = screen
-      const emit = (names: string[], data?: { name: string | null, attributes: Record<string, unknown> | null }) => {
-        onFollow({ longitude: avatar.longitude, latitude: avatar.latitude, x, y, names, name: data?.name ?? undefined, attributes: data?.attributes ?? undefined })
+      const emit = (data?: { name: string | null, attributes: Record<string, unknown> | null }) => {
+        onFollow({ longitude: avatar.longitude, latitude: avatar.latitude, x, y, name: data?.name ?? undefined, attributes: data?.attributes ?? undefined })
       }
       void view.hitTest?.({ x, y }).then(async (hit) => {
         if (cancelled) return
-        const graphic = hit.results?.find((result) => result.graphic && !result.graphic.attributes?.audiomAvatar)?.graphic
-        emit(hitFeatureNames(hit), await featureDetails(graphic))
-      }).catch(() => { if (!cancelled) emit([]) })
+        // Only a painted pattern or color. The visual base layer is not one.
+        const graphic = renderedGraphic(hit)
+        if (!graphic) { emit(); return }
+        emit(await featureDetails(graphic))
+      }).catch(() => { if (!cancelled) emit() })
     }).catch(() => undefined)
     return () => { cancelled = true }
     // onFollow is a stable setter; depending on it would loop on each popup set.
@@ -651,15 +650,23 @@ function EsriMapSurface (props: {
     const map = view.toMap?.({ x, y })
     const longitude = map?.longitude ?? 0
     const latitude = map?.latitude ?? 0
-    const emit = (names: string[], data?: { name: string | null, attributes: Record<string, unknown> | null }) => {
-      onFeatureClick?.({ longitude, latitude, x, y, names, name: data?.name ?? undefined, attributes: data?.attributes ?? undefined })
+    const emit = (data?: { name: string | null, attributes: Record<string, unknown> | null }) => {
+      onFeatureClick?.({ longitude, latitude, x, y, name: data?.name ?? undefined, attributes: data?.attributes ?? undefined })
     }
-    if (!view.hitTest) { emit([]); return }
+    if (!view.hitTest) {
+      emit()
+      return
+    }
     void view.hitTest({ x, y }).then(async (hit) => {
       if (hit.results?.some((result) => result.graphic?.attributes?.audiomAvatar)) return
-      const graphic = hit.results?.find((result) => result.graphic && !result.graphic.attributes?.audiomAvatar)?.graphic
-      emit(hitFeatureNames(hit), await featureDetails(graphic))
-    }).catch(() => { emit([]) })
+      // Only a painted pattern or color. The visual base layer is not one.
+      const graphic = renderedGraphic(hit)
+      if (!graphic) {
+        emit()
+        return
+      }
+      emit(await featureDetails(graphic))
+    }).catch(() => { emit() })
   }
   return (
     <div style={{ position: 'absolute', zIndex: 1, top: props.headerHeight || 0, right: 0, bottom: 0, left: 0 }}>

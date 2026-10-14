@@ -1,4 +1,4 @@
-import { disableNativePopup, featureDetails, graphicName, hitFeatureData, hitFeatureName, hitFeatureNames, resolvePopupTitle, type MountedMapView } from '../../src/runtime/esriMapSurface'
+import { disableNativePopup, featureDetails, graphicIsRendered, graphicName, hitFeatureData, hitFeatureName, hitFeatureNames, renderedGraphic, resolvePopupTitle, type MountedMapView } from '../../src/runtime/esriMapSurface'
 
 describe('disableNativePopup', () => {
   it('turns the Esri popup off and closes one that is already open', () => {
@@ -133,5 +133,47 @@ describe('featureDetails', () => {
     })
     expect(details.attributes).toEqual({ OBJECTID: 7, percentImpervious: 42 })
     expect(details.name).toBeNull()
+  })
+})
+
+describe('graphicIsRendered', () => {
+  it('accepts a feature Audiom painted and rejects the visual base layer', () => {
+    expect(graphicIsRendered({
+      attributes: { OBJECTID: 7 },
+      layer: { __audiomOriginalRenderer: { type: 'simple' }, renderer: { type: 'class-breaks' } }
+    })).toBe(true)
+    expect(graphicIsRendered({
+      attributes: { OBJECTID: 7 },
+      layer: { renderer: { type: 'unique-value' } }
+    })).toBe(true)
+    expect(graphicIsRendered({
+      attributes: { OBJECTID: 7 },
+      layer: { renderer: { type: 'heatmap' } }
+    })).toBe(true)
+    expect(graphicIsRendered({
+      attributes: { OBJECTID: 7, OWNER: 'CITY OF MANASSAS PARK' },
+      layer: { title: 'Visual base', renderer: { type: 'simple' } }
+    })).toBe(false)
+    expect(graphicIsRendered({ attributes: { audiomAvatar: true }, layer: { __audiomOriginalRenderer: {} } })).toBe(false)
+    expect(graphicIsRendered({ attributes: { OBJECTID: 1 } })).toBe(false)
+  })
+
+  it('picks the painted feature under a visual base graphic', () => {
+    const painted = {
+      attributes: { OBJECTID: 3, OWNER: 'AMERICAN BUILDING CORPORATION II' },
+      layer: { __audiomOriginalRenderer: { type: 'simple' }, renderer: { type: 'class-breaks' } }
+    }
+    expect(renderedGraphic({
+      results: [
+        { graphic: { attributes: { audiomAvatar: true }, layer: { renderer: { type: 'simple' } } } },
+        { graphic: { attributes: { OBJECTID: 1 }, layer: { title: 'Visual base', renderer: { type: 'simple' } } } },
+        { graphic: painted }
+      ]
+    })).toBe(painted)
+    expect(renderedGraphic({
+      results: [
+        { graphic: { attributes: { OBJECTID: 1 }, layer: { renderer: { type: 'simple' } } } }
+      ]
+    })).toBeNull()
   })
 })
