@@ -279,9 +279,16 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     }
   }, [sanitizedConfig?.sourceConfigs, lastSyncedConfigJson])
 
-  const mapConfig = audiomConfigToEmbedConfig({ ...DEFAULT_CONFIG, ...sanitizedConfig }, jimuMapView)
-  const embedUrl = mapConfig.toUrl(sanitizedConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
   const runtimeLocation = runtimeLocationOf(sanitizedConfig)
+  // Bundled mode draws EsriMapSurface. It has no JimuMapView. Building the
+  // iframe URL here calls the embed extractor on every indicator move and
+  // logs "No map view available". The iframe is the only caller.
+  const embedUrl = isIntegratedRuntime(runtimeLocation)
+    ? ''
+    : audiomConfigToEmbedConfig(
+      { ...DEFAULT_CONFIG, ...sanitizedConfig, useExistingMap: false },
+      jimuMapView
+    ).toUrl(sanitizedConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
   const title = props.config.title || 'Audiom'
   const soundpackUrl = runtimeLocation === RuntimeLocation.Bundled
     ? resolveSoundpackUrl(sanitizedConfig.soundpackUrl, sanitizedConfig.assetBaseUrl)
@@ -333,6 +340,22 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     }
     setFeaturePopup({ lines: resolved, longitude: point.longitude, latitude: point.latitude })
   }
+  // Follow already hit-tested the painted graphic. Speech must say the
+  // same lines the tooltip shows: name, then statistic. A click only opens
+  // the popup. Coordinates are the screen-reader status, not this utterance.
+  const followPopup = (point: FeatureClickPoint | null) => {
+    // openPopup is false for the load position. A step sets it true.
+    if (point?.openPopup !== false) showPopup(point)
+    const world = bundledHandle?.program?.world
+    const lines: string[] = []
+    const name = point?.name?.trim()
+    if (name) lines.push(name)
+    if (point) {
+      const stat = statisticLine(world, point)
+      if (stat) lines.push(stat)
+    }
+    bundledHandle?.program?.announceStanding?.(lines.length ? lines.join('. ') : null)
+  }
 
   if (isIntegratedRuntime(runtimeLocation)) {
     const bundled = runtimeLocation === RuntimeLocation.Bundled
@@ -375,7 +398,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
               ? () => { void bundledHandle?.runtime.focusRuntime(bundledFocusTarget) }
               : undefined}
             onFeatureClick={runtimeLocation === RuntimeLocation.Bundled ? showPopup : undefined}
-            onFeatureFollow={runtimeLocation === RuntimeLocation.Bundled ? showPopup : undefined}
+            onFeatureFollow={runtimeLocation === RuntimeLocation.Bundled ? followPopup : undefined}
             popup={featurePopup}
             onPopupClose={() => { setFeaturePopup(null) }}
             onSurface={setMapSurface}
@@ -574,6 +597,9 @@ function EsriMapSurface (props: {
   }, [placed, surfaceReady, onScreen])
   // The compass is a button above the map, so moving it never clicks the
   // map. Follow the avatar: hit test under it and show the same popup.
+  // The first report is the load position. Speak it, but do not open the
+  // tooltip until the user actually moves.
+  const followed = useRef<ReportedAvatar | null>(null)
   useEffect(() => {
     const avatar = props.avatar
     const onFollow = props.onFeatureFollow
@@ -582,6 +608,14 @@ function EsriMapSurface (props: {
     if (!avatar || !surface || !onFollow) return
     const view = surface.view
     if (!view.hitTest) return
+    const previous = followed.current
+    followed.current = avatar
+    // The runtime reports the load position, then reports it again once the
+    // map surface exists. That second report is not a step, so it must not
+    // open the tooltip. Speech still runs.
+    const moved = previous != null && (
+      previous.longitude !== avatar.longitude || previous.latitude !== avatar.latitude
+    )
     let cancelled = false
     // avatarScreenPoint already positions the compass; reuse it so the popup
     // lands on the same pixel. A plain toScreen object returns null in Esri.
@@ -589,7 +623,16 @@ function EsriMapSurface (props: {
       if (cancelled || !screen) return
       const { x, y } = screen
       const emit = (data?: { name: string | null, attributes: Record<string, unknown> | null }) => {
-        onFollow({ longitude: avatar.longitude, latitude: avatar.latitude, x, y, name: data?.name ?? undefined, attributes: data?.attributes ?? undefined })
+        onFollow({
+          longitude: avatar.longitude,
+          latitude: avatar.latitude,
+          x,
+          y,
+          name: data?.name ?? undefined,
+          attributes: data?.attributes ?? undefined,
+          // The load position is spoken. It must not open a tooltip.
+          openPopup: moved
+        })
       }
       void view.hitTest?.({ x, y }).then(async (hit) => {
         if (cancelled) return
@@ -1150,6 +1193,9 @@ function useBundledRuntime (
 ): BundledRuntimeHandle | null {
   const [handle, setHandle] = useState<BundledRuntimeHandle | null>(null)
   const [reported, setReported] = useState<ReportedAvatar | null>(null)
+  // Read inside the snapshot effect without making it a dependency. A move
+  // must not re-run the snapshot query (the layer load can take seconds).
+  const reportedRef = useRef<ReportedAvatar | null>(null)
   useEffect(() => {
     if (!enabled) {
       setHandle(null)
@@ -1175,7 +1221,8 @@ function useBundledRuntime (
         latitude: state.position.latitude,
         heading: state.orientation
       }
-      setReported(position)
+      reportedRef.current = position
+      // A new runtime starts at the configured point. That is not a step.
       onAvatar(position)
     }
     setHandle(next)
@@ -1250,7 +1297,10 @@ function useBundledRuntime (
       // portal cannot see leaves those promises pending, and the legend
       // then never reads the layers that did load.
       if (cancelled) return
-      const snapshot = await snapshotFeaturesFromMapView(view, instanceId, mapTypes)
+      const standing = reportedRef.current
+        ? { longitude: reportedRef.current.longitude, latitude: reportedRef.current.latitude }
+        : (longitude != null && latitude != null ? { longitude, latitude } : undefined)
+      const snapshot = await snapshotFeaturesFromMapView(view, instanceId, mapTypes, drawnView?.extent, standing)
       if (cancelled) return
       // Record the snapshot before the extent lookup so a pattern/color
       // repaint has it even while that async step is still running.
@@ -1306,7 +1356,7 @@ function useBundledRuntime (
       layerHandle?.remove?.()
       window.removeEventListener('audiom-embed-paint', onPaint)
     }
-  }, [handle, jimuMapView, surface, instanceId, mapTypes])
+  }, [handle, jimuMapView, surface, instanceId, mapTypes, longitude, latitude])
   useEffect(() => {
     if (!surface || !reported) return
     void showAvatar(surface, reported)

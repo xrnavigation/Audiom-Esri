@@ -139,6 +139,33 @@ describe('map snapshot', () => {
     expect(snapshot.records[0].attributes.fill).toBeUndefined()
   })
 
+  it('stores the tooltip title when the name is not in a column called name', () => {
+    const snapshot = snapshotFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'parcels',
+              title: 'percentImpervious_allMP_compare_raip',
+              type: 'feature',
+              visible: true,
+              geometryType: 'polygon',
+              objectIdField: 'OBJECTID',
+              popupTemplate: { title: '{OWNER}' },
+              features: [{
+                attributes: { OBJECTID: 7, OWNER: 'CITY OF MANASSAS PARK', percentImpervious: 42 },
+                geometry: { rings: [[[-77.48, 38.85], [-77.47, 38.85], [-77.47, 38.86], [-77.48, 38.85]]] }
+              }]
+            })
+          }
+        }
+      }
+    }, 'map-1')
+
+    expect(snapshot.records).toHaveLength(1)
+    expect(snapshot.records[0].attributes.name).toBe('CITY OF MANASSAS PARK')
+  })
+
   it('waits for a layer to load before querying its features', async () => {
     let ready = false
     const snapshot = await snapshotFeaturesFromMapView({
@@ -396,6 +423,156 @@ describe('map snapshot', () => {
     setMapModuleLoader(null)
   })
 
+  it('drops a plot whose projection did not become longitude and latitude', async () => {
+    setMapModuleLoader(async () => {
+      throw new Error('projection engine missing')
+    })
+    const snapshot = await snapshotFeaturesFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'parcels',
+              title: 'Parcels',
+              type: 'feature',
+              visible: true,
+              geometryType: 'polygon',
+              spatialReference: { wkid: 3857 },
+              createQuery () { return {} },
+              queryFeatures () {
+                return Promise.resolve({
+                  features: [{
+                    attributes: { OBJECTID: 1, NAME: 'Lot 1' },
+                    geometry: {
+                      rings: [[
+                        [-8610000, 4680000],
+                        [-8609000, 4680000],
+                        [-8609000, 4681000],
+                        [-8610000, 4680000]
+                      ]]
+                    }
+                  }]
+                })
+              }
+            })
+          }
+        }
+      }
+    }, 'map-1')
+
+    expect(snapshot.records).toEqual([])
+    setMapModuleLoader(null)
+  })
+
+  it('queries the tracts in the current view, not the first page of the service', async () => {
+    const extent = { xmin: -77.48, ymin: 38.74, xmax: -77.46, ymax: 38.76 }
+    const snapshot = await snapshotFeaturesFromMapView({
+      view: { extent },
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'parcels',
+              title: 'Parcels',
+              type: 'feature',
+              visible: true,
+              geometryType: 'polygon',
+              createQuery () { return {} },
+              queryFeatures (query: { geometry?: unknown, spatialRelationship?: string }) {
+                expect(query.geometry).toBe(extent)
+                expect(query.spatialRelationship).toBe('intersects')
+                return Promise.resolve({
+                  features: [{
+                    attributes: { OBJECTID: 9, NAME: 'Parcel 9' },
+                    geometry: { rings: [[[-77.471, 38.749], [-77.469, 38.749], [-77.469, 38.751], [-77.471, 38.749]]] }
+                  }]
+                })
+              }
+            })
+          }
+        }
+      }
+    }, 'map-1')
+
+    expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Parcel 9'])
+  })
+
+  it('includes the tract under the indicator when it is not in the view page', async () => {
+    const snapshot = await snapshotFeaturesFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'parcels',
+              title: 'Parcels',
+              type: 'feature',
+              visible: true,
+              geometryType: 'polygon',
+              objectIdField: 'OBJECTID',
+              createQuery () { return {} },
+              queryFeatures (query: { geometry?: { type?: string, x?: number } }) {
+                if (query.geometry?.type === 'point') {
+                  expect(query.geometry.x).toBe(-77.47)
+                  return Promise.resolve({
+                    features: [{
+                      attributes: { OBJECTID: 9, NAME: 'Parcel 9' },
+                      geometry: { rings: [[[-77.471, 38.749], [-77.469, 38.749], [-77.469, 38.751], [-77.471, 38.749]]] }
+                    }]
+                  })
+                }
+                return Promise.resolve({
+                  features: [{
+                    attributes: { OBJECTID: 1, NAME: 'Parcel 1' },
+                    geometry: { rings: [[[-77.2, 38.5], [-77.1, 38.5], [-77.1, 38.6], [-77.2, 38.5]]] }
+                  }]
+                })
+              }
+            })
+          }
+        }
+      }
+    }, 'map-1', undefined, undefined, { longitude: -77.47, latitude: 38.75 })
+
+    expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Parcel 1', 'Parcel 9'])
+  })
+
+  it('keeps every part of a multipart polygon so each piece can be entered', async () => {
+    const snapshot = await snapshotFeaturesFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'tracts',
+              title: 'Tracts',
+              type: 'feature',
+              visible: true,
+              geometryType: 'polygon',
+              objectIdField: 'OBJECTID',
+              createQuery () { return {} },
+              queryFeatures () {
+                return Promise.resolve({
+                  features: [{
+                    attributes: { OBJECTID: 5, NAME: 'Tract 5' },
+                    geometry: {
+                      rings: [
+                        [[-77.5, 38.7], [-77.5, 38.8], [-77.4, 38.8], [-77.4, 38.7], [-77.5, 38.7]],
+                        [[-77.2, 38.7], [-77.2, 38.8], [-77.1, 38.8], [-77.1, 38.7], [-77.2, 38.7]]
+                      ]
+                    }
+                  }]
+                })
+              }
+            })
+          }
+        }
+      }
+    }, 'map-1')
+
+    const geometry = snapshot.records[0].geometry
+    expect(geometry?.type).toBe('MultiPolygon')
+    expect((geometry?.coordinates as number[][][][]).length).toBe(2)
+  })
+
   it('copies field aliases as plain objects after the layer loads', async () => {
     const snapshot = await snapshotFeaturesFromMapView({
       map: {
@@ -432,6 +609,147 @@ describe('map snapshot', () => {
       alias: 'Percent Impervious (percent)',
       type: 'double'
     }])
+  })
+
+  it('excludes a basemap base layer that rides in allLayers', async () => {
+    let loaded = false
+    const hillshade = {
+      id: 'hillshade',
+      title: 'World_Hillshade',
+      type: 'feature',
+      visible: true,
+      when () {
+        loaded = true
+        return Promise.resolve()
+      },
+      createQuery () { return {} },
+      queryFeatures () { return Promise.resolve({ features: [] }) }
+    }
+    const places = {
+      id: 'places',
+      title: 'Places',
+      type: 'feature',
+      visible: true,
+      geometryType: 'point',
+      createQuery () { return {} },
+      queryFeatures () {
+        return Promise.resolve({
+          features: [{
+            attributes: { OBJECTID: 1, name: 'Library' },
+            geometry: { longitude: -71.06, latitude: 42.36 }
+          }]
+        })
+      }
+    }
+    const snapshot = await snapshotFeaturesFromMapView({
+      map: {
+        allLayers: { forEach (fn) { fn(hillshade); fn(places) } },
+        basemap: { baseLayers: { forEach (fn) { fn(hillshade) } } }
+      }
+    }, 'map-1')
+
+    expect(loaded).toBe(false)
+    expect(snapshot.sources.map((source) => source.displayName)).toEqual(['Places'])
+    expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Library'])
+  })
+
+  it('skips a layer whose load never resolves without failing the snapshot', async () => {
+    jest.useFakeTimers()
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const pending = snapshotFeaturesFromMapView({
+        map: {
+          allLayers: {
+            forEach (fn) {
+              fn({
+                id: 'hillshade',
+                title: 'World_Hillshade',
+                type: 'feature',
+                visible: true,
+                geometryType: 'point',
+                when () { return new Promise<void>(() => {}) },
+                createQuery () { return {} },
+                queryFeatures () { return Promise.resolve({ features: [] }) }
+              })
+              fn({
+                id: 'places',
+                title: 'Places',
+                type: 'feature',
+                visible: true,
+                geometryType: 'point',
+                createQuery () { return {} },
+                queryFeatures () {
+                  return Promise.resolve({
+                    features: [{
+                      attributes: { OBJECTID: 1, name: 'Library' },
+                      geometry: { longitude: -71.06, latitude: 42.36 }
+                    }]
+                  })
+                }
+              })
+            }
+          }
+        }
+      }, 'map-1')
+      await jest.advanceTimersByTimeAsync(8000)
+      const snapshot = await pending
+
+      expect(snapshot.sources.map((source) => source.displayName).sort()).toEqual(['Places'])
+      expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Library'])
+      expect(warn).toHaveBeenCalledWith('Audiom skipped a layer that did not finish loading', 'World_Hillshade')
+      expect(error).not.toHaveBeenCalledWith('Audiom could not load layer', 'World_Hillshade', expect.anything())
+    } finally {
+      warn.mockRestore()
+      error.mockRestore()
+      jest.useRealTimers()
+    }
+  })
+
+  it('drops a layer that reveals a raster type only after it loads', async () => {
+    let queried = false
+    const snapshot = await snapshotFeaturesFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'hillshade',
+              title: 'World_Hillshade',
+              type: '',
+              visible: true,
+              when () {
+                this.type = 'tile'
+                return Promise.resolve()
+              },
+              createQuery () { return {} },
+              queryFeatures () {
+                queried = true
+                return Promise.resolve({ features: [] })
+              }
+            })
+            fn({
+              id: 'places',
+              title: 'Places',
+              type: 'feature',
+              visible: true,
+              geometryType: 'point',
+              createQuery () { return {} },
+              queryFeatures () {
+                return Promise.resolve({
+                  features: [{
+                    attributes: { OBJECTID: 1, name: 'Library' },
+                    geometry: { longitude: -71.06, latitude: 42.36 }
+                  }]
+                })
+              }
+            })
+          }
+        }
+      }
+    }, 'map-1')
+
+    expect(queried).toBe(false)
+    expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Library'])
   })
 
   it('starts the bundled runtime against that snapshot', async () => {

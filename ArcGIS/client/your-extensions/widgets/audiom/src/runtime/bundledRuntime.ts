@@ -174,6 +174,9 @@ export function startBundledRuntime (
       }
     }
     const snapshot = await snapshotFeaturesFromMapView(jimuMapView, instanceId)
+    // This hello view is not the drawn map. An empty replace lands after the
+    // widget's plots and the next step then says Empty Space.
+    if (!snapshot.sources.length) return applied(handle.runtime.snapshot?.revision ?? 0)
     // Do not paint here. This path has no field and no property order, so
     // it colored the map with a different ramp than the legend.
     return handle.runtime.replaceSources(snapshot, 1)

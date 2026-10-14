@@ -240,9 +240,11 @@ export function createInProcessRuntime(
 			return later(() => {
 				guard();
 				assertPlainData({ widgetState, viewState, authState }, 'lifecycle');
-				if (widgetState !== WidgetLifecycle.Opened) {
-					config.announce?.('audio suspended');
-				}
+				config.announce?.(
+					widgetState === WidgetLifecycle.Opened
+						? 'audio resumed'
+						: 'audio suspended',
+				);
 				return applied();
 			});
 		},

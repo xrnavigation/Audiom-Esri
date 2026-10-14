@@ -59,6 +59,8 @@ export interface FeatureClickPoint {
   name?: string
   /** Clicked graphic's attributes, for the selected statistic value. */
   attributes?: Record<string, unknown>
+  /** False when this is the load position, which must not open a tooltip. */
+  openPopup?: boolean
 }
 
 export interface MapViewHandle {

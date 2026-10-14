@@ -130,7 +130,9 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
  * - When `useExistingMap` is off, always use the config sources.
  */
 function resolveSources(config: IAudiomConfig, jmv: JimuMapView | undefined): AudiomSource[] {
-  if (!config.useExistingMap) {
+  // Bundled mode has no Jimu map widget. Looking one up on every indicator
+  // move logs "No map view available" and never returns sources.
+  if (!config.useExistingMap || !jmv?.view) {
     return getSourcesFromConfig(config);
   }
 

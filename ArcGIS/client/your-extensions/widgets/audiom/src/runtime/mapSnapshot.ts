@@ -7,7 +7,7 @@ import {
   SourceStatus
 } from '../../../../shared/audiom-runtime/src/types'
 import { isDataSourceLayerType } from '../utils/mapEnums'
-import { loadMapModules } from './esriMapSurface'
+import { graphicName, loadMapModules } from './esriMapSurface'
 
 export interface SnapshotFeature {
   attributes?: Record<string, unknown>
@@ -33,6 +33,8 @@ export interface SnapshotLayer {
   objectIdField?: string
   /** Esri field used as the feature's display name, when the layer publishes one. */
   displayField?: string
+  /** Native popup title. A {field} title is the plot name the tooltip shows. */
+  popupTemplate?: { title?: string }
   /** Service field catalog. Aliases and units are the statistic labels. */
   fields?: Array<{
     name?: string
@@ -44,6 +46,8 @@ export interface SnapshotLayer {
     outFields?: string[]
     returnGeometry?: boolean
     outSpatialReference?: { wkid: number }
+    geometry?: unknown
+    spatialRelationship?: string
     num?: number
     outStatistics?: Array<{
       onStatisticField?: string
@@ -70,14 +74,25 @@ export interface SnapshotLayer {
   spatialReference?: { wkid?: number, latestWkid?: number, wkt?: string }
 }
 
-export interface SnapshotMapView {
-  map?: {
-    allLayers?: { forEach: (fn: (layer: SnapshotLayer) => void) => void }
+/** An Esri layer collection. Iterate it; it is not an array. */
+export interface SnapshotLayerList {
+  forEach: (fn: (layer: SnapshotLayer) => void) => void
+}
+
+export interface SnapshotMapSurface {
+  allLayers?: SnapshotLayerList
+  /** Basemap constituents. They ride in allLayers but are not data sources. */
+  basemap?: {
+    baseLayers?: SnapshotLayerList
+    referenceLayers?: SnapshotLayerList
   }
+}
+
+export interface SnapshotMapView {
+  map?: SnapshotMapSurface
   view?: {
-    map?: {
-      allLayers?: { forEach: (fn: (layer: SnapshotLayer) => void) => void }
-    }
+    extent?: unknown
+    map?: SnapshotMapSurface
   }
 }
 
@@ -196,13 +211,46 @@ function mapTypeForLayer (
   return 'travel'
 }
 
+/** Basemap base and reference layers. They ride in allLayers, sometimes as a different object. */
+function basemapMembers (map: SnapshotMapSurface | undefined): {
+  layers: Set<SnapshotLayer>
+  ids: Set<string>
+  titles: Set<string>
+} {
+  const layers = new Set<SnapshotLayer>()
+  const ids = new Set<string>()
+  const titles = new Set<string>()
+  const note = (layer: SnapshotLayer) => {
+    layers.add(layer)
+    if (layer.id) ids.add(layer.id)
+    if (layer.title) titles.add(layer.title)
+  }
+  map?.basemap?.baseLayers?.forEach(note)
+  map?.basemap?.referenceLayers?.forEach(note)
+  return { layers, ids, titles }
+}
+
+function isBasemapMember (
+  layer: SnapshotLayer,
+  members: { layers: Set<SnapshotLayer>, ids: Set<string>, titles: Set<string> }
+): boolean {
+  if (members.layers.has(layer)) return true
+  // allLayers can hold a wrapper that is not the same object as basemap.baseLayers.
+  if (layer.id && members.ids.has(layer.id)) return true
+  return Boolean(layer.title && members.titles.has(layer.title))
+}
+
 export async function snapshotFeaturesFromMapView (
   jimuMapView: SnapshotMapView | undefined,
   dataSourceId: string,
-  mapTypes?: readonly SnapshotMapTypeHint[]
+  mapTypes?: readonly SnapshotMapTypeHint[],
+  viewExtent?: unknown,
+  indicator?: { longitude: number, latitude: number }
 ): Promise<MapSnapshot> {
-  const layers = jimuMapView?.view?.map?.allLayers || jimuMapView?.map?.allLayers
+  const map = jimuMapView?.view?.map?.allLayers ? jimuMapView?.view?.map : jimuMapView?.map
+  const layers = map?.allLayers
   if (!layers) return snapshotFromMapView(jimuMapView, dataSourceId)
+  const basemapLayers = basemapMembers(map)
   const loaded: SnapshotLayer[] = []
   const pending: Array<Promise<void>> = []
   const queue: SnapshotLayer[] = []
@@ -211,14 +259,20 @@ export async function snapshotFeaturesFromMapView (
     const layer = queue[index]
     layer.layers?.forEach((child) => queue.push(child))
     layer.sublayers?.forEach((child) => queue.push(child))
+    // Basemap base and reference layers (terrain hillshade, say) ride in
+    // allLayers but carry no features. Drop them before a force-load; the
+    // hillshade tile service can hang and stall the whole snapshot.
+    // Identity misses when allLayers holds a wrapper of the basemap layer.
+    if (isBasemapMember(layer, basemapLayers)) continue
     const copy = layerCopy(layer)
     loaded.push(copy)
     if (isInternalLayer(layer)) continue
     if (layer.visible === false) continue
     if (typeof layer.queryFeatures !== 'function' || typeof layer.createQuery !== 'function') continue
-    pending.push(queryLayerFeatures(layer, copy))
+    pending.push(queryLayerFeatures(layer, copy, viewExtent ?? jimuMapView?.view?.extent, indicator))
   }
   await Promise.all(pending)
+  await projectLoadedFeatures(loaded)
   const view = {
     map: { allLayers: { forEach: (fn: (layer: SnapshotLayer) => void) => { loaded.forEach(fn) } } }
   }
@@ -241,6 +295,8 @@ function layerCopy (layer: SnapshotLayer): SnapshotLayer & { features?: Snapshot
     scaleVisible: layer.scaleVisible,
     objectIdField: layer.objectIdField,
     displayField: layer.displayField,
+    popupTemplate: layer.popupTemplate?.title ? { title: layer.popupTemplate.title } : undefined,
+    spatialReference: layer.spatialReference,
     fields: fieldCatalog(layer.fields),
     url: layer.url,
     isBasemap: layer.isBasemap,
@@ -288,24 +344,38 @@ function isRasterLayer (layer: SnapshotLayer): boolean {
 /** Wait for the layer, then query. A layer that is still loading has no features yet. */
 async function queryLayerFeatures (
   layer: SnapshotLayer,
-  copy: SnapshotLayer & { features?: SnapshotFeature[] }
+  copy: SnapshotLayer & { features?: SnapshotFeature[] },
+  viewExtent?: unknown,
+  indicator?: { longitude: number, latitude: number }
 ): Promise<void> {
   try {
     if (typeof layer.when === 'function') await withTimeout(layer.when(), 8000)
     else if (typeof layer.load === 'function') await withTimeout(layer.load(), 8000)
   } catch (error) {
     copy.features = []
+    // A raster or basemap reference layer (terrain hillshade, for one) can
+    // leave its load pending. It holds no features, so a timeout is an
+    // expected skip, not a failure that should read as an error.
+    const timedOut = error instanceof Error && error.message === LAYER_LOAD_TIMEOUT
+    // A picture that never finishes loading is not a data source. Leaving it
+    // listed is how World_Hillshade showed up next to the choropleth.
+    if (timedOut) copy.listMode = 'hide'
     // eslint-disable-next-line no-console
-    console.error('Audiom could not load layer', copy.title || copy.id, error)
+    if (timedOut) console.warn('Audiom skipped a layer that did not finish loading', copy.title || copy.id)
+    // eslint-disable-next-line no-console
+    else console.error('Audiom could not load layer', copy.title || copy.id, error)
     return
   }
   // Load can publish fields that were missing when the layer was queued.
   copy.type = layer.type
   copy.geometryType = layer.geometryType
   copy.displayField = layer.displayField
+  copy.popupTemplate = layer.popupTemplate?.title ? { title: layer.popupTemplate.title } : copy.popupTemplate
   copy.fields = fieldCatalog(layer.fields)
   copy.objectIdField = layer.objectIdField
-  if (typeof layer.queryFeatures !== 'function' || typeof layer.createQuery !== 'function') {
+  // Load also settles the type. A raster whose type was blank when it was
+  // queued is a picture, not a feature source, and must not be queried.
+  if (isRasterLayer(layer) || typeof layer.queryFeatures !== 'function' || typeof layer.createQuery !== 'function') {
     copy.features = []
     return
   }
@@ -316,10 +386,20 @@ async function queryLayerFeatures (
     query.outFields = ['*']
     // Audiom stores longitude and latitude. A web map in Web Mercator
     // otherwise returns meters, which the ENU projection rejects.
+    // The first 200 features in the service are not the tracts under the
+    // indicator. Intersect the current view so the page is the map on screen.
+    if (viewExtent) {
+      query.geometry = viewExtent
+      query.spatialRelationship = 'intersects'
+    }
     query.outSpatialReference = { wkid: 4326 }
     query.num = FEATURE_LIMIT
     const result = await layer.queryFeatures(query)
-    copy.features = await geographicFeatures(layer, result?.features || [])
+    const page = result?.features || []
+    // The view page is still capped at 200. The tract under the indicator
+    // must be in the snapshot or the step says Empty Space.
+    const standing = await featuresAtIndicator(layer, indicator)
+    copy.features = await geographicFeatures(layer, mergeFeatures(page, standing))
     await attachFieldExtents(layer, copy)
     if (!copy.features.length) {
       // eslint-disable-next-line no-console
@@ -330,6 +410,48 @@ async function queryLayerFeatures (
     // eslint-disable-next-line no-console
     console.error('Audiom layer query failed', copy.title || copy.id, error)
   }
+}
+
+/** The plot containing the indicator. A failed point query does not wipe the page. */
+async function featuresAtIndicator (
+  layer: SnapshotLayer,
+  indicator?: { longitude: number, latitude: number }
+): Promise<SnapshotFeature[]> {
+  if (!indicator || typeof layer.createQuery !== 'function' || typeof layer.queryFeatures !== 'function') return []
+  try {
+    const query = layer.createQuery()
+    query.where = '1=1'
+    query.returnGeometry = true
+    query.outFields = ['*']
+    query.geometry = {
+      type: 'point',
+      x: indicator.longitude,
+      y: indicator.latitude,
+      spatialReference: { wkid: 4326 }
+    }
+    query.spatialRelationship = 'intersects'
+    query.outSpatialReference = { wkid: 4326 }
+    query.num = 5
+    const result = await layer.queryFeatures(query)
+    return result?.features || []
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Audiom indicator query failed', layer.title || layer.id, error)
+    return []
+  }
+}
+
+function mergeFeatures (page: SnapshotFeature[], standing: SnapshotFeature[]): SnapshotFeature[] {
+  if (!standing.length) return page
+  const seen = new Set(page.map(featureKey))
+  const extra = standing.filter((feature) => !seen.has(featureKey(feature)))
+  return extra.length ? [...page, ...extra] : page
+}
+
+function featureKey (feature: SnapshotFeature): string {
+  const attributes = feature.attributes || {}
+  const id = attributes.OBJECTID ?? attributes.objectid ?? attributes.FID ?? attributes.fid
+  return id == null ? JSON.stringify(feature.geometry || {}) : String(id)
 }
 
 /**
@@ -407,13 +529,25 @@ function featureRecord (
   navigable: boolean
 ): RecordSnapshot | null {
   const geometry = serializeGeometry(layer.geometryType, feature.geometry)
-  if (!geometry) return null
+  // A meter ring is not a plot. Audiom would treat it as longitude and the
+  // indicator would never be inside it.
+  if (!geometry || !geometryIsGeographic(geometry)) return null
   const attributes = feature.attributes || {}
   const objectId = layer.objectIdField ? attributes[layer.objectIdField] : attributes.OBJECTID ?? attributes.objectid
   const recordId = objectId != null ? String(objectId) : `${layerId}-${recordsFallbackId(feature)}`
   const styled = styleAttributes(attributes)
-  const label = featureLabel(attributes, layer)
-  if (label && styled.name == null) styled.name = label
+  // The tooltip names the plot from the popup title and owner/name columns.
+  // Voice-over reads attributes.name. Store that same title, or a step says
+  // Empty Space on a plot whose name is not in a column called name.
+  const label = graphicName({
+    attributes,
+    layer: {
+      displayField: layer.displayField,
+      objectIdField: layer.objectIdField,
+      popupTemplate: layer.popupTemplate
+    }
+  }) ?? featureLabel(attributes, layer)
+  if (label) styled.name = label
   return {
     key: { dataSourceId, layerId, recordId },
     sourceId: layerId,
@@ -471,7 +605,14 @@ function styleAttributes (attributes: Record<string, unknown>): Record<string, S
       : typeof value === 'string' && value.trim()
         ? Number(value)
         : Number.NaN
-    if (Number.isFinite(numeric)) kept[key] = numeric
+    if (!Number.isFinite(numeric)) continue
+    // A parcel column is not an Audiom step bound. Copying minstep or
+    // maxstep hides the plot, and the step then says Empty Space.
+    if (key === 'minstep' || key === 'maxstep') {
+      kept[`_${key}`] = numeric
+      continue
+    }
+    kept[key] = numeric
   }
   return kept
 }
@@ -500,9 +641,61 @@ function serializeGeometry (
   if ((geometryType === 'polygon' || geometry.rings) && geometry.rings?.length) {
     const rings = geometry.rings.filter((ring) => ring.length > 2)
     if (!rings.length) return null
-    return { type: GeometryFamily.Polygon, coordinates: [rings[0]] }
+    return ringsToPolygon(rings)
   }
   return null
+}
+
+/**
+ * Esri packs every part and hole of a polygon into one `rings` array. Keeping
+ * only the first ring dropped every other part, so a tract made of several
+ * pieces said Empty Space wherever the indicator was not over the first piece.
+ * Outer rings are clockwise; holes are counter-clockwise and nest in the outer
+ * ring that contains them. Audiom rewinds the result, so only topology matters.
+ */
+function ringsToPolygon (rings: number[][][]): RecordSnapshot['geometry'] {
+  const outers: number[][][][] = []
+  const holes: number[][][] = []
+  for (const ring of rings) {
+    if (ringIsClockwise(ring)) outers.push([ring])
+    else holes.push(ring)
+  }
+  if (!outers.length) {
+    // No clockwise ring means the winding is non-standard. Keep every ring as
+    // its own part so coverage is never dropped and no step says Empty Space.
+    if (rings.length === 1) return { type: GeometryFamily.Polygon, coordinates: [rings[0]] }
+    return { type: GeometryFamily.MultiPolygon, coordinates: rings.map((ring) => [ring]) }
+  }
+  for (const hole of holes) {
+    const owner = outers.find((polygon) => pointInRing(hole[0], polygon[0]))
+    if (owner) owner.push(hole)
+    else outers.push([hole])
+  }
+  if (outers.length === 1) return { type: GeometryFamily.Polygon, coordinates: outers[0] }
+  return { type: GeometryFamily.MultiPolygon, coordinates: outers }
+}
+
+/** Shoelace sign. Esri outer rings wind clockwise. */
+function ringIsClockwise (ring: number[][]): boolean {
+  let total = 0
+  for (let i = 0; i < ring.length - 1; i += 1) {
+    total += (ring[i + 1][0] - ring[i][0]) * (ring[i + 1][1] + ring[i][1])
+  }
+  return total >= 0
+}
+
+function pointInRing (point: number[], ring: number[][]): boolean {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
+    const xi = ring[i][0]
+    const yi = ring[i][1]
+    const xj = ring[j][0]
+    const yj = ring[j][1]
+    const hit = yi > point[1] !== yj > point[1] &&
+      point[0] < ((xj - xi) * (point[1] - yi)) / (yj - yi) + xi
+    if (hit) inside = !inside
+  }
+  return inside
 }
 
 function pointCoordinates (geometry: NonNullable<SnapshotFeature['geometry']>): number[] | null {
@@ -538,15 +731,17 @@ async function geographicFeatures (
     if (!projection || !SpatialReference) return features
     if (typeof projection.load === 'function') await projection.load()
     const geographic = new SpatialReference({ wkid: 4326 })
-    return features.map((feature) => {
-      if (!feature.geometry || featureIsGeographic(feature)) return feature
+    return features.flatMap((feature) => {
+      if (!feature.geometry || featureIsGeographic(feature)) return [feature]
       const projected = projection.project({ ...feature.geometry, spatialReference: source }, geographic)
-      return projected ? { ...feature, geometry: projected } : feature
+      if (!projected || !featureIsGeographic({ geometry: projected })) return []
+      return [{ ...feature, geometry: projected }]
     })
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Audiom could not project layer', layer.title || layer.id, error)
-    return features
+    // Meter rings are not plots. Keeping them makes every step say Empty Space.
+    return []
   }
 }
 
@@ -559,4 +754,62 @@ function featureIsGeographic (feature: SnapshotFeature): boolean {
     ...(geometry.rings || []).flat()
   ]
   return positions.every((position) => Math.abs(position[0]) <= 180 && Math.abs(position[1]) <= 90)
+}
+/**
+ * The query can ignore outSpatialReference. Convert any remaining meter
+ * ring here, using the layer's own spatial reference. A ring that is still
+ * meters after that is not a plot.
+ */
+async function projectLoadedFeatures (layers: SnapshotLayer[]): Promise<void> {
+  const pending = layers.filter((layer) =>
+    layer.features?.some((feature) => feature.geometry && !featureIsGeographic(feature))
+  )
+  if (!pending.length) return
+  try {
+    const loaded = await loadMapModules(['esri/geometry/projection', 'esri/geometry/SpatialReference'])
+    const projection = loaded[0] as {
+      load?: () => Promise<unknown>
+      project: (geometry: unknown, spatialReference: unknown) => SnapshotFeature['geometry']
+    } | undefined
+    const SpatialReference = loaded[1] as (new (properties: { wkid: number }) => unknown) | undefined
+    if (!projection || !SpatialReference) return
+    if (typeof projection.load === 'function') await projection.load()
+    const geographic = new SpatialReference({ wkid: 4326 })
+    const webMercator = new SpatialReference({ wkid: 3857 })
+    for (const layer of pending) {
+      const source = layer.spatialReference
+      const wkid = source?.latestWkid || source?.wkid
+      const from = source && wkid !== 4326 && wkid !== 84 ? source : webMercator
+      layer.features = (layer.features || []).flatMap((feature) => {
+        if (!feature.geometry || featureIsGeographic(feature)) return [feature]
+        const projected = projection.project(
+          { ...feature.geometry, spatialReference: from },
+          geographic
+        )
+        if (!projected || !featureIsGeographic({ geometry: projected })) return []
+        return [{ ...feature, geometry: projected }]
+      })
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Audiom could not project snapshot features', error)
+  }
+}
+
+
+function geometryIsGeographic (geometry: NonNullable<RecordSnapshot['geometry']>): boolean {
+  const nested = geometry.coordinates as unknown
+  const positions: number[][] = []
+  const walk = (value: unknown): void => {
+    if (!Array.isArray(value) || !value.length) return
+    if (typeof value[0] === 'number') {
+      positions.push(value as number[])
+      return
+    }
+    value.forEach(walk)
+  }
+  walk(nested)
+  return positions.length > 0 && positions.every((position) =>
+    Math.abs(position[0]) <= 180 && Math.abs(position[1]) <= 90
+  )
 }

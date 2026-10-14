@@ -34,6 +34,12 @@ export interface AudiomProgram {
    * blocked the move, same as a marker drop against a wall.
    */
   dropAvatar?(longitude: number, latitude: number): AvatarState | null
+  /**
+   * Speak the lines the map tooltip already shows: name, then statistic.
+   * Null means the hit test found no painted plot.
+   * Optional so a stub program that only drops the avatar still type-checks.
+   */
+  announceStanding?(title: string | null): void
   /** True when Audiom has a soundpack the browser has not unlocked. */
   audioLocked?(): boolean
   /** Resume Audiom's audio context from a user gesture. */
