@@ -22,14 +22,59 @@ import { StepSize, StepSizeUnit } from '../../../../shared/audiom-client/StepSiz
 import {
   avatarScreenPoint,
   destroyMapSurface,
+  featureDetails,
+  featureScreenPoint,
+  hitFeatureNames,
   mapPointFromScreen,
   mountEsriMap,
   showAvatar,
+  type FeatureClickPoint,
   type MountedMapSurface
 } from './esriMapSurface'
 import type { ReportedAvatar } from './reportedAvatar'
 
 const { useState, useEffect, useRef } = React
+
+/** Audiom feature name + "statistic: value" at a point, read from the world. */
+function audiomPopupLines (world: unknown, longitude: number, latitude: number): string[] {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const compiled = require('../../../../../../../../Audiom-Front-End/src/runtime/exbEntry') as {
+      popupContentAt?: (world: unknown, longitude: number, latitude: number) => string[]
+    }
+    return compiled.popupContentAt?.(world, longitude, latitude) ?? []
+  } catch {
+    return []
+  }
+}
+
+/** The selected statistic as "label: value", read from the clicked graphic. */
+function statisticLine (world: unknown, point: FeatureClickPoint): string {
+  const stats = (world as { statistics?: { field?: string, label?: string } } | null | undefined)?.statistics
+  const field = stats?.field
+  const value = field && point.attributes ? point.attributes[field] : undefined
+  if (typeof value !== 'number') return ''
+  const shown = Number.isInteger(value) ? value : Number(value.toFixed(2))
+  return `${stats?.label ?? field}: ${shown}`
+}
+
+/** Replay a wheel event on the Esri view so zoom works over Audiom overlays. */
+function replayWheelToMap (event: React.WheelEvent<HTMLElement>): void {
+  const map = document.getElementById('audiom-esri-map')
+  const view = map?.querySelector('.esri-view-surface')
+  if (!(view instanceof HTMLElement)) return
+  event.preventDefault()
+  view.dispatchEvent(new WheelEvent('wheel', {
+    bubbles: true,
+    cancelable: true,
+    clientX: event.clientX,
+    clientY: event.clientY,
+    deltaX: event.deltaX,
+    deltaY: event.deltaY,
+    deltaMode: event.deltaMode,
+    ctrlKey: event.ctrlKey
+  }))
+}
 
 
 
@@ -167,6 +212,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   const [jimuMapView, setJimuMapView] = useState<JimuMapView>()
   const [mapSurface, setMapSurface] = useState<MountedMapSurface | null>(null)
   const [avatar, setAvatar] = useState<ReportedAvatar | null>(null)
+  const [featurePopup, setFeaturePopup] = useState<{ lines: string[], longitude: number, latitude: number } | null>(null)
   const [runtimeStatus, setRuntimeStatus] = useState('')
   const [hasChanges, setHasChanges] = useState(false)
   const [lastSyncedConfigJson, setLastSyncedConfigJson] = useState<string>('')
@@ -266,6 +312,30 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     bundledHandle,
     runtimeLocation === RuntimeLocation.Bundled
   )
+  const showPopup = (point: FeatureClickPoint | null) => {
+    if (!point) {
+      setFeaturePopup(null)
+      return
+    }
+    const world = bundledHandle?.program?.world
+    // Temporary: surface the clicked feature's fields so the name column is known.
+    // eslint-disable-next-line no-console
+    console.log('[AudiomPopup] fields', { name: point.name, attributes: point.attributes })
+    const lines: string[] = []
+    const name = point.name?.trim()
+    if (name) lines.push(name)
+    const stat = statisticLine(world, point)
+    if (stat) lines.push(stat)
+    // The clicked graphic wins. Audiom's world content is only the fallback.
+    const resolved = lines.length
+      ? lines
+      : (world ? audiomPopupLines(world, point.longitude, point.latitude) : [])
+    if (!resolved.length) {
+      setFeaturePopup(null)
+      return
+    }
+    setFeaturePopup({ lines: resolved, longitude: point.longitude, latitude: point.latitude })
+  }
 
   if (isIntegratedRuntime(runtimeLocation)) {
     const bundled = runtimeLocation === RuntimeLocation.Bundled
@@ -307,11 +377,15 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
             onSelect={runtimeLocation === RuntimeLocation.Bundled
               ? () => { void bundledHandle?.runtime.focusRuntime(bundledFocusTarget) }
               : undefined}
+            onFeatureClick={runtimeLocation === RuntimeLocation.Bundled ? showPopup : undefined}
+            onFeatureFollow={runtimeLocation === RuntimeLocation.Bundled ? showPopup : undefined}
+            popup={featurePopup}
+            onPopupClose={() => { setFeaturePopup(null) }}
             onSurface={setMapSurface}
           />
           <div
             ref={embedOverlay}
-            style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, overflow: 'hidden', zIndex: 8, pointerEvents: 'none', display: 'flex', flexDirection: 'column' }}
+            style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, overflow: 'visible', zIndex: 8, pointerEvents: 'none' }}
           />
         </div>
         <p className="sr-only" role="status">
@@ -383,7 +457,11 @@ function EsriMapSurface (props: {
   avatar?: ReportedAvatar | null
   onMove?: (direction: string) => void
   onDrop?: (longitude: number, latitude: number) => Promise<boolean>
+  popup?: { lines: string[], longitude: number, latitude: number } | null
+  onPopupClose?: () => void
   onSelect?: () => void
+  onFeatureClick?: (point: FeatureClickPoint | null) => void
+  onFeatureFollow?: (point: FeatureClickPoint | null) => void
   onScreen?: (point: { x: number, y: number } | null) => void
   onSurface?: (surface: MountedMapSurface | null) => void
 }) {
@@ -392,9 +470,11 @@ function EsriMapSurface (props: {
   const onScreen = props.onScreen
   const onDrop = props.onDrop
   const onSelect = props.onSelect
+  const onFeatureClick = props.onFeatureClick
   const [screen, setScreen] = useState<{ x: number, y: number } | null>(null)
   const [dragScreen, setDragScreen] = useState<{ x: number, y: number } | null>(null)
   const [surfaceReady, setSurfaceReady] = useState(false)
+  const [popupScreen, setPopupScreen] = useState<{ x: number, y: number } | null>(null)
   const avatar = props.avatar
   // The compass is the configured center until Audiom reports a position.
   // Waiting on that report is what left the map with no navigation icon.
@@ -434,6 +514,9 @@ function EsriMapSurface (props: {
         node.focus()
         onSelect?.()
       }
+      mounted.onFeatureClick = (point) => {
+        onFeatureClick?.(point)
+      }
       ;(node as { __audiomSurface?: MountedMapSurface }).__audiomSurface = mounted
       setSurfaceReady(true)
       onSurface?.(mounted)
@@ -456,7 +539,10 @@ function EsriMapSurface (props: {
       container.current?.focus()
       onSelect?.()
     }
-  }, [onSelect])
+    node.__audiomSurface.onFeatureClick = (point) => {
+      onFeatureClick?.(point)
+    }
+  }, [onSelect, onFeatureClick])
   useEffect(() => {
     const node = container.current as { __audiomSurface?: MountedMapSurface } | null
     const surface = node?.__audiomSurface
@@ -489,12 +575,91 @@ function EsriMapSurface (props: {
       pointer?.remove?.()
     }
   }, [placed, surfaceReady, onScreen])
+  // The compass is a button above the map, so moving it never clicks the
+  // map. Follow the avatar: hit test under it and show the same popup.
+  useEffect(() => {
+    const avatar = props.avatar
+    const onFollow = props.onFeatureFollow
+    const node = container.current as { __audiomSurface?: MountedMapSurface } | null
+    const surface = node?.__audiomSurface
+    if (!avatar || !surface || !onFollow) return
+    const view = surface.view
+    if (!view.hitTest) return
+    let cancelled = false
+    // avatarScreenPoint already positions the compass; reuse it so the popup
+    // lands on the same pixel. A plain toScreen object returns null in Esri.
+    void avatarScreenPoint(surface, avatar).then((screen) => {
+      if (cancelled || !screen) return
+      const { x, y } = screen
+      const emit = (names: string[], data?: { name: string | null, attributes: Record<string, unknown> | null }) => {
+        onFollow({ longitude: avatar.longitude, latitude: avatar.latitude, x, y, names, name: data?.name ?? undefined, attributes: data?.attributes ?? undefined })
+      }
+      void view.hitTest?.({ x, y }).then(async (hit) => {
+        if (cancelled) return
+        const graphic = hit.results?.find((result) => result.graphic && !result.graphic.attributes?.audiomAvatar)?.graphic
+        emit(hitFeatureNames(hit), await featureDetails(graphic))
+      }).catch(() => { if (!cancelled) emit([]) })
+    }).catch(() => undefined)
+    return () => { cancelled = true }
+    // onFollow is a stable setter; depending on it would loop on each popup set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.avatar])
+  // The popup is pinned to the plot's geography, not a fixed pixel. Re-project
+  // it on every camera change so it stays over the feature, like the compass.
+  useEffect(() => {
+    const anchor = props.popup
+    const node = container.current as { __audiomSurface?: MountedMapSurface } | null
+    const surface = node?.__audiomSurface
+    if (!anchor || !surface) {
+      setPopupScreen(null)
+      return
+    }
+    let cancelled = false
+    const place = () => {
+      void featureScreenPoint(surface, anchor.longitude, anchor.latitude).then((p) => {
+        if (!cancelled) setPopupScreen(p)
+      })
+    }
+    place()
+    const watch = surface.view.watch?.('extent', place)
+    const stationary = surface.view.watch?.('stationary', place)
+    const resize = surface.view.watch?.('size', place)
+    return () => {
+      cancelled = true
+      watch?.remove?.()
+      stationary?.remove?.()
+      resize?.remove?.()
+    }
+  }, [props.popup, surfaceReady])
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const direction = movementDirection(event.key)
     if (!direction || !props.onMove) return
     event.preventDefault()
     event.stopPropagation()
     props.onMove(direction)
+  }
+  // DOM-level click, independent of Esri's own click event. Clicks on the
+  // Esri canvas bubble to this container; positioning is container-relative.
+  const onMapClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const node = container.current as { __audiomSurface?: MountedMapSurface } | null
+    const surface = node?.__audiomSurface
+    const box = container.current?.getBoundingClientRect()
+    if (!surface || !box) return
+    const x = event.clientX - box.left
+    const y = event.clientY - box.top
+    const view = surface.view
+    const map = view.toMap?.({ x, y })
+    const longitude = map?.longitude ?? 0
+    const latitude = map?.latitude ?? 0
+    const emit = (names: string[], data?: { name: string | null, attributes: Record<string, unknown> | null }) => {
+      onFeatureClick?.({ longitude, latitude, x, y, names, name: data?.name ?? undefined, attributes: data?.attributes ?? undefined })
+    }
+    if (!view.hitTest) { emit([]); return }
+    void view.hitTest({ x, y }).then(async (hit) => {
+      if (hit.results?.some((result) => result.graphic?.attributes?.audiomAvatar)) return
+      const graphic = hit.results?.find((result) => result.graphic && !result.graphic.attributes?.audiomAvatar)?.graphic
+      emit(hitFeatureNames(hit), await featureDetails(graphic))
+    }).catch(() => { emit([]) })
   }
   return (
     <div style={{ position: 'absolute', zIndex: 1, top: props.headerHeight || 0, right: 0, bottom: 0, left: 0 }}>
@@ -506,8 +671,10 @@ function EsriMapSurface (props: {
         aria-label="Audiom map"
         tabIndex={0}
         onKeyDown={onKeyDown}
+        onClick={onMapClick}
         style={{ position: 'absolute', inset: 0 }}
       />
+      <FeaturePopup popup={props.popup && popupScreen ? { lines: props.popup.lines, x: popupScreen.x, y: popupScreen.y } : null} onClose={props.onPopupClose} />
       <AudiomIndicator
         avatar={placed}
         screen={dragScreen ?? screen}
@@ -531,6 +698,71 @@ function EsriMapSurface (props: {
         }}
         onDragCancel={() => { setDragScreen(null) }}
       />
+    </div>
+  )
+}
+
+/**
+ * Audiom feature popup: the name, then its statistic as "label: value",
+ * with a tail pointing down at the plot. Drawn in the compass box so a
+ * click or an avatar move anchors it on the right pixel.
+ */
+function FeaturePopup (props: {
+  popup: { lines: string[], x: number, y: number } | null
+  onClose?: () => void
+}) {
+  if (!props.popup || props.popup.lines.length === 0) return null
+  const lines = props.popup.lines
+  return (
+    <div
+      role="dialog"
+      aria-label={lines[0]}
+      onWheel={replayWheelToMap}
+      style={{
+        position: 'absolute',
+        left: props.popup.x,
+        top: props.popup.y,
+        zIndex: 40,
+        width: 'max-content',
+        maxWidth: '18rem',
+        transform: 'translate(-50%, calc(-100% - 10px))',
+        padding: '0.5rem 1.75rem 0.5rem 0.75rem',
+        background: '#fff',
+        color: '#04203e',
+        border: '0.125rem solid #04203e',
+        borderRadius: 4,
+        pointerEvents: 'auto',
+        fontSize: '1rem',
+        lineHeight: 1.4,
+        overflowWrap: 'break-word'
+      }}
+    >
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={props.onClose}
+        style={{
+          position: 'absolute',
+          top: 2,
+          right: 2,
+          width: 24,
+          height: 24,
+          padding: 0,
+          border: 0,
+          background: 'transparent',
+          color: '#04203e',
+          fontSize: '1.25rem',
+          lineHeight: 1,
+          cursor: 'pointer'
+        }}
+      >
+        ×
+      </button>
+      {lines.map((line, index) => (
+        <p key={`${index}-${line}`} style={{ margin: 0, fontWeight: index === 0 ? 700 : 400 }}>{line}</p>
+      ))}
+      <span style={{ position: 'absolute', bottom: -10, left: '50%', marginLeft: -9, width: 0, height: 0, borderLeft: '9px solid transparent', borderRight: '9px solid transparent', borderTop: '10px solid #04203e' }} />
+      <span style={{ position: 'absolute', bottom: -7, left: '50%', marginLeft: -7, width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: '8px solid #fff' }} />
     </div>
   )
 }
@@ -625,22 +857,7 @@ function AudiomIndicator (props: {
   }
   // The compass sits above the map, so the wheel never reaches Esri.
   // Replay it on the map view; click and keyboard stay on this button.
-  const onWheel = (event: React.WheelEvent<HTMLButtonElement>) => {
-    const map = document.getElementById('audiom-esri-map')
-    const view = map?.querySelector('.esri-view-surface')
-    if (!(view instanceof HTMLElement)) return
-    event.preventDefault()
-    view.dispatchEvent(new WheelEvent('wheel', {
-      bubbles: true,
-      cancelable: true,
-      clientX: event.clientX,
-      clientY: event.clientY,
-      deltaX: event.deltaX,
-      deltaY: event.deltaY,
-      deltaMode: event.deltaMode,
-      ctrlKey: event.ctrlKey
-    }))
-  }
+  const onWheel = replayWheelToMap
   return (
     <>
       <button
@@ -853,10 +1070,18 @@ function projectEmbedPoint (
   longitude: number,
   latitude: number
 ): Promise<{ x: number, y: number } | null> {
-  return avatarScreenPoint(
-    { view, ownedMap: false },
-    { longitude, latitude, heading: 0 }
-  )
+  // The popup layer is a sibling of the map and starts at the same top as
+  // the view. toScreen is already in that box. Do not shift it into
+  // #audiom-embed: that node includes the header, so the popup lands under it.
+  if (!view.toScreen) return Promise.resolve(null)
+  const projected = view.toScreen({
+    type: 'point',
+    longitude,
+    latitude,
+    spatialReference: { wkid: 4326 }
+  })
+  if (projected?.x == null || projected.y == null) return Promise.resolve(null)
+  return Promise.resolve({ x: projected.x, y: projected.y })
 }
 
 /** The slice of a view extent the navigation wall needs. */
