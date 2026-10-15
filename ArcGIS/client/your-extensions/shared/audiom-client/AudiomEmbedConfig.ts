@@ -327,20 +327,26 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
       params.visualStyle = this.visualStyle;
     }
     if (this.visualBaseLayers && this.visualBaseLayers.length > 0) {
-      this.visualBaseLayers.forEach((layer, index) => {
-        // Feature layers are serialized as Esri sources, not image overlays.
-        if ((layer.type ?? VisualBaseLayerType.Image) === VisualBaseLayerType.Image) {
-          params[`visualbaselayer${index}`] = layer.url;
-
-          const layerName = layer.layerName?.trim();
-          if (layerName) {
-            params[`visualbaselayername${index}`] = layerName;
-          }
-
-          if (layer.position) {
-            params[`visualbaselayerposition${index}`] = layer.position.toString();
-          }
+      // Image overlay indexes count only image layers, starting at 0.
+      // Feature layers are serialized as Esri sources and do not consume an index.
+      let imageIndex = 0;
+      this.visualBaseLayers.forEach(layer => {
+        if ((layer.type ?? VisualBaseLayerType.Image) !== VisualBaseLayerType.Image) {
+          return;
         }
+
+        params[`visualbaselayer${imageIndex}`] = layer.url;
+
+        const layerName = layer.layerName?.trim();
+        if (layerName) {
+          params[`visualbaselayername${imageIndex}`] = layerName;
+        }
+
+        if (layer.position) {
+          params[`visualbaselayerposition${imageIndex}`] = layer.position.toString();
+        }
+
+        ++imageIndex;
       });
     }
     if (this.allowedOrigins) {
@@ -362,24 +368,26 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   /**
    * Configured sources plus feature visual base layers as Esri sources.
    * Feature layers are not image overlays, so they join `sources` instead of
-   * `visualbaselayer*` params. Image layers keep their original indexes.
+   * `visualbaselayer*` params. Source ids count only feature layers, starting at 0.
    */
   private collectSources(): AudiomSource[] {
     const sources = [...(this.sources ?? [])];
     const usedNames = new Set(sources.map(source => source.source));
 
-    this.visualBaseLayers?.forEach((layer, index) => {
+    let featureIndex = 0;
+    this.visualBaseLayers?.forEach(layer => {
       if (layer.type !== VisualBaseLayerType.Feature || !layer.url) {
         return;
       }
 
       const source = AudiomSource.fromEsri({
-        source: uniqueSourceName(`visualbaselayer${index}`, usedNames),
+        source: uniqueSourceName(`visualbaselayer${featureIndex}`, usedNames),
         url: layer.url,
-        name: featureLayerName(layer, index)
+        name: featureLayerName(layer, featureIndex)
       });
       usedNames.add(source.source);
       sources.push(source);
+      featureIndex += 1;
     });
 
     return sources;

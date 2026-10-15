@@ -4,7 +4,7 @@ import { TrashOutlined } from 'jimu-icons/outlined/editor/trash'
 import { IVisualBaseLayerConfig, VISUAL_BASE_LAYER_TYPE_OPTIONS } from '../configs'
 import { VisualBaseLayerType } from '../../../../../shared/audiom-client/AudiomEmbedConfig'
 import { Padding } from '../enums'
-import { validateUrl } from '../validation/validation'
+import { validateUrl, validateFeatureLayerUrl } from '../validation/validation'
 import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 import CopyableLabel from './CopyableLabel'
 import GeoQuadEditor from './GeoQuadEditor'
@@ -138,8 +138,8 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
             value={layer.url || ''}
             onChange={handleUrlChange}
             placeholder={isFeature ? PLACEHOLDER_FEATURE_URL : PLACEHOLDER_URL}
-            checkValidityOnAccept={(text) => validateUrl(String(text))}
-            aria-label={`${FIELD_LABEL_URL} for layer ${index + 1}`}
+            checkValidityOnAccept={(text) => isFeature ? validateFeatureLayerUrl(String(text)) : validateUrl(String(text))}
+            aria-label={`${isFeature ? FIELD_LABEL_FEATURE_URL : FIELD_LABEL_URL} for layer ${index + 1}`}
           />
           <CopyableLabel
             label={FIELD_LABEL_LAYER_NAME}
