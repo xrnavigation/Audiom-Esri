@@ -2,6 +2,10 @@
  * Experience Builder loads this file when the widget is built.
  * hls.js is an optional cacophony import. HLS playback is unsupported in the
  * widget, so the module is externalized and never bundled.
+ *
+ * The client build that compiles the widget is
+ * ArcGIS/client/webpack/widget-webpack-override.js. Node-only aliases belong
+ * there, because this file is not merged into that build.
  */
 const path = require('path')
 

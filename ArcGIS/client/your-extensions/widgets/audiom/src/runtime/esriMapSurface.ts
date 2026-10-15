@@ -106,6 +106,11 @@ export interface MountedMapView {
 export interface MountedMapSurface {
   view: MountedMapView
   ownedMap: boolean
+  /** Set by the widget so a center or zoom change can keep this view. */
+  mapItemId?: string
+  portalUrl?: string
+  scene?: boolean
+  existingMap?: unknown
   avatarLayer?: AvatarGraphicsLayer
   avatar?: unknown
   keyHandle?: MapViewHandle
@@ -178,7 +183,6 @@ export async function mountEsriMap (options: MapSurfaceOptions): Promise<Mounted
   const portalItem = options.mapItemId
     ? await portalItemFor(loaded, options.mapItemId, options.portalUrl)
     : undefined
-  console.error('Audiom map item', options.mapItemId || '', options.portalUrl || '')
   const map = options.existingMap || (portalItem
     ? new MapCtor({ portalItem })
     : new MapCtor({ basemap: 'streets-vector' }))
@@ -189,6 +193,21 @@ export async function mountEsriMap (options: MapSurfaceOptions): Promise<Mounted
     zoom: options.zoom ?? 2,
     popupEnabled: false
   })
+  // WebMap.load starts in the constructor. Destroying the view before it
+  // settles aborts the item request. Wait here so a replaced mount does not
+  // leave that rejection unhandled.
+  const loading = map as { load?: () => Promise<unknown>, when?: () => Promise<unknown> }
+  const ready = loading.when || loading.load
+  if (typeof ready === 'function') {
+    try {
+      await ready.call(loading)
+    } catch (error) {
+      const aborted = error instanceof Error && error.name === 'AbortError'
+      if (!aborted) {
+        console.error('Audiom web map failed to load', options.mapItemId || '', error)
+      }
+    }
+  }
   // Hiding Esri's +/- must not abort the map. Audiom still mounts if this throws.
   try {
     hideNativeZoom(view)

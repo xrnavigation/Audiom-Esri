@@ -486,6 +486,7 @@ function EsriMapSurface (props: {
   onSurface?: (surface: MountedMapSurface | null) => void
 }) {
   const container = useRef<HTMLDivElement>(null)
+  const mountedSurface = useRef<MountedMapSurface | null>(null)
   const onSurface = props.onSurface
   const onScreen = props.onScreen
   const onDrop = props.onDrop
@@ -508,6 +509,22 @@ function EsriMapSurface (props: {
     if (!node) return
     let cancelled = false
     let surface: MountedMapSurface | null = null
+    // Center and zoom updates must not rebuild the view. WebMap.load starts
+    // in the constructor, and destroying the view aborts that item request.
+    const current = mountedSurface.current
+    const sameItem = current?.mapItemId === props.mapItemId
+      && current.portalUrl === props.portalUrl
+      && current.scene === Boolean(props.scene)
+      && current.existingMap === props.existingMap
+    if (current && sameItem) {
+      surface = current
+      ;(node as { __audiomSurface?: MountedMapSurface }).__audiomSurface = current
+      setSurfaceReady(true)
+      onSurface?.(current)
+      return () => {
+        cancelled = true
+      }
+    }
     void mountEsriMap({
       container: node,
       existingMap: props.existingMap,
@@ -518,6 +535,10 @@ function EsriMapSurface (props: {
       latitude: props.latitude,
       zoom: props.zoom
     }).then((mounted) => {
+      mounted.mapItemId = props.mapItemId
+      mounted.portalUrl = props.portalUrl
+      mounted.scene = Boolean(props.scene)
+      mounted.existingMap = props.existingMap
       if (cancelled) {
         destroyMapSurface(mounted)
         return
@@ -538,6 +559,7 @@ function EsriMapSurface (props: {
         onFeatureClick?.(point)
       }
       ;(node as { __audiomSurface?: MountedMapSurface }).__audiomSurface = mounted
+      mountedSurface.current = mounted
       setSurfaceReady(true)
       onSurface?.(mounted)
     }).catch(() => {
@@ -546,6 +568,7 @@ function EsriMapSurface (props: {
     })
     return () => {
       cancelled = true
+      if (mountedSurface.current === surface) mountedSurface.current = null
       setSurfaceReady(false)
       destroyMapSurface(surface)
       delete (node as { __audiomSurface?: MountedMapSurface }).__audiomSurface
