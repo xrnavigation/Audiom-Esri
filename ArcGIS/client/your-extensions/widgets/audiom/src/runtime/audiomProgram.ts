@@ -20,6 +20,11 @@ export interface AudiomProgramOptions {
   moveDistance?: number
   /** Audiom soundpack address. Absent means Audiom stays silent. */
   soundpackUrl?: string
+  /**
+   * Sibling pack for cues the primary pack does not ship, usually `/default`.
+   * Passed separately so Audiom does not invent `{primary}/default`.
+   */
+  soundpackFallbackUrl?: string
 }
 
 export interface AudiomProgram {

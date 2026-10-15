@@ -52,7 +52,7 @@ export function startBundledRuntime (
   jimuMapView: SnapshotMapView | undefined,
   onStatus: (status: string) => void,
   surface: MountedMapSurface | null = null,
-  origin?: { longitude?: number, latitude?: number, moveDistance?: number, soundpackUrl?: string }
+  origin?: { longitude?: number, latitude?: number, moveDistance?: number, soundpackUrl?: string, soundpackFallbackUrl?: string }
 ): BundledRuntimeHandle {
   const handle: BundledRuntimeHandle = {
     runtime: null as unknown as InProcessRuntime,
@@ -134,7 +134,8 @@ export function startBundledRuntime (
     longitude: origin?.longitude,
     latitude: origin?.latitude,
     moveDistance: origin?.moveDistance,
-    soundpackUrl: origin?.soundpackUrl
+    soundpackUrl: origin?.soundpackUrl,
+    soundpackFallbackUrl: origin?.soundpackFallbackUrl
   }, host)
   handle.program = program
   if (program) {

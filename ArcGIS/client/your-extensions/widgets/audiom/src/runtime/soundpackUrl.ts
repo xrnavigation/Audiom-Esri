@@ -14,6 +14,7 @@ const PACK_LOCATIONS: Record<string, string> = {
 }
 
 const DEFAULT_PACK = '/audio'
+const DEFAULT_FALLBACK_PACK = '/default'
 
 /**
  * A full soundpack address Audiom can fetch. An empty config uses the outdoor
@@ -22,6 +23,28 @@ const DEFAULT_PACK = '/audio'
  * the files on its own origin.
  */
 export function resolveSoundpackUrl (
+  configured: string | undefined,
+  assetBaseUrl: string | undefined
+): string {
+  return resolvePackUrl(configured, assetBaseUrl)
+}
+
+/**
+ * UI and route cues live in the sibling `/default` pack. Audiom otherwise
+ * derives that fallback by appending `/default` to the primary URL, which
+ * 404s (`/audio/default`). Return the real sibling so the caller can pass it
+ * separately. Undefined when the selected pack already is that sibling.
+ */
+export function resolveSoundpackFallbackUrl (
+  configured: string | undefined,
+  assetBaseUrl: string | undefined
+): string | undefined {
+  const primary = resolvePackUrl(configured, assetBaseUrl)
+  const fallback = resolvePackUrl(DEFAULT_FALLBACK_PACK, assetBaseUrl)
+  return primary === fallback ? undefined : fallback
+}
+
+function resolvePackUrl (
   configured: string | undefined,
   assetBaseUrl: string | undefined
 ): string {

@@ -693,7 +693,8 @@
         "runtimeLocation": "bundled",
         "mapItemId": "175186b0ca58430e96f154598098f611",
         "stepSizeUnit": "km",
-        "stepSize": 0.25
+        "stepSize": 0.25,
+        "assetBaseUrl": "http://localhost:3002"
       },
       "id": "widget_23",
       "useMapWidgetIds": [],
@@ -827,7 +828,7 @@
     "portalUrl": "https://xrnavigation.maps.arcgis.com",
     "enableA11yForWidgetSettings": false
   },
-  "timestamp": 1791580628839,
+  "timestamp": 1792026025968,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {

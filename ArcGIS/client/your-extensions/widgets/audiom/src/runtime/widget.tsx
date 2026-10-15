@@ -16,7 +16,7 @@ import { JimuConfig } from '../utils/JimuConfig'
 import { bundledFocusTarget, bundledStatus, paintAudiomStyles, restoreAudiomStyles, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
 import { VectorStyleMode } from './audiomSymbols'
 import { snapshotFeaturesFromMapView, type SnapshotMapTypeHint } from './mapSnapshot'
-import { resolveSoundpackUrl } from './soundpackUrl'
+import { resolveSoundpackFallbackUrl, resolveSoundpackUrl } from './soundpackUrl'
 import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
 import { StepSize, StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import {
@@ -293,6 +293,9 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   const soundpackUrl = runtimeLocation === RuntimeLocation.Bundled
     ? resolveSoundpackUrl(sanitizedConfig.soundpackUrl, sanitizedConfig.assetBaseUrl)
     : undefined
+  const soundpackFallbackUrl = runtimeLocation === RuntimeLocation.Bundled
+    ? resolveSoundpackFallbackUrl(sanitizedConfig.soundpackUrl, sanitizedConfig.assetBaseUrl)
+    : undefined
   const bundledHandle = useBundledRuntime(
     runtimeLocation === RuntimeLocation.Bundled,
     props.id,
@@ -304,6 +307,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     sanitizedConfig.centerLatitude,
     stepSizeMeters(sanitizedConfig.stepSize, sanitizedConfig.stepSizeUnit),
     soundpackUrl,
+    soundpackFallbackUrl,
     (sanitizedConfig.sourceConfigs || []).map((source) => ({
       id: source.source,
       title: source.name,
@@ -1212,6 +1216,7 @@ function useBundledRuntime (
   latitude?: number,
   moveDistance?: number,
   soundpackUrl?: string,
+  soundpackFallbackUrl?: string,
   mapTypes?: readonly SnapshotMapTypeHint[]
 ): BundledRuntimeHandle | null {
   const [handle, setHandle] = useState<BundledRuntimeHandle | null>(null)
@@ -1226,16 +1231,12 @@ function useBundledRuntime (
       onAvatar(null)
       return
     }
-    if (soundpackUrl) {
-      // eslint-disable-next-line no-console
-      console.error('Audiom soundpack', soundpackUrl)
-    }
     const next = startBundledRuntime(
       instanceId,
       jimuMapView,
       onStatus,
       null,
-      { longitude, latitude, moveDistance, soundpackUrl }
+      { longitude, latitude, moveDistance, soundpackUrl, soundpackFallbackUrl }
     )
     next.bindSurface?.(surface)
     next.onReported = (state) => {
@@ -1256,7 +1257,7 @@ function useBundledRuntime (
       onAvatar(null)
       void next.runtime.dispose()
     }
-  }, [enabled, instanceId, jimuMapView, onStatus, onAvatar, longitude, latitude, moveDistance, soundpackUrl])
+  }, [enabled, instanceId, jimuMapView, onStatus, onAvatar, longitude, latitude, moveDistance, soundpackUrl, soundpackFallbackUrl])
   useEffect(() => {
     handle?.bindSurface?.(surface)
   }, [handle, surface])
