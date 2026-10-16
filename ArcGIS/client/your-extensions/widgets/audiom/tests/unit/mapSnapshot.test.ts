@@ -139,6 +139,65 @@ describe('map snapshot', () => {
     expect(snapshot.records[0].attributes.fill).toBeUndefined()
   })
 
+  it('keeps the category Audiom uses to find a step sound', () => {
+    const snapshot = snapshotFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'places',
+              title: 'Places',
+              type: 'feature',
+              visible: true,
+              geometryType: 'point',
+              features: [{
+                attributes: {
+                  OBJECTID: 3,
+                  name: 'Boston Common',
+                  ruleType: 'park',
+                  ruleName: 'Park',
+                  soundPriority: 2
+                },
+                geometry: { longitude: -71.06, latitude: 42.36 }
+              }]
+            })
+          }
+        }
+      }
+    }, 'map-1')
+
+    expect(snapshot.records[0].attributes.name).toBe('Boston Common')
+    expect(snapshot.records[0].attributes.ruleType).toBe('park')
+    expect(snapshot.records[0].attributes.ruleName).toBe('Park')
+    expect(snapshot.records[0].attributes.soundPriority).toBe(2)
+  })
+
+  it('uses a plain layer type column when Audiom has no category', () => {
+    const snapshot = snapshotFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'places',
+              title: 'Places',
+              type: 'feature',
+              visible: true,
+              geometryType: 'point',
+              displayField: 'NAME',
+              features: [{
+                attributes: { OBJECTID: 3, NAME: 'Boston Common', TYPE: 'park' },
+                geometry: { longitude: -71.06, latitude: 42.36 }
+              }]
+            })
+          }
+        }
+      }
+    }, 'map-1')
+
+    expect(snapshot.records[0].attributes.name).toBe('Boston Common')
+    expect(snapshot.records[0].attributes.ruleType).toBe('park')
+  })
+
   it('stores the tooltip title when the name is not in a column called name', () => {
     const snapshot = snapshotFromMapView({
       map: {

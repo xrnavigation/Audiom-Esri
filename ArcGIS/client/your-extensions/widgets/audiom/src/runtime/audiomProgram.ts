@@ -44,11 +44,20 @@ export interface AudiomProgram {
    * Null means the hit test found no painted plot.
    * Optional so a stub program that only drops the avatar still type-checks.
    */
-  announceStanding?(title: string | null): void
+  announceStanding?(title: string | null, statistic?: unknown): void
   /** True when Audiom has a soundpack the browser has not unlocked. */
   audioLocked?(): boolean
-  /** Resume Audiom's audio context from a user gesture. */
-  unlockAudio?(): boolean
+  /**
+   * Start the browser resume inside the user gesture. Must be synchronous:
+   * awaiting unlockAudio() before this runs leaves Chrome's audio context
+   * suspended, so the step tone is decoded and then played into silence.
+   */
+  primeAudio?(): void
+  /**
+   * Resume Audiom's audio context from a user gesture.
+   * The compiled session returns a Promise. A sync true is also accepted.
+   */
+  unlockAudio?(): boolean | Promise<boolean>
   /** Load Audiom's soundpack. No-op when none was configured. */
   loadSoundpack?(): Promise<void>
   dispose(): void

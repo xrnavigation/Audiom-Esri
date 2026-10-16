@@ -13,7 +13,7 @@ import {
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
 
-import { bundledFocusTarget, bundledStatus, paintAudiomStyles, restoreAudiomStyles, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
+import { bundledFocusTarget, bundledStatus, paintAudiomStyles, primeBundledAudio, restoreAudiomStyles, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
 import { VectorStyleMode } from './audiomSymbols'
 import { snapshotFeaturesFromMapView, type SnapshotMapTypeHint } from './mapSnapshot'
 import { resolveSoundpackFallbackUrl, resolveSoundpackUrl } from './soundpackUrl'
@@ -348,8 +348,10 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   // same lines the tooltip shows: name, then statistic. A click only opens
   // the popup. Coordinates are the screen-reader status, not this utterance.
   const followPopup = (point: FeatureClickPoint | null) => {
-    // openPopup is false for the load position. A step sets it true.
-    if (point?.openPopup !== false) showPopup(point)
+    // The load report sets openPopup false. Do not speak that plot, and do
+    // not record it for the first step. A real move sets the flag true.
+    if (point?.openPopup === false) return
+    showPopup(point)
     const world = bundledHandle?.program?.world
     const lines: string[] = []
     const name = point?.name?.trim()
@@ -358,7 +360,12 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
       const stat = statisticLine(world, point)
       if (stat) lines.push(stat)
     }
-    bundledHandle?.program?.announceStanding?.(lines.length ? lines.join('. ') : null)
+    const field = (world as { statistics?: { field?: string } } | null | undefined)?.statistics?.field
+    const statistic = field && point?.attributes ? point.attributes[field] : undefined
+    bundledHandle?.program?.announceStanding?.(
+      lines.length ? lines.join('. ') : null,
+      statistic
+    )
   }
 
   if (isIntegratedRuntime(runtimeLocation)) {
@@ -393,7 +400,17 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
             headerHeight={headerHeight}
             avatar={avatar}
             onMove={runtimeLocation === RuntimeLocation.Bundled
-              ? (direction) => { void bundledHandle?.runtime.moveAvatar(direction) }
+              ? (direction) => {
+                // The key handler already started the browser resume. Wait
+                // for the pack before the step, or the first tone looks up
+                // samples that have not loaded and stays silent. A failed
+                // unlock still moves: speech does not need the pack, and
+                // holding the indicator would trap the user.
+                const pending = bundledHandle?.program?.unlockAudio?.()
+                void Promise.resolve(pending).then(() => {
+                  void bundledHandle?.runtime.moveAvatar(direction)
+                })
+              }
               : undefined}
             onDrop={runtimeLocation === RuntimeLocation.Bundled
               ? (longitude, latitude) => bundledHandle?.dropAvatar?.(longitude, latitude) ?? Promise.resolve(false)
@@ -403,6 +420,12 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
               : undefined}
             onFeatureClick={runtimeLocation === RuntimeLocation.Bundled ? showPopup : undefined}
             onFeatureFollow={runtimeLocation === RuntimeLocation.Bundled ? followPopup : undefined}
+            onUnlock={runtimeLocation === RuntimeLocation.Bundled
+              ? () => {
+                primeBundledAudio(bundledHandle)
+                return unlockBundledAudio(bundledHandle)
+              }
+              : undefined}
             popup={featurePopup}
             onPopupClose={() => { setFeaturePopup(null) }}
             onSurface={setMapSurface}
@@ -486,6 +509,7 @@ function EsriMapSurface (props: {
   onSelect?: () => void
   onFeatureClick?: (point: FeatureClickPoint | null) => void
   onFeatureFollow?: (point: FeatureClickPoint | null) => void
+  onUnlock?: () => void | Promise<boolean>
   onScreen?: (point: { x: number, y: number } | null) => void
   onSurface?: (surface: MountedMapSurface | null) => void
 }) {
@@ -624,8 +648,8 @@ function EsriMapSurface (props: {
   }, [placed, surfaceReady, onScreen])
   // The compass is a button above the map, so moving it never clicks the
   // map. Follow the avatar: hit test under it and show the same popup.
-  // The first report is the load position. Speak it, but do not open the
-  // tooltip until the user actually moves.
+  // The first report is the load position. Do not speak it, and do not
+  // open the tooltip until the user actually moves.
   const followed = useRef<ReportedAvatar | null>(null)
   useEffect(() => {
     const avatar = props.avatar
@@ -638,8 +662,8 @@ function EsriMapSurface (props: {
     const previous = followed.current
     followed.current = avatar
     // The runtime reports the load position, then reports it again once the
-    // map surface exists. That second report is not a step, so it must not
-    // open the tooltip. Speech still runs.
+    // map surface exists. That second report is not a step. Do not open the
+    // tooltip and do not speak the plot under the compass.
     const moved = previous != null && (
       previous.longitude !== avatar.longitude || previous.latitude !== avatar.latitude
     )
@@ -657,7 +681,7 @@ function EsriMapSurface (props: {
           y,
           name: data?.name ?? undefined,
           attributes: data?.attributes ?? undefined,
-          // The load position is spoken. It must not open a tooltip.
+          // The load position is not spoken and must not open a tooltip.
           openPopup: moved
         })
       }
@@ -705,11 +729,18 @@ function EsriMapSurface (props: {
     if (!direction || !props.onMove) return
     event.preventDefault()
     event.stopPropagation()
+    // Start the browser resume inside this key event. Waiting for the unlock
+    // promise before moving leaves the context suspended, so the step tone
+    // is decoded and then played into silence. The move itself is one tick
+    // later, after that resume has been requested.
+    props.onUnlock?.()
     props.onMove(direction)
   }
   // DOM-level click, independent of Esri's own click event. Clicks on the
   // Esri canvas bubble to this container; positioning is container-relative.
   const onMapClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    // A click on the map is a user gesture. Start the resume before the hit test.
+    props.onUnlock?.()
     const node = container.current as { __audiomSurface?: MountedMapSurface } | null
     const surface = node?.__audiomSurface
     const box = container.current?.getBoundingClientRect()
@@ -774,6 +805,7 @@ function EsriMapSurface (props: {
           })
         }}
         onDragCancel={() => { setDragScreen(null) }}
+        onUnlock={props.onUnlock}
       />
     </div>
   )
@@ -860,6 +892,7 @@ function AudiomIndicator (props: {
   onDragStart?: () => void
   onDrag?: (point: { x: number, y: number }) => void
   onDragEnd?: (point: { x: number, y: number }) => void
+  onUnlock?: () => void | Promise<boolean>
   onDragCancel?: () => void
 }) {
   const avatar = props.avatar
@@ -881,6 +914,9 @@ function AudiomIndicator (props: {
     return { x: event.clientX - box.left, y: event.clientY - box.top }
   }
   const onPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    // pointerdown is the gesture. Unlock before the drag threshold so the
+    // first grab still resumes Audiom's audio context.
+    props.onUnlock?.()
     if (!props.draggable || event.button !== 0) return
     const point = overlayPoint(event)
     drag.current = {
@@ -930,6 +966,9 @@ function AudiomIndicator (props: {
     if (!direction || !props.onMove) return
     event.preventDefault()
     event.stopPropagation()
+    // Start the browser resume inside this key event, then move. Awaiting
+    // the unlock before the move plays the tone into a suspended context.
+    props.onUnlock?.()
     props.onMove(direction)
   }
   // The compass sits above the map, so the wheel never reaches Esri.
@@ -949,6 +988,7 @@ function AudiomIndicator (props: {
         onPointerUp={(event) => { finishDrag(event, true) }}
         onPointerCancel={(event) => { finishDrag(event, false) }}
         onClick={() => {
+          props.onUnlock?.()
           // Keyboard activation has no pointer. A pointer click is the
           // pointerup above; handling both would select twice.
           if (!props.draggable) props.onSelect?.()

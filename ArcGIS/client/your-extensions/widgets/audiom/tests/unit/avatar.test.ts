@@ -1,4 +1,4 @@
-import { startBundledRuntime } from '../../src/runtime/bundledRuntime'
+import { primeBundledAudio, startBundledRuntime, unlockBundledAudio } from '../../src/runtime/bundledRuntime'
 import { setAudiomProgram, type AudiomProgram } from '../../src/runtime/audiomProgram'
 import type { AvatarState } from '../../../../shared/audiom-runtime/src/types'
 import { mapPointFromScreen, setMapModuleLoader, showAvatar, type MountedMapSurface } from '../../src/runtime/esriMapSurface'
@@ -186,5 +186,39 @@ describe('Audiom avatar', () => {
     })
     expect(asked).toEqual([{ x: 30, y: 40 }])
     expect(mapPointFromScreen(null, { x: 1, y: 1 })).toBeNull()
+  })
+
+  it('treats a promised unlock as unlocked', async () => {
+    let resumed = false
+    const handle = startBundledRuntime('widget-unlock', undefined, () => undefined)
+    handle.activationRequired = true
+    handle.program = {
+      runtime: handle.runtime,
+      unlockAudio: () => Promise.resolve(true).then((ok) => {
+        resumed = true
+        return ok
+      }),
+      dispose () { /* the runtime below owns disposal */ }
+    }
+
+    await expect(unlockBundledAudio(handle)).resolves.toBe(true)
+    expect(resumed).toBe(true)
+    expect(handle.activationRequired).toBe(false)
+    await handle.runtime.dispose()
+  })
+
+  it('starts the browser resume before the unlock promise', () => {
+    const handle = startBundledRuntime('widget-prime', undefined, () => undefined)
+    let primed = false
+    handle.program = {
+      runtime: handle.runtime,
+      primeAudio () { primed = true },
+      dispose () { /* the runtime below owns disposal */ }
+    }
+
+    primeBundledAudio(handle)
+    expect(primed).toBe(true)
+    primeBundledAudio(null)
+    return handle.runtime.dispose()
   })
 })

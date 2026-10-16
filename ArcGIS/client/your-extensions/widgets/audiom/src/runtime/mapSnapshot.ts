@@ -536,6 +536,12 @@ function featureRecord (
   const objectId = layer.objectIdField ? attributes[layer.objectIdField] : attributes.OBJECTID ?? attributes.objectid
   const recordId = objectId != null ? String(objectId) : `${layerId}-${recordsFallbackId(feature)}`
   const styled = styleAttributes(attributes)
+  // Audiom looks up step files by category, then by name. A plain Esri layer
+  // has no ruleType, so use its type column. The spoken title is not a file.
+  if (styled.ruleType == null) {
+    const category = featureCategory(attributes, layer)
+    if (category) styled.ruleType = category
+  }
   // The tooltip names the plot from the popup title and owner/name columns.
   // Voice-over reads attributes.name. Store that same title, or a step says
   // Empty Space on a plot whose name is not in a column called name.
@@ -567,6 +573,13 @@ function recordsFallbackId (feature: SnapshotFeature): string {
 
 const NAME_FIELDS = ['name', 'Name', 'NAME', 'title', 'Title', 'TITLE', 'label', 'Label', 'LABEL']
 
+/** Columns a plain layer uses for the kind of place, not its spoken title. */
+const CATEGORY_FIELDS = [
+  'ruleType', 'RuleType', 'type', 'Type', 'TYPE', 'category', 'Category',
+  'CATEGORY', 'class', 'Class', 'CLASS', 'fclass', 'amenity', 'Amenity',
+  'landuse', 'Landuse', 'LANDUSE'
+]
+
 /** First human-readable attribute. Does not invent a name from the object id. */
 function featureLabel (
   attributes: Record<string, unknown>,
@@ -582,11 +595,41 @@ function featureLabel (
   return null
 }
 
+/** A short category such as park or road. Skips the column used as the title. */
+function featureCategory (
+  attributes: Record<string, unknown>,
+  layer?: SnapshotLayer & { displayField?: string, typeIdField?: string }
+): string | null {
+  const fields = layer?.typeIdField
+    ? [layer.typeIdField, ...CATEGORY_FIELDS]
+    : CATEGORY_FIELDS
+  for (const field of fields) {
+    if (field === layer?.displayField) continue
+    const value = attributes[field]
+    if (typeof value !== 'string') continue
+    const category = value.trim()
+    if (!category || category.length > 40 || /\s/.test(category)) continue
+    return category
+  }
+  return null
+}
+
 type StyleValue = string | number | boolean | null
 
 const STYLE_KEYS = [
   'fill', 'stroke', 'stroke-width', 'fill-pattern', 'fill-opacity',
   'stroke-opacity', 'stroke-dasharray'
+]
+
+/**
+ * Text Audiom uses to pick a step file: id, then name, then ruleName, then
+ * ruleType. A spoken title is not a soundpack file, so the category has to
+ * survive the snapshot or every step is silent.
+ */
+const SOUND_KEYS = [
+  'id', 'ruleType', 'ruleName', 'ruleNamePlural', 'soundPriority',
+  'shortSoundPath', 'ambientSoundPath', 'interiorAmbientSoundPath', 'introSoundPath',
+  'stepSoundPath', 'loopSoundPath', 'shortSound', 'loopSound', 'introSound'
 ]
 
 /**
@@ -598,6 +641,7 @@ function styleAttributes (attributes: Record<string, unknown>): Record<string, S
   putStyle(kept, 'name', typeof attributes.name === 'string' ? attributes.name : attributes.Name)
   putStyle(kept, 'Name', attributes.Name)
   for (const key of STYLE_KEYS) putStyle(kept, key, attributes[key])
+  for (const key of SOUND_KEYS) putStyle(kept, key, attributes[key])
   for (const [key, value] of Object.entries(attributes)) {
     if (kept[key] != null) continue
     const numeric = typeof value === 'number'

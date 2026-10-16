@@ -278,9 +278,24 @@ export function restoreAudiomStyles (jimuMapView: SnapshotMapView | undefined): 
   })
 }
 
-/** Resume Audiom's audio from a user gesture. False when no soundpack is loaded. */
-export function unlockBundledAudio (handle: BundledRuntimeHandle | null | undefined): boolean {
-  const unlocked = handle?.program?.unlockAudio?.() === true
-  if (unlocked && handle) handle.activationRequired = false
-  return unlocked
+/**
+ * Start Audiom's browser resume during the key or click. The widget must
+ * call this before awaiting unlockBundledAudio. A resume that starts after
+ * that await is no longer inside the gesture, and the step tone stays silent.
+ */
+export function primeBundledAudio (handle: BundledRuntimeHandle | null | undefined): void {
+  handle?.program?.primeAudio?.()
+}
+
+/**
+ * Resume Audiom's audio from a user gesture. False when no soundpack is loaded.
+ * The compiled session returns a Promise; comparing that to true is always false,
+ * so the click never counted as an unlock.
+ */
+export function unlockBundledAudio (handle: BundledRuntimeHandle | null | undefined): Promise<boolean> {
+  const pending = handle?.program?.unlockAudio?.()
+  return Promise.resolve(pending).then((unlocked) => {
+    if (unlocked && handle) handle.activationRequired = false
+    return unlocked === true
+  }).catch(() => false)
 }
