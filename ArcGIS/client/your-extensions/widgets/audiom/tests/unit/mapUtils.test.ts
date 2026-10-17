@@ -6,7 +6,8 @@ import {
   isAudiomConfigValid
 } from '../../src/utils/mapUtils'
 import { FilterType } from '../../src/setting/enums'
-import { MapType } from '../../../../shared/audiom-client/AudiomSource'
+import { MapType, SourceType } from '../../../../shared/audiom-client/AudiomSource'
+import { VisualBaseLayerType } from '../../../../shared/audiom-client/AudiomEmbedConfig'
 import { toMutableConfig } from '../../src/setting/configs'
 import { makeConfig, makeImmutableConfig, makeSource, makeFilter } from '../helpers/configFactories'
 
@@ -155,6 +156,47 @@ describe('audiomConfigToEmbedConfig', () => {
     const cfg = makeConfig({ visualBaseLayers: [] })
     const embed = audiomConfigToEmbedConfig(cfg, undefined)
     expect(embed).toBeDefined()
+  })
+
+  it('serializes feature visual base layers as esri sources', () => {
+    const featureUrl = 'https://services.arcgis.com/example/FeatureServer/0'
+    const cfg = makeConfig({
+      visualBaseLayers: [{
+        url: featureUrl,
+        type: VisualBaseLayerType.Feature,
+        position: '[[-1,1],[1,1],[1,-1],[-1,-1]]'
+      }]
+    })
+    const params = audiomConfigToEmbedConfig(cfg, undefined).toQueryParams()
+    expect(params.sources).toBe('visualbaselayer0')
+    expect(params['visualbaselayer0.type']).toBe(SourceType.ESRI)
+    expect(params['visualbaselayer0.url']).toBe(featureUrl)
+    expect(params.visualbaselayer0).toBeUndefined()
+    expect(params.visualbaselayerposition0).toBeUndefined()
+  })
+
+  it('serializes a custom visual base layer name', () => {
+    const cfg = makeConfig({
+      visualBaseLayers: [{
+        url: 'https://x/img.png',
+        layerName: ' Campus overlay ',
+        type: VisualBaseLayerType.Image
+      }]
+    })
+    const params = audiomConfigToEmbedConfig(cfg, undefined).toQueryParams()
+    expect(params.visualbaselayername0).toBe('Campus overlay')
+  })
+
+  it('uses a custom feature layer name instead of the URL segment', () => {
+    const cfg = makeConfig({
+      visualBaseLayers: [{
+        url: 'https://services.arcgis.com/example/FeatureServer/0',
+        layerName: 'Buildings',
+        type: VisualBaseLayerType.Feature
+      }]
+    })
+    const params = audiomConfigToEmbedConfig(cfg, undefined).toQueryParams()
+    expect(params['visualbaselayer0.name']).toBe('Buildings')
   })
 })
 

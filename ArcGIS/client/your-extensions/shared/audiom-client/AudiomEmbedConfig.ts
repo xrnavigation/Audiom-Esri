@@ -387,7 +387,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
       });
       usedNames.add(source.source);
       sources.push(source);
-      featureIndex += 1;
+      ++featureIndex;
     });
 
     return sources;
