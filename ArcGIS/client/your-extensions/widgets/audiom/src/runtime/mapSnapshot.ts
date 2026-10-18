@@ -131,7 +131,7 @@ export function snapshotFromMapView (
   const sources: SourceSnapshot[] = []
   const records: RecordSnapshot[] = []
   const layers = jimuMapView?.view?.map?.allLayers || jimuMapView?.map?.allLayers
-  if (!layers) return { sources, records }
+  if (!layers) return { sources, records, dataSourceId }
 
   layers.forEach((layer) => {
     if (isInternalLayer(layer)) return
@@ -168,7 +168,7 @@ export function snapshotFromMapView (
   for (const source of sources) {
     source.recordCount = records.filter((record) => record.sourceId === source.sourceId).length
   }
-  return { sources, records }
+  return { sources, records, dataSourceId }
 }
 
 /**

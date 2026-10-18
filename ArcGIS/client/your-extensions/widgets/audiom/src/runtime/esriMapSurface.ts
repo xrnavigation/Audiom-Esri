@@ -94,7 +94,16 @@ export interface MountedMapView {
     visible?: boolean
     close?: () => void
   }
-  watch?: (property: string, handler: () => void) => MapViewHandle
+  stationary?: boolean
+  /** Drawn extent. Used to decide whether a reported point is on screen. */
+  extent?: {
+    xmin?: number
+    ymin?: number
+    xmax?: number
+    ymax?: number
+    spatialReference?: { wkid?: number, isWGS84?: boolean, isWebMercator?: boolean }
+  }
+  watch?: (property: string, handler: (value?: unknown) => void) => MapViewHandle
   when?: () => Promise<unknown>
   /** Set by the embed. The widget forwards a non-avatar click here. */
   onFeatureClick?: (point: FeatureClickPoint | null) => void

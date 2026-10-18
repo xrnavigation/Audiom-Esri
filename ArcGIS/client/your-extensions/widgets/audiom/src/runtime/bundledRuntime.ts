@@ -78,13 +78,9 @@ export function startBundledRuntime (
         latitude: state.position.latitude,
         heading: state.orientation
       })
-      // Go can land outside the current view. Pan there so the compass,
-      // which only draws inside the view, is not hidden.
-      if (mapSurface?.view.goTo) {
-        void mapSurface.view.goTo({
-          center: [state.position.longitude, state.position.latitude]
-        }).catch(() => undefined)
-      }
+      // The indicator is a geographic point. Panning or zooming the map
+      // must not move it, and a report must not recenter the map on it.
+      // Audiom's marker only changes on drag, keyboard, or menu movement.
       return Promise.resolve(applied())
     },
     requestSelection () {
@@ -225,7 +221,8 @@ export async function paintAudiomStyles (
   snapshot?: MapSnapshot,
   mode: VectorStyleMode = VectorStyleMode.Both,
   field?: string,
-  paletteIndex?: number
+  paletteIndex?: number,
+  mapType?: string
 ): Promise<void> {
   const layers = jimuMapView?.view?.map?.allLayers || jimuMapView?.map?.allLayers
   if (!layers || !snapshot) return
@@ -266,7 +263,11 @@ export async function paintAudiomStyles (
       paintable.objectIdField = matched.objectIdField
     }
     const extents = (matched as { fieldExtents?: Record<string, { min: number, max: number }> } | undefined)?.fieldExtents
-    applyAudiomSymbols(paintable, modules, features, mode, field, extents, paletteIndex)
+    const source = snapshot.sources.find((item) =>
+      item.sourceId === sourceId || item.sourceId === layer.id || item.displayName === layer.title
+    )
+    const layerType = source?.mapType || mapType
+    applyAudiomSymbols(paintable, modules, features, mode, field, extents, paletteIndex, layerType)
   })
 }
 

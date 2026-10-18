@@ -292,10 +292,34 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     return null;
   }
 
-  const view = jimuMapView.view;
+  return mapConfigFromView(jimuMapView.view);
+}
+
+/** Center, zoom, title, and operational layers of a drawn Esri view. */
+export function mapConfigFromView(view: {
+  center?: { latitude?: number, longitude?: number }
+  zoom?: number
+  map?: __esri.Map
+} | null | undefined): {
+  title?: string;
+  centerLatitude?: number;
+  centerLongitude?: number;
+  zoom?: number;
+  sourceConfigs?: Array<{
+    name?: string;
+    source?: string;
+    sourceUrl?: string;
+    mapType?: MapType;
+    rulesFileUrl?: string;
+    filters?: IFilterConfig[];
+    enabled?: boolean;
+  }>;
+} | null {
+  if (!view?.map || !view.center) return null
   const center = view.center;
   const zoom = view.zoom;
-  
+  if (center.latitude == null || center.longitude == null || zoom == null) return null
+
   // Extract title from the map's portal item if available
   const mapTitle = getMapTitle(view.map);
   
@@ -314,7 +338,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
   // Get sources from map (without config, so no rules merged) — paired with
   // their originating layer so we can read visibility/timeExtent without a
   // second pass over allLayers.
-  const sourceLayerPairs = getSourceLayerPairsFromEsriMap(jimuMapView);
+  const sourceLayerPairs = getSourceLayerPairsFromEsriMap({ view } as JimuMapView);
 
   sourceLayerPairs.forEach(({ source, layer }) => {
     const filters: IFilterConfig[] = []

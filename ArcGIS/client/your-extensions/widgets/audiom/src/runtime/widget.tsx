@@ -1,4 +1,4 @@
-﻿import { type AllWidgetProps, React, ReactRedux, AppMode, getAppStore, loadArcGISJSAPIModules, type IMState, type ImmutableObject } from 'jimu-core'
+import { type AllWidgetProps, React, ReactRedux, AppMode, getAppStore, type IMState, type ImmutableObject } from 'jimu-core'
 import { audiomConfigToEmbedConfig } from '../utils/mapUtils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { serializeLockedForDiff } from '../utils/sourceConfigUtils'
@@ -179,24 +179,71 @@ const styles = {
     border: 0,
     width: '100%',
     height: '100%'
+  },
+  mapSourcePrompt: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxSizing: 'border-box',
+    margin: 0,
+    padding: '16px',
+    textAlign: 'center',
+    lineHeight: 1.4
   }
 } as const satisfies Record<string, React.CSSProperties>
+
+/** Shown until bundled mode has a web map or web scene to load. */
+const SET_MAP_SOURCE_MESSAGE = 'Set a map source first.'
 
 /**
  * The web map item lives on the data source portal, not the app portal.
  * Loading it without that URL is the CONT_0001 "item does not exist" error,
  * which leaves the map with no feature layers.
  */
+type MapSourceJson = { itemId?: string, portalUrl?: string } | null | undefined
+
+function dataSourcesFromState (): Record<string, MapSourceJson> {
+  const state = getAppStore().getState() as {
+    appConfig?: { dataSources?: Record<string, MapSourceJson> }
+    appStateInBuilder?: { appConfig?: { dataSources?: Record<string, MapSourceJson> } }
+  }
+  return {
+    ...(state.appConfig?.dataSources || {}),
+    ...(state.appStateInBuilder?.appConfig?.dataSources || {})
+  }
+}
+
+/** The web map or web scene the selector is currently connected to. */
+function selectedMapItemId (
+  props: AllWidgetProps<ImmutableObject<IAudiomConfig>>,
+  savedItemId: string | undefined
+): string {
+  const sources = props.useDataSources
+  // An explicit empty connection means the source was removed. A missing
+  // prop means this render only has the saved item id.
+  if (sources && sources.length === 0) return ''
+  const connected = sources ? Array.from(sources) : []
+  const dataSources = dataSourcesFromState()
+  for (const source of connected) {
+    const id = source.mainDataSourceId || source.dataSourceId
+    const itemId = id ? dataSources[id]?.itemId : undefined
+    if (itemId) return itemId
+  }
+  return savedItemId || ''
+}
+
 function portalUrlForItem (
   props: AllWidgetProps<ImmutableObject<IAudiomConfig>>,
   itemId: string | undefined
 ): string | undefined {
   if (!itemId) return undefined
   const sources = props.useDataSources ? Array.from(props.useDataSources) : []
-  const state = getAppStore().getState() as {
-    appConfig?: { dataSources?: Record<string, { itemId?: string, portalUrl?: string }> }
-  }
-  const dataSources = state.appConfig?.dataSources || {}
+  const dataSources = dataSourcesFromState()
   for (const source of sources) {
     const id = source.mainDataSourceId || source.dataSourceId
     const dataSource = id ? dataSources[id] : undefined
@@ -214,6 +261,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   const [avatar, setAvatar] = useState<ReportedAvatar | null>(null)
   const [featurePopup, setFeaturePopup] = useState<{ lines: string[], longitude: number, latitude: number } | null>(null)
   const [runtimeStatus, setRuntimeStatus] = useState('')
+  const [mapSourceTick, setMapSourceTick] = useState(0)
   const [hasChanges, setHasChanges] = useState(false)
   const [lastSyncedConfigJson, setLastSyncedConfigJson] = useState<string>('')
   // Per-widget MapSyncManager instance (shared with the same widget's
@@ -280,6 +328,24 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   }, [sanitizedConfig?.sourceConfigs, lastSyncedConfigJson])
 
   const runtimeLocation = runtimeLocationOf(sanitizedConfig)
+  const bundledMapItemIdRef = useRef('')
+  // Adding a map writes the data source into the builder store before the
+  // widget props update. Refresh only when that connected item changes.
+  useEffect(() => {
+    const store = getAppStore() as {
+      subscribe?: (listener: () => void) => (() => void) | void
+    }
+    return store.subscribe?.(() => {
+      const nextItemId = selectedMapItemId(props, sanitizedConfig.mapItemId)
+      if (nextItemId === bundledMapItemIdRef.current) return
+      setMapSourceTick((tick) => tick + 1)
+    })
+  }, [props, sanitizedConfig.mapItemId])
+  // The selector updates useDataSources before config.mapItemId is saved.
+  // Follow the connection so adding or removing a source updates immediately.
+  const bundledMapItemId = selectedMapItemId(props, sanitizedConfig.mapItemId)
+  bundledMapItemIdRef.current = bundledMapItemId
+  void mapSourceTick
   // Bundled mode draws EsriMapSurface. It has no JimuMapView. Building the
   // iframe URL here calls the embed extractor on every indicator move and
   // logs "No map view available". The iframe is the only caller.
@@ -297,7 +363,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     ? resolveSoundpackFallbackUrl(sanitizedConfig.soundpackUrl, sanitizedConfig.assetBaseUrl)
     : undefined
   const bundledHandle = useBundledRuntime(
-    runtimeLocation === RuntimeLocation.Bundled,
+    runtimeLocation === RuntimeLocation.Bundled && Boolean(bundledMapItemId),
     props.id,
     jimuMapView,
     setRuntimeStatus,
@@ -313,7 +379,8 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
       title: source.name,
       url: source.sourceUrl,
       mapType: source.mapType
-    }))
+    })),
+    bundledMapItemId
   )
   const embedOverlay = useRef<HTMLDivElement>(null)
   const headerHeight = useHeaderHeight(embedOverlay)
@@ -378,6 +445,9 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     const scene = bundled && props.useDataSources?.some((source) =>
       String(source.dataSourceId || '').toUpperCase().includes('WEB_SCENE')
     )
+    // No item yet means there is no data-source JSON. Mounting the map
+    // (or asking ExB to resolve that source) reads portalUrl off null.
+    const needsMapSource = bundled && !bundledMapItemId
     return (
       <div
         className="jimu-widget"
@@ -389,10 +459,13 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
           <JimuMapViewComponent useMapWidgetId={mapWidgetId} onActiveViewChange={activeViewChangeHandler} />
         )}
         <div style={styles.container}>
+          {needsMapSource ? (
+            <p role="status" style={styles.mapSourcePrompt}>{SET_MAP_SOURCE_MESSAGE}</p>
+          ) : (
           <EsriMapSurface
             existingMap={existingMap}
-            mapItemId={bundled ? sanitizedConfig.mapItemId : undefined}
-            portalUrl={bundled ? portalUrlForItem(props, sanitizedConfig.mapItemId) : undefined}
+            mapItemId={bundled ? bundledMapItemId : undefined}
+            portalUrl={bundled ? portalUrlForItem(props, bundledMapItemId) : undefined}
             scene={scene}
             longitude={sanitizedConfig.centerLongitude}
             latitude={sanitizedConfig.centerLatitude}
@@ -430,17 +503,20 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
             onPopupClose={() => { setFeaturePopup(null) }}
             onSurface={setMapSurface}
           />
+          )}
           <div
             ref={embedOverlay}
             style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, overflow: 'visible', zIndex: 8, pointerEvents: 'none' }}
           />
         </div>
+        {!needsMapSource && (
         <p className="sr-only" role="status">
           {avatar
             ? `Position ${avatar.longitude.toFixed(3)}, ${avatar.latitude.toFixed(3)}. Heading ${Math.round(avatar.heading)} degrees.`
             : mapLabel}
           {runtimeStatus ? `. ${runtimeStatus}` : ''}
         </p>
+        )}
       </div>
     )
   }
@@ -492,6 +568,13 @@ function useHeaderHeight (overlay: { current: HTMLDivElement | null }): number {
 }
 
 
+/** True when settings hold a place, not the unset 0,0 default. */
+function hasMapCenter (longitude?: number, latitude?: number): boolean {
+  if (longitude == null || latitude == null) return false
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return false
+  return !(longitude === 0 && latitude === 0)
+}
+
 function EsriMapSurface (props: {
   existingMap?: unknown
   mapItemId?: string
@@ -532,9 +615,29 @@ function EsriMapSurface (props: {
       ? { longitude: props.longitude, latitude: props.latitude, heading: 0 }
       : null
   )
+  const centerReady = !props.mapItemId || hasMapCenter(props.longitude, props.latitude)
+  // Freeze the first real center for this item. A later pan writes a new
+  // center into settings; using that as the mount point would rebuild the
+  // view. A different item is a different place, so its center is new.
+  const mountCenter = useRef<{ itemId?: string, longitude?: number, latitude?: number, zoom?: number } | null>(null)
+  if (mountCenter.current && mountCenter.current.itemId !== props.mapItemId) {
+    mountCenter.current = null
+  }
+  if (!mountCenter.current && centerReady) {
+    mountCenter.current = {
+      itemId: props.mapItemId,
+      longitude: props.longitude,
+      latitude: props.latitude,
+      zoom: props.zoom
+    }
+  }
   useEffect(() => {
     const node = container.current
     if (!node) return
+    // A portal item with no center yet would mount at 0,0. That is the
+    // ocean, and the indicator then has to chase a view that started wrong.
+    // Wait until the settings center is a real place, then mount once.
+    if (!centerReady) return
     let cancelled = false
     let surface: MountedMapSurface | null = null
     // Center and zoom updates must not rebuild the view. WebMap.load starts
@@ -544,7 +647,12 @@ function EsriMapSurface (props: {
       && current.portalUrl === props.portalUrl
       && current.scene === Boolean(props.scene)
       && current.existingMap === props.existingMap
-    if (current && sameItem) {
+    if (current && !sameItem) {
+      destroyMapSurface(current)
+      mountedSurface.current = null
+      delete (node as { __audiomSurface?: MountedMapSurface }).__audiomSurface
+    }
+    if (mountedSurface.current && sameItem) {
       surface = current
       ;(node as { __audiomSurface?: MountedMapSurface }).__audiomSurface = current
       setSurfaceReady(true)
@@ -559,9 +667,9 @@ function EsriMapSurface (props: {
       portalUrl: props.portalUrl,
       mapItemId: props.mapItemId,
       scene: props.scene,
-      longitude: props.longitude,
-      latitude: props.latitude,
-      zoom: props.zoom
+      longitude: mountCenter.current?.longitude,
+      latitude: mountCenter.current?.latitude,
+      zoom: mountCenter.current?.zoom
     }).then((mounted) => {
       mounted.mapItemId = props.mapItemId
       mounted.portalUrl = props.portalUrl
@@ -602,7 +710,24 @@ function EsriMapSurface (props: {
       delete (node as { __audiomSurface?: MountedMapSurface }).__audiomSurface
       onSurface?.(null)
     }
-  }, [props.existingMap, props.mapItemId, props.portalUrl, props.scene, props.longitude, props.latitude, props.zoom, onSurface])
+  }, [props.existingMap, props.mapItemId, props.portalUrl, props.scene, centerReady, onSurface])
+  // The view is created at the settings center. Once the indicator exists,
+  // the map follows that point. A step moves the indicator; the map comes
+  // to it. A typed center is a new place for the indicator, and the map
+  // follows that report. Do not goTo the settings center itself, or a pan
+  // echo pulls the view off the indicator.
+  useEffect(() => {
+    const node = container.current as { __audiomSurface?: MountedMapSurface } | null
+    const view = node?.__audiomSurface?.view
+    if (!view?.goTo || !surfaceReady || !avatar) return
+    if (!Number.isFinite(avatar.longitude) || !Number.isFinite(avatar.latitude)) return
+    if (avatar.longitude === 0 && avatar.latitude === 0) return
+    const target: { center: [number, number], zoom?: number } = {
+      center: [avatar.longitude, avatar.latitude]
+    }
+    if (typeof props.zoom === 'number' && Number.isFinite(props.zoom)) target.zoom = props.zoom
+    void view.goTo(target).catch((): void => undefined)
+  }, [avatar, props.zoom, surfaceReady])
   useEffect(() => {
     const node = container.current as { __audiomSurface?: MountedMapSurface } | null
     if (!node?.__audiomSurface) return
@@ -1117,7 +1242,10 @@ function movementDirection (key: string): string | null {
 /**
  * Audiom's own React root, beside the Esri map node. Esri replaces children
  * of the map div, so this overlay is a sibling. The menu mounts as soon as
- * the map exists. A missing program does not hide it.
+ * the surface exists; the session is passed in when the program starts.
+ * Argument order matches the call site: overlay, surface, handle, enabled.
+ * Swapping overlay and enabled makes the ref look like a boolean, so the
+ * menu, header, and legend never mount.
  */
 function useAudiomEmbed (
   overlay: { current: HTMLDivElement | null },
@@ -1135,7 +1263,7 @@ function useAudiomEmbed (
       return
     }
     let cancelled = false
-    let release: (() => void) | null = null
+    let release: (() => void) | undefined
     try {
       // Experience Builder compiles this sibling file with the widget.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -1201,48 +1329,17 @@ function projectEmbedPoint (
   return Promise.resolve({ x: projected.x, y: projected.y })
 }
 
-/** The slice of a view extent the navigation wall needs. */
-interface ViewExtent {
-  xmin?: number
-  ymin?: number
-  xmax?: number
-  ymax?: number
-  spatialReference?: { wkid?: number, isWGS84?: boolean, isWebMercator?: boolean }
-}
-
 /**
- * The drawn view extent as [west, south, east, north] in longitude and
- * latitude. The projection comes from the view's own spatial reference,
- * converted by the ArcGIS API, so no coordinate math is hard-coded here.
+ * The center a bundled session may be born at. 0,0 is the unset default,
+ * not a place, so it must not become the projection origin. A later pan
+ * writes a new center into settings; that is the same session, not a new
+ * origin, and must not restart it.
  */
-async function geographicExtentOf (
-  view: { extent?: ViewExtent } | undefined
-): Promise<[number, number, number, number] | undefined> {
-  const extent = view?.extent
-  if (!extent) return undefined
-  const { xmin, ymin, xmax, ymax, spatialReference: sr } = extent
-  if (xmin == null || ymin == null || xmax == null || ymax == null) return undefined
-  if (sr?.isWGS84 || sr?.wkid === 4326) return [xmin, ymin, xmax, ymax]
-  if (!(sr?.isWebMercator || sr?.wkid === 102100 || sr?.wkid === 3857 || sr?.wkid === 102113)) {
-    // An unsupported projection is left to the feature bbox fallback.
-    return undefined
-  }
-  try {
-    const [webMercatorUtils] = await loadArcGISJSAPIModules([
-      'esri/geometry/support/webMercatorUtils'
-    ]) as [{
-      webMercatorToGeographic: (geometry: unknown) => {
-        xmin?: number, ymin?: number, xmax?: number, ymax?: number
-      } | null
-    }]
-    const geo = webMercatorUtils.webMercatorToGeographic(extent)
-    if (!geo || geo.xmin == null || geo.ymin == null || geo.xmax == null || geo.ymax == null) {
-      return undefined
-    }
-    return [geo.xmin, geo.ymin, geo.xmax, geo.ymax]
-  } catch {
-    return undefined
-  }
+function sessionOriginKey (longitude?: number, latitude?: number): string {
+  if (longitude == null || latitude == null) return ''
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return ''
+  if (longitude === 0 && latitude === 0) return ''
+  return 'placed'
 }
 
 function useBundledRuntime (
@@ -1257,13 +1354,51 @@ function useBundledRuntime (
   moveDistance?: number,
   soundpackUrl?: string,
   soundpackFallbackUrl?: string,
-  mapTypes?: readonly SnapshotMapTypeHint[]
+  mapTypes?: readonly SnapshotMapTypeHint[],
+  mapItemId?: string
 ): BundledRuntimeHandle | null {
   const [handle, setHandle] = useState<BundledRuntimeHandle | null>(null)
   const [reported, setReported] = useState<ReportedAvatar | null>(null)
   // Read inside the snapshot effect without making it a dependency. A move
   // must not re-run the snapshot query (the layer load can take seconds).
   const reportedRef = useRef<ReportedAvatar | null>(null)
+  const longitudeRef = useRef(longitude)
+  const latitudeRef = useRef(latitude)
+  const moveDistanceRef = useRef(moveDistance)
+  // A Map Type change must not re-query the service. The snapshot effect
+  // reads this ref. Putting mapTypes in its dependency array reloads every
+  // layer, which is the long pause after the dropdown changes.
+  const mapTypesRef = useRef(mapTypes)
+  mapTypesRef.current = mapTypes
+  const loadedSnapshot = useRef<MapSnapshot | null>(null)
+  // The Map Type effect must not depend on the surface. A new surface
+  // identity would republish. The paint still needs the map that is drawn.
+  const drawnMapRef = useRef<unknown>(null)
+  drawnMapRef.current = surface?.view?.map || jimuMapView?.view?.map || null
+  longitudeRef.current = longitude
+  latitudeRef.current = latitude
+  moveDistanceRef.current = moveDistance
+  // The session's projection origin is fixed at construction. Starting it
+  // before the map center is written uses 0,0, and every later report is
+  // then a point in the ocean. Restart once, when that center arrives.
+  // A pan must not restart it: the origin is the center the session was
+  // born with, not the latest settings write.
+  const originKey = sessionOriginKey(longitude, latitude)
+  // The center the session was born at. A later settings write that is
+  // still this point is a pan echo. A different finite point is the user
+  // overwriting Center, and the indicator has to move there.
+  const bornCenter = useRef<{ longitude?: number, latitude?: number } | null>(null)
+  // A new map source is a new place. Drop the previous indicator before
+  // the next session reports, so the compass cannot stay on the old point.
+  const previousMapItemId = useRef(mapItemId)
+  if (previousMapItemId.current !== mapItemId) {
+    previousMapItemId.current = mapItemId
+    reportedRef.current = null
+    if (reported) {
+      setReported(null)
+      onAvatar(null)
+    }
+  }
   useEffect(() => {
     if (!enabled) {
       setHandle(null)
@@ -1271,12 +1406,25 @@ function useBundledRuntime (
       onAvatar(null)
       return
     }
+    // Wait for the map center. A session born at 0,0 reports the ocean
+    // for the rest of its life, and the map then follows that point.
+    if (!originKey) return
+    bornCenter.current = {
+      longitude: longitudeRef.current,
+      latitude: latitudeRef.current
+    }
     const next = startBundledRuntime(
-      instanceId,
+      mapItemId ? `${instanceId}:${mapItemId}` : instanceId,
       jimuMapView,
       onStatus,
       null,
-      { longitude, latitude, moveDistance, soundpackUrl, soundpackFallbackUrl }
+      {
+        longitude: longitudeRef.current,
+        latitude: latitudeRef.current,
+        moveDistance: moveDistanceRef.current,
+        soundpackUrl,
+        soundpackFallbackUrl
+      }
     )
     next.bindSurface?.(surface)
     next.onReported = (state) => {
@@ -1295,12 +1443,40 @@ function useBundledRuntime (
       restoreAudiomStyles(jimuMapView)
       setReported(null)
       onAvatar(null)
+      // runtime.dispose() does not stop the session. The old encounter
+      // player and tones keep going on the shared engine unless the
+      // program itself is disposed.
+      next.program?.dispose()
       void next.runtime.dispose()
     }
-  }, [enabled, instanceId, jimuMapView, onStatus, onAvatar, longitude, latitude, moveDistance, soundpackUrl, soundpackFallbackUrl])
+  }, [enabled, instanceId, mapItemId, originKey, jimuMapView, onStatus, onAvatar, soundpackUrl, soundpackFallbackUrl])
   useEffect(() => {
     handle?.bindSurface?.(surface)
   }, [handle, surface])
+  // A typed Center is a new place. placeAt keeps the session's origin, so
+  // the report stays in degrees instead of becoming meters in the ocean.
+  // The point the session was born at is not a move: a pan writes that
+  // same center back, and following it would drag the indicator.
+  useEffect(() => {
+    if (!handle?.program?.placeAt) return
+    if (longitude == null || latitude == null) return
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return
+    if (longitude === 0 && latitude === 0) return
+    const born = bornCenter.current
+    if (born && born.longitude === longitude && born.latitude === latitude) return
+    const placed = handle.program.placeAt(longitude, latitude)
+    bornCenter.current = { longitude, latitude }
+    const position = {
+      longitude: placed.position.longitude,
+      latitude: placed.position.latitude,
+      heading: placed.orientation
+    }
+    reportedRef.current = position
+    onAvatar(position)
+  }, [handle, longitude, latitude, onAvatar])
+  // The indicator starts at the set map's center. A pan must not move it.
+  // A typed center does, through placeAt above. Drag, keyboard, and the
+  // menu report through onReported rather than through this config.
   useEffect(() => {
     const drawn = surface?.view?.map || jimuMapView?.view?.map
     const map = drawn as {
@@ -1313,8 +1489,6 @@ function useBundledRuntime (
     if (!handle?.program || !map) return
     let cancelled = false
     let layerHandle: { remove?: () => void } | undefined
-    let latest: MapSnapshot | undefined
-    const drawnView = (surface?.view || jimuMapView?.view) as { extent?: ViewExtent } | undefined
     const view = { map }
     const paintChoice = async (snapshot: MapSnapshot) => {
       const program = handle.program as {
@@ -1353,7 +1527,8 @@ function useBundledRuntime (
         snapshot,
         mode,
         chosen,
-        paletteIndex
+        paletteIndex,
+        snapshot.sources.length === 1 ? snapshot.sources[0].mapType : undefined
       )
     }
     const apply = async () => {
@@ -1361,19 +1536,17 @@ function useBundledRuntime (
       // portal cannot see leaves those promises pending, and the legend
       // then never reads the layers that did load.
       if (cancelled) return
-      const standing = reportedRef.current
-        ? { longitude: reportedRef.current.longitude, latitude: reportedRef.current.latitude }
-        : (longitude != null && latitude != null ? { longitude, latitude } : undefined)
-      const snapshot = await snapshotFeaturesFromMapView(view, instanceId, mapTypes, drawnView?.extent, standing)
+      // Query the whole service. Passing the drawn extent makes the page
+      // the current view, and the next snapshot then drops the indicator
+      // onto whichever plot is nearest in that page.
+      const snapshot = await snapshotFeaturesFromMapView(view, instanceId, mapTypesRef.current)
       if (cancelled) return
-      // Record the snapshot before the extent lookup so a pattern/color
-      // repaint has it even while that async step is still running.
-      latest = snapshot
-      // The navigation wall is the whole drawn map, not the bbox of the
-      // features that loaded. Publish the view extent so the world fences to it.
-      const extent = await geographicExtentOf(drawnView)
-      if (cancelled) return
-      if (extent) (snapshot as MapSnapshot & { extent?: [number, number, number, number] }).extent = extent
+      // Record the snapshot before any further async step so a pattern/color
+      // repaint, or a Map Type change, has it without querying again.
+      loadedSnapshot.current = snapshot
+      // Do not publish the drawn view as the navigation wall. That extent
+      // changes on every pan and zoom, and the world then treats the
+      // indicator's point as outside the map.
       const listed = snapshot.records.filter((record) => record.navigable).length
       const names = snapshot.sources.map((source) => source.displayName).join(', ')
       // eslint-disable-next-line no-console
@@ -1408,8 +1581,9 @@ function useBundledRuntime (
     // The legend changes the statistic and the pattern/color mode. Repaint
     // the snapshot already loaded. Querying again is what made recolor slow.
     const onPaint = () => {
-      if (!latest) return
-      void paintChoice(latest).catch((error: unknown) => {
+      const loaded = loadedSnapshot.current
+      if (!loaded) return
+      void paintChoice(loaded).catch((error: unknown) => {
         // eslint-disable-next-line no-console
         console.error('Audiom repaint failed', error)
       })
@@ -1420,7 +1594,55 @@ function useBundledRuntime (
       layerHandle?.remove?.()
       window.removeEventListener('audiom-embed-paint', onPaint)
     }
-  }, [handle, jimuMapView, surface, instanceId, mapTypes, longitude, latitude])
+  }, [handle, jimuMapView, surface, instanceId])
+  // Map Type is audio and the legend, not a new query. Retag the snapshot
+  // already loaded and publish that. Querying the service again is the
+  // long pause after the dropdown changes.
+  const mapTypeKey = (mapTypes || []).map((item) => `${item.id || ''}:${item.mapType || ''}`).join('|')
+  useEffect(() => {
+    const loaded = loadedSnapshot.current
+    if (!handle?.program || !mapTypeKey || !loaded) return
+    const hints = mapTypesRef.current || []
+    const retagged: MapSnapshot = {
+      ...loaded,
+      sources: loaded.sources.map((source) => {
+        const hint = hints.find((item) => item.id === source.sourceId) ||
+          (hints.length === 1 ? hints[0] : undefined)
+        const raw = hint?.mapType === 'standard' ? 'travel' : hint?.mapType
+        const next = raw === 'heatmap' || raw === 'indoor' || raw === 'travel'
+          ? raw
+          : 'travel'
+        return next === source.mapType ? source : { ...source, mapType: next }
+      })
+    }
+    loadedSnapshot.current = retagged
+    const program = handle.program as {
+      applySnapshot?: (snapshot: MapSnapshot) => Promise<unknown>
+      world?: {
+        statistics?: { field?: string, fields?: Array<{ field?: string }> }
+        settings?: { vectorStyleMode?: VectorStyleMode }
+        rootStore?: { settings?: { vectorStyleMode?: VectorStyleMode } }
+      }
+    } | null
+    const drawn = drawnMapRef.current
+    const paint = drawn
+      ? paintAudiomStyles(
+        { map: drawn },
+        retagged,
+        paintStyleMode(program),
+        program?.world?.statistics?.field,
+        undefined,
+        retagged.sources.length === 1 ? retagged.sources[0].mapType : undefined
+      )
+      : Promise.resolve()
+    const publish = program?.applySnapshot
+      ? program.applySnapshot(retagged)
+      : handle.runtime.replaceSources(retagged, 1)
+    void paint.then(() => publish).catch((error: unknown) => {
+      // eslint-disable-next-line no-console
+      console.error('Audiom map type update failed', error)
+    })
+  }, [handle, mapTypeKey])
   useEffect(() => {
     if (!surface || !reported) return
     void showAvatar(surface, reported)

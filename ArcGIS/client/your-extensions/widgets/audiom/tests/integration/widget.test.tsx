@@ -123,6 +123,67 @@ describe('Audiom runtime widget', () => {
     expect(fakeManager.removeChangeListener).toHaveBeenCalled()
   })
 
+  it('asks to set a map source instead of mounting a map when bundled mode has none', () => {
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: ''
+      }) as any
+    })
+    const { container, getByText } = render(<Widget widgetId="audiom-bundled-empty" />)
+    expect(getByText('Set a map source first.')).not.toBeNull()
+    expect(container.querySelector('#audiom-esri-map')).toBeNull()
+    expect(container.querySelector('iframe')).toBeNull()
+  })
+
+  it('shows the map as soon as a bundled source is connected, even before mapItemId is saved', async () => {
+    setMapModuleLoader(async () => [
+      class Map { constructor (public properties: unknown) {} },
+      class MapView {
+        constructor (properties: { container: HTMLElement }) {
+          properties.container.dataset.mapMounted = 'true'
+        }
+        destroy () {}
+      }
+    ])
+    const store = getAppStore() as unknown as { getState: () => unknown }
+    const state = store.getState() as { appConfig?: { dataSources?: Record<string, unknown> } }
+    const previous = state.appConfig
+    state.appConfig = {
+      ...previous,
+      dataSources: {
+        dataSource_2: { itemId: 'item-99', portalUrl: 'https://data.example.com' }
+      }
+    }
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: ''
+      }) as any,
+      useDataSources: [{ dataSourceId: 'dataSource_2', mainDataSourceId: 'dataSource_2' }] as any
+    })
+    const { container, queryByText, unmount } = render(<Widget widgetId="audiom-bundled-added" />)
+    expect(queryByText('Set a map source first.')).toBeNull()
+    expect(container.querySelector('#audiom-esri-map')).not.toBeNull()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    unmount()
+    state.appConfig = previous
+    setMapModuleLoader(null)
+  })
+
+  it('returns to the empty message as soon as the bundled source is removed', () => {
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: ''
+      }) as any,
+      useDataSources: [] as any
+    })
+    const { getByText, container } = render(<Widget widgetId="audiom-bundled-removed" />)
+    expect(getByText('Set a map source first.')).not.toBeNull()
+    expect(container.querySelector('#audiom-esri-map')).toBeNull()
+  })
+
   it('renders an Esri map in the widget for bundled mode', async () => {
     const created: Array<{ container: HTMLElement, map: unknown }> = []
     setMapModuleLoader(async (modules) => {
@@ -152,7 +213,9 @@ describe('Audiom runtime widget', () => {
     const Widget = wrapWidget(_Widget, {
       config: makeImmutableConfig({
         runtimeLocation: RuntimeLocation.Bundled,
-        mapItemId: 'item-1'
+        mapItemId: 'item-1',
+        centerLongitude: -77.45,
+        centerLatitude: 38.77
       }) as any,
       useMapWidgetIds: ['external-map'] as unknown as ImmutableArray<string>
     })
@@ -211,7 +274,9 @@ describe('Audiom runtime widget', () => {
     const Widget = wrapWidget(_Widget, {
       config: makeImmutableConfig({
         runtimeLocation: RuntimeLocation.Bundled,
-        mapItemId: 'item-1'
+        mapItemId: 'item-1',
+        centerLongitude: -77.45,
+        centerLatitude: 38.77
       }) as any,
       useDataSources: [{ dataSourceId: 'dataSource_2', mainDataSourceId: 'dataSource_2' }] as any
     })

@@ -40,6 +40,11 @@ export interface AudiomProgram {
    */
   dropAvatar?(longitude: number, latitude: number): AvatarState | null
   /**
+   * Place the indicator at a new map source's center. Not a user drop:
+   * no fence, no landing tone.
+   */
+  placeAt?(longitude: number, latitude: number): AvatarState
+  /**
    * Speak the lines the map tooltip already shows: name, then statistic.
    * Null means the hit test found no painted plot.
    * Optional so a stub program that only drops the avatar still type-checks.

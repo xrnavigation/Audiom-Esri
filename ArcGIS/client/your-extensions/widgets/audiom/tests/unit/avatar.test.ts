@@ -92,7 +92,7 @@ describe('Audiom avatar', () => {
     await handle.runtime.dispose()
   })
 
-  it('pans the map that exists when Go reports a position', async () => {
+  it('keeps the map where it is when Go reports a position', async () => {
     setAudiomProgram((_options, host) => gridProgram(host))
     const centers: unknown[] = []
     const surface = {
@@ -117,7 +117,8 @@ describe('Audiom avatar', () => {
     })
     await new Promise((resolve) => setTimeout(resolve, 0))
 
-    expect(centers).toEqual([{ center: [-77.45, 38.77] }])
+    expect(handle.avatar?.position).toEqual({ longitude: -77.45, latitude: 38.77 })
+    expect(centers).toEqual([])
     await handle.runtime.dispose()
   })
 
@@ -158,7 +159,7 @@ describe('Audiom avatar', () => {
     await expect(handle.dropAvatar?.(11, 21)).resolves.toBe(true)
     expect(handle.avatar?.position).toEqual({ longitude: 11, latitude: 21 })
     expect(handle.avatar?.orientation).toBe(90)
-    expect(centers).toEqual([{ center: [11, 21] }])
+    expect(centers).toEqual([])
     expect(drops).toEqual([[-1, 5], [11, 21]])
     await handle.runtime.dispose()
   })

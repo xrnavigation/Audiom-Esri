@@ -348,6 +348,10 @@ function classBreaksFor (
 /**
  * Paint Audiom style keys when they are already on the features.
  * Otherwise paint a varying numeric field with class breaks on that field.
+ * Heatmap is that choropleth, not Esri's density renderer: a density
+ * renderer draws nothing on polygon land-use and the layer vanishes.
+ * Travel and indoor are the web map's own renderer. Leaving the choropleth
+ * in place is why those types still looked like heatmap.
  * The host renderer is saved and restored by restoreAudiomSymbols.
  */
 export function applyAudiomSymbols (
@@ -357,14 +361,20 @@ export function applyAudiomSymbols (
   mode: VectorStyleMode = VectorStyleMode.Both,
   field?: string,
   extents?: Record<string, { min: number, max: number }>,
-  paletteIndex?: number
+  paletteIndex?: number,
+  mapType?: string
 ): boolean {
   if (!layer || mode === VectorStyleMode.None || mode === VectorStyleMode.Hidden) return false
   // A host heatmap renderer already draws the surface. Replacing it with
-  // polygon fills would erase that draw. An Audiom class-breaks renderer is
-  // not that host: mode toggles have to rebuild it.
+  // polygon fills would erase that draw.
   const current = layer.renderer
   if (current?.type === 'heatmap' && layer.__audiomOriginalRenderer === undefined) return false
+  // Heatmap is the only type that paints the statistic. Travel and indoor
+  // show the web map's own colors. 'standard' is Audiom's travel value.
+  const type = mapType === 'standard' ? 'travel' : mapType
+  if (type && type !== 'heatmap') {
+    return restoreAudiomSymbols(layer)
+  }
   // A previous paint saved the host renderer. Keep that copy. Assigning it
   // back here is the flash of the original Esri colors between paints.
   // Style keys win. Otherwise color a varying numeric field with class

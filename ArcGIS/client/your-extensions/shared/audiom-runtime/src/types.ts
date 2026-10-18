@@ -115,6 +115,11 @@ export interface SerializedGeometry {
 export interface MapSnapshot {
 	sources: SourceSnapshot[];
 	records: RecordSnapshot[];
+	/**
+	 * The map item this page came from. A new id is a new place. Zoom and
+	 * pan keep the id, so a later page must not move the indicator.
+	 */
+	dataSourceId?: string;
 }
 
 export interface EffectiveState {

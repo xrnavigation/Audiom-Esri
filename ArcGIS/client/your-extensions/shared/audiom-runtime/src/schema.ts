@@ -161,6 +161,7 @@ export const contractJsonSchema = {
 			properties: {
 				sources: { type: 'array', items: { $ref: '#/$defs/sourceSnapshot' } },
 				records: { type: 'array', items: { $ref: '#/$defs/recordSnapshot' } },
+				dataSourceId: { type: 'string' },
 			},
 			additionalProperties: false,
 		},

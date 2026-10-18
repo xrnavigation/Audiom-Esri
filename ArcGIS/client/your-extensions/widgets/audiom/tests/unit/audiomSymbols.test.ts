@@ -152,6 +152,52 @@ describe('audiom symbols', () => {
     expect(layer.__audiomOriginalRenderer).toBe(host)
   })
 
+  it('restores the host renderer for travel and indoor', () => {
+    const host = { kind: 'host', type: 'simple' }
+    const features = [1, 2, 3, 4, 5].map((value) => ({
+      attributes: { OBJECTID: value, percent: value * 10 }
+    }))
+    const layer = {
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      renderer: host,
+      features
+    }
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent', undefined, 0, 'heatmap')).toBe(true)
+    expect(layer.renderer).not.toBe(host)
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent', undefined, 0, 'travel')).toBe(true)
+    expect(layer.renderer).toBe(host)
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent', undefined, 0, 'heatmap')).toBe(true)
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent', undefined, 0, 'indoor')).toBe(true)
+    expect(layer.renderer).toBe(host)
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent', undefined, 0, 'heatmap')).toBe(true)
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent', undefined, 0, 'standard')).toBe(true)
+    expect(layer.renderer).toBe(host)
+  })
+
+  it('keeps polygon class breaks for a heatmap map type', () => {
+    const host = { kind: 'host', type: 'simple' }
+    const features = [1, 2, 3, 4, 5].map((value) => ({
+      attributes: { OBJECTID: value, percent: value * 10 }
+    }))
+    const layer = {
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      renderer: host,
+      features
+    }
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent')).toBe(true)
+    const painted = layer.renderer as FakeSymbol
+    const properties = painted.properties as {
+      field?: string
+      classBreakInfos?: unknown[]
+    }
+    expect(properties.field).toBe('percent')
+    expect(properties.classBreakInfos).toHaveLength(5)
+    expect(restoreAudiomSymbols(layer)).toBe(true)
+    expect(layer.renderer).toBe(host)
+  })
+
   it('does not replace a host heatmap renderer', () => {
     const host = { kind: 'heatmap', type: 'heatmap' }
     const layer = {
