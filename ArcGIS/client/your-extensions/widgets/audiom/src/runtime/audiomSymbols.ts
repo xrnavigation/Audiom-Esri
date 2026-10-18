@@ -34,6 +34,7 @@ export interface SymbolModules {
   UniqueValueRenderer: new (properties: unknown) => unknown
   ClassBreaksRenderer?: new (properties: unknown) => unknown
   PictureFillSymbol?: new (properties: unknown) => unknown
+  SimpleRenderer?: new (properties: unknown) => unknown
 }
 
 /** How the legend asks the map to draw a statistic. Values match the Front-End store. */
@@ -47,6 +48,7 @@ export enum VectorStyleMode {
 
 const NAVY = '#04203e'
 const DEFAULT_FILL = '#7bbf75'
+const DEFAULT_GREY = '#b0b0b0'
 const STYLE_FIELD = 'audiomStyle'
 
 /**
@@ -346,13 +348,39 @@ function classBreaksFor (
 }
 
 /**
+ * Travel and indoor have no statistic paint. A flat grey fill is the
+ * unmodified map. A rules file is what replaces it. The host renderer is
+ * saved once so a later heatmap paint does not capture this grey as the
+ * original.
+ */
+function paintDefaultGrey (
+  layer: SymbolLayer & { geometryType?: string },
+  modules: SymbolModules
+): boolean {
+  const symbol = symbolFor(modules, layer.geometryType, {
+    fill: DEFAULT_GREY,
+    stroke: NAVY,
+    'stroke-width': 1
+  }, VectorStyleMode.Colors)
+  if (!symbol) return false
+  if (layer.__audiomOriginalRenderer === undefined) {
+    layer.__audiomOriginalRenderer = layer.renderer
+  }
+  const Renderer = modules.SimpleRenderer
+  layer.renderer = Renderer
+    ? new Renderer({ symbol })
+    : { type: 'simple', symbol }
+  return true
+}
+
+/**
  * Paint Audiom style keys when they are already on the features.
  * Otherwise paint a varying numeric field with class breaks on that field.
  * Heatmap is that choropleth, not Esri's density renderer: a density
  * renderer draws nothing on polygon land-use and the layer vanishes.
- * Travel and indoor are the web map's own renderer. Leaving the choropleth
- * in place is why those types still looked like heatmap.
- * The host renderer is saved and restored by restoreAudiomSymbols.
+ * Travel and indoor are a flat grey fill. The web map's own renderer is the
+ * patterns and colors the user does not want until a rules file paints them.
+ * The host renderer is saved so a later heatmap paint does not capture grey.
  */
 export function applyAudiomSymbols (
   layer: SymbolLayer & { geometryType?: string, features?: SymbolFeature[] },
@@ -370,10 +398,11 @@ export function applyAudiomSymbols (
   const current = layer.renderer
   if (current?.type === 'heatmap' && layer.__audiomOriginalRenderer === undefined) return false
   // Heatmap is the only type that paints the statistic. Travel and indoor
-  // show the web map's own colors. 'standard' is Audiom's travel value.
+  // are a flat grey fill until a rules file paints them. 'standard' is
+  // Audiom's travel value. The host renderer stays saved.
   const type = mapType === 'standard' ? 'travel' : mapType
   if (type && type !== 'heatmap') {
-    return restoreAudiomSymbols(layer)
+    return paintDefaultGrey(layer, modules)
   }
   // A previous paint saved the host renderer. Keep that copy. Assigning it
   // back here is the flash of the original Esri colors between paints.

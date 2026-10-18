@@ -235,7 +235,8 @@ export async function paintAudiomStyles (
         'esri/symbols/SimpleMarkerSymbol',
         'esri/renderers/UniqueValueRenderer',
         'esri/symbols/PictureFillSymbol',
-        'esri/renderers/ClassBreaksRenderer'
+        'esri/renderers/ClassBreaksRenderer',
+        'esri/renderers/SimpleRenderer'
       ])
     ) as unknown[]
     modules = {
@@ -244,7 +245,8 @@ export async function paintAudiomStyles (
       SimpleMarkerSymbol: loaded[2] as SymbolModules['SimpleMarkerSymbol'],
       UniqueValueRenderer: loaded[3] as SymbolModules['UniqueValueRenderer'],
       PictureFillSymbol: loaded[4] as new (properties: unknown) => unknown,
-      ClassBreaksRenderer: loaded[5] as SymbolModules['ClassBreaksRenderer']
+      ClassBreaksRenderer: loaded[5] as SymbolModules['ClassBreaksRenderer'],
+      SimpleRenderer: loaded[6] as SymbolModules['SimpleRenderer']
     }
   } catch {
     return

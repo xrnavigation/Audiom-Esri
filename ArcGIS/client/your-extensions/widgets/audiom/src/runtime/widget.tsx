@@ -1,4 +1,4 @@
-import { type AllWidgetProps, React, ReactRedux, AppMode, getAppStore, type IMState, type ImmutableObject } from 'jimu-core'
+import { type AllWidgetProps, React, ReactRedux, AppMode, getAppStore, loadArcGISJSAPIModules, type IMState, type ImmutableObject } from 'jimu-core'
 import { audiomConfigToEmbedConfig } from '../utils/mapUtils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { serializeLockedForDiff } from '../utils/sourceConfigUtils'
@@ -46,6 +46,24 @@ function audiomPopupLines (world: unknown, longitude: number, latitude: number):
   } catch {
     return []
   }
+}
+
+/**
+ * Indoor and Travel name the plot. The statistic line is heatmap content,
+ * and it is also content a rules file adds. With no rules file those modes
+ * show the name only.
+ */
+function includeStatistic (
+  world: unknown,
+  sources: ReadonlyArray<{ mapType?: string, rulesFileUrl?: string }> | undefined
+): boolean {
+  const typed = (sources || []).filter((source) => source.mapType)
+  if (!typed.length) return true
+  return typed.some((source) => {
+    const mode = source.mapType === 'standard' ? 'travel' : source.mapType
+    if (mode === 'heatmap') return true
+    return Boolean(source.rulesFileUrl?.trim())
+  })
 }
 
 /** The selected statistic as "label: value", read from the clicked graphic. */
@@ -396,15 +414,18 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
       return
     }
     const world = bundledHandle?.program?.world
+    const withStatistic = includeStatistic(world, sanitizedConfig.sourceConfigs)
     const lines: string[] = []
     const name = point.name?.trim()
     if (name) lines.push(name)
-    const stat = statisticLine(world, point)
+    const stat = withStatistic ? statisticLine(world, point) : ''
     if (stat) lines.push(stat)
     // The clicked graphic wins. Audiom's world content is only the fallback.
     const resolved = lines.length
       ? lines
-      : (world ? audiomPopupLines(world, point.longitude, point.latitude) : [])
+      : (world && withStatistic
+        ? audiomPopupLines(world, point.longitude, point.latitude)
+        : (name ? [name] : []))
     if (!resolved.length) {
       setFeaturePopup(null)
       return
@@ -420,15 +441,18 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     if (point?.openPopup === false) return
     showPopup(point)
     const world = bundledHandle?.program?.world
+    const withStatistic = includeStatistic(world, sanitizedConfig.sourceConfigs)
     const lines: string[] = []
     const name = point?.name?.trim()
     if (name) lines.push(name)
-    if (point) {
+    if (point && withStatistic) {
       const stat = statisticLine(world, point)
       if (stat) lines.push(stat)
     }
     const field = (world as { statistics?: { field?: string } } | null | undefined)?.statistics?.field
-    const statistic = field && point?.attributes ? point.attributes[field] : undefined
+    const statistic = withStatistic && field && point?.attributes
+      ? point.attributes[field]
+      : undefined
     bundledHandle?.program?.announceStanding?.(
       lines.length ? lines.join('. ') : null,
       statistic
@@ -711,23 +735,37 @@ function EsriMapSurface (props: {
       onSurface?.(null)
     }
   }, [props.existingMap, props.mapItemId, props.portalUrl, props.scene, centerReady, onSurface])
-  // The view is created at the settings center. Once the indicator exists,
-  // the map follows that point. A step moves the indicator; the map comes
-  // to it. A typed center is a new place for the indicator, and the map
-  // follows that report. Do not goTo the settings center itself, or a pan
-  // echo pulls the view off the indicator.
+  // The view is created at the settings center and zoom. A step recenters
+  // on the indicator and leaves the zoom the user has. Passing zoom here
+  // snaps a live-view zoom back to the settings value on every move.
+  // Settings overwrite zoom on their own, through the mount and the effect
+  // below. Do not goTo the settings center itself, or a pan echo pulls the
+  // view off the indicator.
   useEffect(() => {
     const node = container.current as { __audiomSurface?: MountedMapSurface } | null
     const view = node?.__audiomSurface?.view
     if (!view?.goTo || !surfaceReady || !avatar) return
     if (!Number.isFinite(avatar.longitude) || !Number.isFinite(avatar.latitude)) return
     if (avatar.longitude === 0 && avatar.latitude === 0) return
-    const target: { center: [number, number], zoom?: number } = {
-      center: [avatar.longitude, avatar.latitude]
+    void view.goTo({ center: [avatar.longitude, avatar.latitude] }).catch((): void => undefined)
+  }, [avatar, surfaceReady])
+  const appliedZoom = useRef<number | undefined>(undefined)
+  useEffect(() => {
+    const node = container.current as { __audiomSurface?: MountedMapSurface } | null
+    const view = node?.__audiomSurface?.view
+    if (!view?.goTo || !surfaceReady) return
+    if (typeof props.zoom !== 'number' || !Number.isFinite(props.zoom)) return
+    // The first value is the zoom the view was mounted at. Applying it
+    // again is what snaps a live-view zoom back out. Only a later settings
+    // write should move the zoom.
+    if (appliedZoom.current === undefined) {
+      appliedZoom.current = props.zoom
+      return
     }
-    if (typeof props.zoom === 'number' && Number.isFinite(props.zoom)) target.zoom = props.zoom
-    void view.goTo(target).catch((): void => undefined)
-  }, [avatar, props.zoom, surfaceReady])
+    if (appliedZoom.current === props.zoom) return
+    appliedZoom.current = props.zoom
+    void view.goTo({ zoom: props.zoom }).catch((): void => undefined)
+  }, [props.zoom, surfaceReady])
   useEffect(() => {
     const node = container.current as { __audiomSurface?: MountedMapSurface } | null
     if (!node?.__audiomSurface) return
@@ -1310,6 +1348,50 @@ function useAudiomEmbed (
   return mounted
 }
 
+/** The slice of a view extent the navigation wall needs. */
+interface ViewExtent {
+  xmin?: number
+  ymin?: number
+  xmax?: number
+  ymax?: number
+  spatialReference?: { wkid?: number, isWGS84?: boolean, isWebMercator?: boolean }
+}
+
+/**
+ * The drawn view extent as [west, south, east, north] in longitude and
+ * latitude. The projection comes from the view's own spatial reference,
+ * converted by the ArcGIS API, so no coordinate math is hard-coded here.
+ */
+async function geographicExtentOf (
+  view: { extent?: ViewExtent } | undefined
+): Promise<[number, number, number, number] | undefined> {
+  const extent = view?.extent
+  if (!extent) return undefined
+  const { xmin, ymin, xmax, ymax, spatialReference: sr } = extent
+  if (xmin == null || ymin == null || xmax == null || ymax == null) return undefined
+  if (sr?.isWGS84 || sr?.wkid === 4326) return [xmin, ymin, xmax, ymax]
+  if (!(sr?.isWebMercator || sr?.wkid === 102100 || sr?.wkid === 3857 || sr?.wkid === 102113)) {
+    // An unsupported projection is left to the feature bbox fallback.
+    return undefined
+  }
+  try {
+    const [webMercatorUtils] = await loadArcGISJSAPIModules([
+      'esri/geometry/support/webMercatorUtils'
+    ]) as [{
+      webMercatorToGeographic: (geometry: unknown) => {
+        xmin?: number, ymin?: number, xmax?: number, ymax?: number
+      } | null
+    }]
+    const geo = webMercatorUtils.webMercatorToGeographic(extent)
+    if (!geo || geo.xmin == null || geo.ymin == null || geo.xmax == null || geo.ymax == null) {
+      return undefined
+    }
+    return [geo.xmin, geo.ymin, geo.xmax, geo.ymax]
+  } catch {
+    return undefined
+  }
+}
+
 function projectEmbedPoint (
   view: { toScreen?: (point: unknown) => { x?: number, y?: number } | null, container?: HTMLElement },
   longitude: number,
@@ -1489,6 +1571,7 @@ function useBundledRuntime (
     if (!handle?.program || !map) return
     let cancelled = false
     let layerHandle: { remove?: () => void } | undefined
+    const drawnView = (surface?.view || jimuMapView?.view) as { extent?: ViewExtent } | undefined
     const view = { map }
     const paintChoice = async (snapshot: MapSnapshot) => {
       const program = handle.program as {
@@ -1544,9 +1627,11 @@ function useBundledRuntime (
       // Record the snapshot before any further async step so a pattern/color
       // repaint, or a Map Type change, has it without querying again.
       loadedSnapshot.current = snapshot
-      // Do not publish the drawn view as the navigation wall. That extent
-      // changes on every pan and zoom, and the world then treats the
-      // indicator's point as outside the map.
+      // The navigation wall is the whole drawn map, not the bbox of the
+      // features that loaded. Publish the view extent so the world fences to it.
+      const extent = await geographicExtentOf(drawnView)
+      if (cancelled) return
+      if (extent) (snapshot as MapSnapshot & { extent?: [number, number, number, number] }).extent = extent
       const listed = snapshot.records.filter((record) => record.navigable).length
       const names = snapshot.sources.map((source) => source.displayName).join(', ')
       // eslint-disable-next-line no-console

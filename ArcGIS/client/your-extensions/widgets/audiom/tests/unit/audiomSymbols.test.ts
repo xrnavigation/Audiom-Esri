@@ -152,12 +152,18 @@ describe('audiom symbols', () => {
     expect(layer.__audiomOriginalRenderer).toBe(host)
   })
 
-  it('restores the host renderer for travel and indoor', () => {
+  it('paints travel and indoor as flat grey and keeps the host renderer saved', () => {
     const host = { kind: 'host', type: 'simple' }
     const features = [1, 2, 3, 4, 5].map((value) => ({
       attributes: { OBJECTID: value, percent: value * 10 }
     }))
-    const layer = {
+    const layer: {
+      geometryType: string
+      objectIdField: string
+      renderer: { type?: string, symbol?: { properties?: { color?: string } } }
+      features: typeof features
+      __audiomOriginalRenderer?: unknown
+    } = {
       geometryType: 'polygon',
       objectIdField: 'OBJECTID',
       renderer: host,
@@ -165,14 +171,21 @@ describe('audiom symbols', () => {
     }
     expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent', undefined, 0, 'heatmap')).toBe(true)
     expect(layer.renderer).not.toBe(host)
+    expect(layer.__audiomOriginalRenderer).toBe(host)
     expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent', undefined, 0, 'travel')).toBe(true)
-    expect(layer.renderer).toBe(host)
+    expect(layer.renderer).not.toBe(host)
+    expect(layer.renderer.type).toBe('simple')
+    expect(layer.renderer.symbol.properties.color).toBe('#b0b0b0')
+    expect(layer.__audiomOriginalRenderer).toBe(host)
     expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent', undefined, 0, 'heatmap')).toBe(true)
+    expect(layer.renderer).not.toBe(host)
+    expect(layer.renderer.symbol).toBeUndefined()
     expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent', undefined, 0, 'indoor')).toBe(true)
-    expect(layer.renderer).toBe(host)
-    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent', undefined, 0, 'heatmap')).toBe(true)
+    expect(layer.renderer.symbol.properties.color).toBe('#b0b0b0')
+    expect(layer.__audiomOriginalRenderer).toBe(host)
     expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent', undefined, 0, 'standard')).toBe(true)
-    expect(layer.renderer).toBe(host)
+    expect(layer.renderer.symbol.properties.color).toBe('#b0b0b0')
+    expect(layer.__audiomOriginalRenderer).toBe(host)
   })
 
   it('keeps polygon class breaks for a heatmap map type', () => {
