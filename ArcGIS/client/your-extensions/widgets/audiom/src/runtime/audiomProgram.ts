@@ -45,6 +45,11 @@ export interface AudiomProgram {
    */
   placeAt?(longitude: number, latitude: number): AvatarState
   /**
+   * Apply a settings step size in meters. Must not restart the session:
+   * a restart drops the avatar and re-queries the snapshot.
+   */
+  setMoveDistance?(meters: number): void
+  /**
    * Speak the lines the map tooltip already shows: name, then statistic.
    * Null means the hit test found no painted plot.
    * Optional so a stub program that only drops the avatar still type-checks.

@@ -1532,6 +1532,14 @@ function useBundledRuntime (
       void next.runtime.dispose()
     }
   }, [enabled, instanceId, mapItemId, originKey, jimuMapView, onStatus, onAvatar, soundpackUrl, soundpackFallbackUrl])
+  // Step size is not a session restart. The start effect reads it once;
+  // a later settings write has to reach the live avatar or the next
+  // arrow key still uses the distance from when the map loaded.
+  useEffect(() => {
+    if (!handle?.program?.setMoveDistance) return
+    if (moveDistance == null || !Number.isFinite(moveDistance) || moveDistance <= 0) return
+    handle.program.setMoveDistance(moveDistance)
+  }, [handle, moveDistance])
   useEffect(() => {
     handle?.bindSurface?.(surface)
   }, [handle, surface])
