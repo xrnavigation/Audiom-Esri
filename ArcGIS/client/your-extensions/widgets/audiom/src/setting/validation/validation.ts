@@ -27,7 +27,6 @@ const MESSAGES = {
   STEP_SIZE_FORMAT: 'Step size must be a number, optionally followed by m, km, mi, or ft',
   REQUIRED: 'This field is required',
   INVALID_URL: 'Please enter a valid URL',
-  FEATURE_LAYER_URL: 'Enter a FeatureServer layer URL ending in /FeatureServer/{layerId}',
 } as const
 
 /**
@@ -101,40 +100,6 @@ export function validateUrl(value: string | undefined): ValidityResult {
     const parsed = new URL(trimmed)
     if (!ALLOWED_URL_PROTOCOLS.has(parsed.protocol)) {
       return { valid: false, msg: MESSAGES.INVALID_URL }
-    }
-    return { valid: true }
-  } catch {
-    return { valid: false, msg: MESSAGES.INVALID_URL }
-  }
-}
-
-/**
- * A FeatureServer *layer* URL, not a service root.
- * `.../FeatureServer/0` is valid; `.../FeatureServer` is not.
- */
-const FEATURE_SERVER_LAYER_PATTERN = /\/FeatureServer\/\d+\/?$/i
-
-/**
- * Validates an ArcGIS image feature layer URL.
- * Requires http(s) and a numeric layer id after `/FeatureServer/`.
- */
-export function validateFeatureLayerUrl(value: string | undefined): ValidityResult {
-  const urlResult = validateUrl(value)
-  if (!urlResult.valid || isNullishOrWhiteSpace(value)) {
-    return urlResult.valid
-      ? { valid: false, msg: MESSAGES.FEATURE_LAYER_URL }
-      : urlResult
-  }
-
-  const trimmed = value.trim()
-  if (trimmed.startsWith('./') || trimmed.startsWith('../') || trimmed.startsWith('/')) {
-    return { valid: false, msg: MESSAGES.FEATURE_LAYER_URL }
-  }
-
-  try {
-    const parsed = new URL(trimmed)
-    if (!FEATURE_SERVER_LAYER_PATTERN.test(parsed.pathname)) {
-      return { valid: false, msg: MESSAGES.FEATURE_LAYER_URL }
     }
     return { valid: true }
   } catch {

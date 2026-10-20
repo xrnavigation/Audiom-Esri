@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AudiomEmbedConfig, FilterMode, VisualBaseLayerType, VisualStyle } from './AudiomEmbedConfig';
+import { AudiomEmbedConfig, FilterMode, VisualStyle } from './AudiomEmbedConfig';
 import { StepSize } from './StepSize';
 import { SourceType, MapType } from './AudiomSource';
 import { Coordinates } from './Coordinates';
@@ -196,32 +196,6 @@ describe('AudiomEmbedConfig query parameters', () => {
       expect(params.visualbaselayer0).toBe('https://example.com/overlay.png');
     });
 
-    it('should serialize a custom image layer name', () => {
-      const config = AudiomEmbedConfig.dynamic({
-        apiKey: 'test-key',
-        visualBaseLayers: [{
-          url: 'https://example.com/overlay.png',
-          layerName: ' Campus overlay '
-        }]
-      });
-
-      const params = config.toQueryParams();
-      expect(params.visualbaselayername0).toBe('Campus overlay');
-    });
-
-    it('should omit a blank image layer name', () => {
-      const config = AudiomEmbedConfig.dynamic({
-        apiKey: 'test-key',
-        visualBaseLayers: [{
-          url: 'https://example.com/overlay.png',
-          layerName: '   '
-        }]
-      });
-
-      const params = config.toQueryParams();
-      expect(params.visualbaselayername0).toBeUndefined();
-    });
-
     it('should include multiple visual base layers', () => {
       const config = AudiomEmbedConfig.dynamic({
         apiKey: 'test-key',
@@ -275,48 +249,6 @@ describe('AudiomEmbedConfig query parameters', () => {
 
       const params = config.toQueryParams();
       expect(params.visualbaselayerposition0).toBe('[[-1,1],[1,1],[1,-1],[-1,-1]]');
-    });
-
-    it('should use a custom feature layer name instead of the URL segment', () => {
-      const config = AudiomEmbedConfig.dynamic({
-        apiKey: 'test-key',
-        visualBaseLayers: [{
-          url: 'https://services.arcgis.com/example/FeatureServer/0',
-          layerName: ' Buildings ',
-          type: VisualBaseLayerType.Feature
-        }]
-      });
-
-      const params = config.toQueryParams();
-      expect(params['visualbaselayer0.name']).toBe('Buildings');
-    });
-
-    it('should number image overlays independently of feature layers', () => {
-      const config = AudiomEmbedConfig.dynamic({
-        apiKey: 'test-key',
-        sources: ['osm'],
-        visualBaseLayers: [
-          { url: 'https://services.arcgis.com/example/FeatureServer/12', type: VisualBaseLayerType.Feature },
-          {
-            url: 'https://example.com/overlay.png',
-            layerName: 'Campus overlay',
-            type: VisualBaseLayerType.Image,
-            position: GeoQuad.parse('[[-1,1],[1,1],[1,-1],[-1,-1]]')
-          },
-          { url: 'https://example.com/layer1.png' }
-        ]
-      });
-
-      const params = config.toQueryParams();
-      expect(params.sources).toBe('osm,visualbaselayer0');
-      expect(params['visualbaselayer0.type']).toBe(SourceType.ESRI);
-      expect(params['visualbaselayer0.url']).toBe('https://services.arcgis.com/example/FeatureServer/12');
-      expect(params['visualbaselayer0.name']).toBe('12');
-      expect(params.visualbaselayer0).toBe('https://example.com/overlay.png');
-      expect(params.visualbaselayername0).toBe('Campus overlay');
-      expect(params.visualbaselayerposition0).toBe('[[-1,1],[1,1],[1,-1],[-1,-1]]');
-      expect(params.visualbaselayer1).toBe('https://example.com/layer1.png');
-      expect(params.visualbaselayer2).toBeUndefined();
     });
   });
 
