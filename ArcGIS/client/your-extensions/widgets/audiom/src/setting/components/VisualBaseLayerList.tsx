@@ -39,6 +39,9 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
 
   const handleTypeChange = useCallback((index: number, type: VisualBaseLayerType) => {
     const patch: Partial<IVisualBaseLayerConfig> = { type }
+    if (type === VisualBaseLayerType.Feature) {
+      patch.position = undefined
+    }
     onChange(replaceAt(layers, index, patch))
   }, [layers, onChange])
 

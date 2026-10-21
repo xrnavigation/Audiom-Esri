@@ -19,7 +19,7 @@ const PLACEHOLDER_URL = 'Enter image URL for visual base layer'
 const TOOLTIP_REMOVE = 'Remove layer'
 const FIELD_LABEL_TYPE = 'Base Layer Source Type'
 const FIELD_LABEL_FEATURE_URL = 'Feature layer URL'
-const PLACEHOLDER_FEATURE_URL = 'https://.../FeatureServer/0'
+const PLACEHOLDER_FEATURE_URL = 'https://.../FeatureServer'
 
 
 
@@ -132,10 +132,12 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
             checkValidityOnAccept={(text) => validateUrl(String(text))}
             aria-label={`${FIELD_LABEL_URL} for layer ${index + 1}`}
           />
-          <GeoQuadEditor
-            value={layer.position ?? ''}
-            onChange={handlePositionChange}
-          />
+          {!isFeature && (
+            <GeoQuadEditor
+              value={layer.position ?? ''}
+              onChange={handlePositionChange}
+            />
+          )}
         </div>
       </Collapse>
     </Card>
