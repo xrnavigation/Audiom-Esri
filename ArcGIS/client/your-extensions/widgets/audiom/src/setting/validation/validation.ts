@@ -27,6 +27,7 @@ const MESSAGES = {
   STEP_SIZE_FORMAT: 'Step size must be a number, optionally followed by m, km, mi, or ft',
   REQUIRED: 'This field is required',
   INVALID_URL: 'Please enter a valid URL',
+  IMAGE_LAYER_URL: 'Enter an ImageServer layer URL ending in /ImageServer',
 } as const
 
 /**
@@ -100,6 +101,35 @@ export function validateUrl(value: string | undefined): ValidityResult {
     const parsed = new URL(trimmed)
     if (!ALLOWED_URL_PROTOCOLS.has(parsed.protocol)) {
       return { valid: false, msg: MESSAGES.INVALID_URL }
+    }
+    return { valid: true }
+  } catch {
+    return { valid: false, msg: MESSAGES.INVALID_URL }
+  }
+}
+
+const IMAGE_SERVER_PATTERN = /\/ImageServer\/?$/i
+
+/**
+ * Validates an ArcGIS image feature layer URL.
+ */
+export function validateImageLayerUrl(value: string | undefined): ValidityResult {
+  const urlResult = validateUrl(value)
+  if (!urlResult.valid || isNullishOrWhiteSpace(value)) {
+    return urlResult.valid
+      ? { valid: false, msg: MESSAGES.IMAGE_LAYER_URL }
+      : urlResult
+  }
+
+  const trimmed = value.trim()
+  if (trimmed.startsWith('./') || trimmed.startsWith('../') || trimmed.startsWith('/')) {
+    return { valid: false, msg: MESSAGES.IMAGE_LAYER_URL }
+  }
+
+  try {
+    const parsed = new URL(trimmed)
+    if (!IMAGE_SERVER_PATTERN.test(parsed.pathname)) {
+      return { valid: false, msg: MESSAGES.IMAGE_LAYER_URL }
     }
     return { valid: true }
   } catch {
