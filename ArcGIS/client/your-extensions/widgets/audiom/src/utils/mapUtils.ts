@@ -1,5 +1,5 @@
 import { AudiomSource, MapType } from "../../../../shared/audiom-client/AudiomSource";
-import { AudiomEmbedConfig } from "../../../../shared/audiom-client/AudiomEmbedConfig";
+import { AudiomEmbedConfig, VisualBaseLayerType } from "../../../../shared/audiom-client/AudiomEmbedConfig";
 import { StepSize } from "../../../../shared/audiom-client/StepSize";
 import { GeoQuad } from "../../../../shared/audiom-client/GeoQuad";
 import { Coordinates } from "../../../../shared/audiom-client/Coordinates";
@@ -114,6 +114,7 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
     visualBaseLayers: config.visualBaseLayers && config.visualBaseLayers.length > 0
       ? config.visualBaseLayers.map(layer => ({
           url: layer.url,
+          type: layer.type ?? VisualBaseLayerType.Image,
           position: layer.position ? GeoQuad.parse(layer.position) : undefined,
         }))
       : undefined,
