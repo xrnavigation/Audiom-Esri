@@ -6,7 +6,7 @@
  * and overlapping defaults sourced from DEFAULT_CONFIG. Hand-rolling them
  * in every test is noisy and easy to get wrong.
  */
-import { Immutable } from 'jimu-core'
+import { Immutable, type ImmutableObject } from 'jimu-core'
 import { DEFAULT_CONFIG, IAudiomConfig, ISourceConfig, IFilterConfig } from '../../src/setting/configs'
 import { FilterType } from '../../src/setting/enums'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
@@ -40,8 +40,8 @@ export function makeConfig(overrides: Partial<IAudiomConfig> = {}): IAudiomConfi
  * widget config in `Immutable()` so tests that exercise the React
  * components / hooks must do the same.
  */
-export function makeImmutableConfig(overrides: Partial<IAudiomConfig> = {}): IAudiomConfig {
-  return Immutable.from(makeConfig(overrides)) as unknown as IAudiomConfig
+export function makeImmutableConfig(overrides: Partial<IAudiomConfig> = {}): ImmutableObject<IAudiomConfig> {
+  return Immutable.from(makeConfig(overrides))
 }
 
 export function makeSource(overrides: Partial<ISourceConfig> = {}): ISourceConfig {

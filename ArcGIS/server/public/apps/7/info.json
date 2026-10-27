@@ -2,7 +2,7 @@
   "created": 1770682998822,
   "description": "",
   "id": "7",
-  "modified": 1776289934637,
+  "modified": 1791007122432,
   "owner": "scionofdesign@gmail.com",
   "tags": [],
   "thumbnail": null,
@@ -14,8 +14,9 @@
     "Ready To Use",
     "JavaScript",
     "status: Draft",
-    "version:1.19.0",
-    "modified: 1776289934636"
+    "version:1.20.0",
+    "modified: 1791007122428",
+    "template:foldable"
   ],
   "portalUrl": "https://xrnavigation.maps.arcgis.com",
   "username": "scionofdesign@gmail.com",

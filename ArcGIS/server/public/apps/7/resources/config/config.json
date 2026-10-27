@@ -746,7 +746,7 @@
   "widgets": {
     "widget_29": {
       "uri": "widgets/common/text/",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "config": {
         "text": "<p></p>",
         "placeholder": "<h5><strong style=\"color: var(--light);\">Double click to edit text</strong></h5>",
@@ -760,7 +760,7 @@
     },
     "widget_30": {
       "uri": "widgets/common/text/",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "config": {
         "text": "<p></p>",
         "placeholder": "<p><span style=\"font-size: 13px; color: var(--light);\">Double click to edit text</span></p>",
@@ -871,7 +871,7 @@
     },
     "widget_44": {
       "uri": "widgets/common/text/",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "config": {
         "text": "<p><span style=\"font-size: 18px;\">Lorem ipsum dolor sit amet</span></p><p><br></p><p><img src=\"data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBjbGlwLXBhdGg9InVybCgjY2xpcDBfNjE1XzIxODEpIj48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTE2IDBIMFYxNkgxNlYwWk03LjUgNS43NUM3LjUgNi4xNjQyMSA3LjE2NDIxIDYuNSA2Ljc1IDYuNUM2LjMzNTc5IDYuNSA2IDYuMTY0MjEgNiA1Ljc1QzYgNS4zMzU3OSA2LjMzNTc5IDUgNi43NSA1QzcuMTY0MjEgNSA3LjUgNS4zMzU3OSA3LjUgNS43NVpNNy4yODU3MSA5Ljg0NDM1TDUuNSA3LjUzMzI0TDMgMTAuOTk5OUgxM0w5Ljc4NTcyIDYuMzc3NjlMNy4yODU3MSA5Ljg0NDM1WiIgZmlsbD0iI2NjYyIvPjwvZz48ZGVmcz48Y2xpcFBhdGggaWQ9ImNsaXAwXzYxNV8yMTgxIj48cmVjdCB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIGZpbGw9IiM0NDQiLz48L2NsaXBQYXRoPjwvZGVmcz48L3N2Zz4=\" data-name=\"svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBjbGlwLXBhdGg9InVybCgjY2xpcDBfNjE1XzIxODEpIj48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTE2IDBIMFYxNkgxNlYwWk03LjUgNS43NUM3LjUgNi4xNjQyMSA3LjE2NDIxIDYuNSA2Ljc1IDYuNUM2LjMzNTc5IDYuNSA2IDYuMTY0MjEgNiA1Ljc1QzYgNS4zMzU3OSA2LjMzNTc5IDUgNi43NSA1QzcuMTY0MjEgNSA3LjUgNS4zMzU3OSA3LjUgNS43NVpNNy4yODU3MSA5Ljg0NDM1TDUuNSA3LjUzMzI0TDMgMTAuOTk5OUgxM0w5Ljc4NTcyIDYuMzc3NjlMNy4yODU3MSA5Ljg0NDM1WiIgZmlsbD0iI2NjYyIvPjwvZz48ZGVmcz48Y2xpcFBhdGggaWQ9ImNsaXAwXzYxNV8yMTgxIj48cmVjdCB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIGZpbGw9IiM0NDQiLz48L2NsaXBQYXRoPjwvZGVmcz48L3N2Zz4=\" width=\"145\" style=\"display: block; float: left; margin: 0px 0.9em 0.9em 0px; width: 31.66%;\">Ne debet assentior qui. Zril salutandi comprehensam an qui, nam no semper temporibus dissentiet, eleifend antiopam evertitur at sed. An wisi efficiendi sit.</p><p><br></p><p>Vel ea mentitum dissentiet, partem saperet accumsan vim ex, meliore repudiare consetetur et has.</p><p><br></p><p>Eu nostrum volutpat maluisset has, per ea homero utamur, ius ut wisi nominati. Sumo denique appareat.</p><p><br></p><p>Inermis vituperatoribus et ius. Aeque tritani eu qui, ne pri euripidis, mandamus reprimique te vix. Ei case atqui sonet vim.</p>"
       },
@@ -880,7 +880,7 @@
     },
     "widget_86": {
       "uri": "widgets/layout/fixed/",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "label": "Header Fixed Panel",
       "config": null,
       "id": "widget_86",
@@ -902,7 +902,7 @@
     },
     "widget_87": {
       "uri": "widgets/layout/row/",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "label": "Branding Row",
       "config": {
         "space": 10,
@@ -924,7 +924,7 @@
     },
     "widget_88": {
       "uri": "widgets/common/text/",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "label": "Product Text",
       "config": {
         "text": "<h1 style=\"text-align: left;\"><span style=\"font-family: &quot;Avenir Next&quot;; font-size: 28px;\">﻿Audiom</span></h1>",
@@ -937,7 +937,7 @@
     },
     "widget_89": {
       "uri": "widgets/common/image/",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "label": "Logo Image",
       "config": {
         "functionConfig": {
@@ -969,7 +969,7 @@
     },
     "widget_90": {
       "uri": "widgets/common/text/",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "label": "Title Text",
       "config": {
         "text": "<h2><span style=\"font-size: 20px; font-family: &quot;Avenir Next&quot;;\">Quaternary Geology of Wisconsin</span></h2>",
@@ -983,7 +983,7 @@
     },
     "widget_92": {
       "uri": "widgets/arcgis/arcgis-map/",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "label": "Esri Map",
       "config": {
         "toolConfig": {
@@ -1094,7 +1094,7 @@
     },
     "widget_106": {
       "uri": "widgets/layout/fixed/",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "label": "Fixed Panel 2",
       "config": null,
       "id": "widget_106",
@@ -1115,7 +1115,7 @@
     },
     "widget_107": {
       "uri": "widgets/layout/row/",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "label": "Row 2",
       "config": {
         "space": 10,
@@ -1137,7 +1137,7 @@
     },
     "widget_108": {
       "uri": "widgets/layout/fixed/",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "label": "Fixed Panel 3",
       "config": null,
       "id": "widget_108",
@@ -1158,7 +1158,7 @@
     },
     "widget_109": {
       "uri": "widgets/layout/row/",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "label": "Row 3",
       "config": {
         "space": 10,
@@ -1180,7 +1180,7 @@
     },
     "widget_112": {
       "uri": "widgets/audiom/",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "label": "Audiom",
       "config": {
         "exampleConfigProperty": "test",
@@ -1206,6 +1206,7 @@
             "source": "19c44caef8d-layer-2",
             "sourceUrl": "https://services5.arcgis.com/hYFYGk4BynrIaicK/arcgis/rest/services/Counties_Q500/FeatureServer/0",
             "mapType": "travel",
+            "filters": [],
             "enabled": true,
             "rulesFileUrl": "/rules/UW-Rules.json"
           },
@@ -1214,6 +1215,7 @@
             "source": "19c44cb2ee1-layer-3",
             "sourceUrl": "https://services5.arcgis.com/hYFYGk4BynrIaicK/arcgis/rest/services/CountyandTribalSeats_Q500/FeatureServer/0",
             "mapType": "travel",
+            "filters": [],
             "enabled": true,
             "rulesFileUrl": "/rules/UW-Rules.json"
           },
@@ -1222,6 +1224,7 @@
             "source": "19c44cb5740-layer-4",
             "sourceUrl": "https://services5.arcgis.com/hYFYGk4BynrIaicK/arcgis/rest/services/WisconsinCededTerritories/FeatureServer/0",
             "mapType": "travel",
+            "filters": [],
             "enabled": true,
             "rulesFileUrl": "/rules/UW-Rules.json"
           },
@@ -1230,6 +1233,7 @@
             "source": "19c44cb7fdd-layer-5",
             "sourceUrl": "https://services5.arcgis.com/hYFYGk4BynrIaicK/arcgis/rest/services/IceAgeTrail_Q500/FeatureServer/0",
             "mapType": "travel",
+            "filters": [],
             "enabled": true,
             "rulesFileUrl": "/rules/UW-Rules.json"
           },
@@ -1238,6 +1242,7 @@
             "source": "19c44cbaa18-layer-6",
             "sourceUrl": "https://services5.arcgis.com/hYFYGk4BynrIaicK/arcgis/rest/services/NorthCountryTrail_Q500/FeatureServer/0",
             "mapType": "travel",
+            "filters": [],
             "enabled": true,
             "rulesFileUrl": "/rules/UW-Rules.json"
           },
@@ -1246,6 +1251,7 @@
             "source": "19c44cbd495-layer-7",
             "sourceUrl": "https://services5.arcgis.com/hYFYGk4BynrIaicK/arcgis/rest/services/Reservations_TrustLands_Q500/FeatureServer/0",
             "mapType": "travel",
+            "filters": [],
             "enabled": true,
             "rulesFileUrl": "/rules/UW-Rules.json"
           },
@@ -1254,6 +1260,7 @@
             "source": "19c44cc0ee1-layer-8",
             "sourceUrl": "https://services5.arcgis.com/hYFYGk4BynrIaicK/arcgis/rest/services/Highways_Q500/FeatureServer/0",
             "mapType": "travel",
+            "filters": [],
             "enabled": true,
             "rulesFileUrl": "/rules/UW-Rules.json"
           },
@@ -1262,6 +1269,7 @@
             "source": "19c44cc304e-layer-9",
             "sourceUrl": "https://services5.arcgis.com/hYFYGk4BynrIaicK/arcgis/rest/services/DirectionPoints_Q500/FeatureServer/0",
             "mapType": "travel",
+            "filters": [],
             "enabled": true,
             "rulesFileUrl": "/rules/UW-Rules.json"
           },
@@ -1270,6 +1278,7 @@
             "source": "19c44cc87a3-layer-10",
             "sourceUrl": "https://services5.arcgis.com/hYFYGk4BynrIaicK/arcgis/rest/services/DirectionLines_Q500/FeatureServer/0",
             "mapType": "travel",
+            "filters": [],
             "enabled": true,
             "rulesFileUrl": "/rules/UW-Rules.json"
           },
@@ -1278,6 +1287,7 @@
             "source": "19c44d3cc12-layer-11",
             "sourceUrl": "https://services5.arcgis.com/hYFYGk4BynrIaicK/arcgis/rest/services/UncertainContacts_Q500/FeatureServer/0",
             "mapType": "travel",
+            "filters": [],
             "enabled": true,
             "rulesFileUrl": "/rules/UW-Rules.json"
           },
@@ -1286,6 +1296,7 @@
             "source": "19c44d3f61b-layer-12",
             "sourceUrl": "https://services5.arcgis.com/hYFYGk4BynrIaicK/arcgis/rest/services/MapUnitPolygons_Q500/FeatureServer/0",
             "mapType": "travel",
+            "filters": [],
             "enabled": true,
             "rulesFileUrl": "/rules/UW-Rules.json"
           },
@@ -1294,6 +1305,7 @@
             "source": "19c44d41c96-layer-13",
             "sourceUrl": "https://services5.arcgis.com/hYFYGk4BynrIaicK/arcgis/rest/services/Q500_Watebodies/FeatureServer/0",
             "mapType": "travel",
+            "filters": [],
             "enabled": true,
             "rulesFileUrl": "/rules/UW-Rules.json"
           },
@@ -1302,6 +1314,7 @@
             "source": "19c44d44b2e-layer-14",
             "sourceUrl": "https://services5.arcgis.com/hYFYGk4BynrIaicK/arcgis/rest/services/Map_Edges_Q500/FeatureServer/0",
             "mapType": "travel",
+            "filters": [],
             "enabled": true,
             "rulesFileUrl": "/rules/UW-Rules.json"
           }
@@ -1315,7 +1328,7 @@
         "visualBaseLayerPosition": "[[-92.9379002,47.1168906],[-86.6631554,47.1168906],[-86.6631554,42.4231201],[-92.9379002,42.4231201]]",
         "visualBaseLayers": [
           {
-            "url": "https://data.wgnhs.wisc.edu/accessible-statewide-quaternary/Q500_PNG_175dpi_WebMercator.png",
+            "url": "https://esri.xrnavigation.io/assets/images/Q500_PNG_175dpi_WebMercator.png",
             "position": "[[-92.9379002,47.1168906],[-86.6631554,47.1168906],[-86.6631554,42.4231201],[-92.9379002,42.4231201]]"
           }
         ]
@@ -1326,7 +1339,7 @@
       ]
     }
   },
-  "exbVersion": "1.19.0",
+  "exbVersion": "1.20.0",
   "mainSizeMode": "LARGE",
   "theme": "themes/master/",
   "forBuilderAttributes": {
@@ -1473,7 +1486,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1776289934575,
+  "timestamp": 1791007122384,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {

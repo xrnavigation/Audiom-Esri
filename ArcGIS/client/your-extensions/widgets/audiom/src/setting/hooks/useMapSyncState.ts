@@ -1,4 +1,4 @@
-import { React } from 'jimu-core'
+import { React, type ImmutableObject } from 'jimu-core'
 import { MapSyncConfig } from '../../utils/mapSyncManager'
 import { DEFAULT_CONFIG, IAudiomConfig } from '../configs'
 import { AudiomConfigKey, LockableFieldName } from '../configKeys'
@@ -66,8 +66,8 @@ export interface MapSyncState {
  * Consolidates the map sync state and provides a generic lock toggle handler.
  */
 export function useMapSyncState(
-  config: IAudiomConfig,
-  onSettingChange: (config: IAudiomConfig) => void
+  config: ImmutableObject<IAudiomConfig>,
+  onSettingChange: (config: ImmutableObject<IAudiomConfig>) => void
 ) {
   // Consolidated state for map values
   const [mapValues, setMapValues] = useState<MapSyncState>({})
@@ -145,9 +145,9 @@ export function useMapSyncState(
    * Returns updated config with all locked fields synced.
    */
   const syncLockedFieldsToConfig = useCallback((
-    currentConfig: IAudiomConfig,
+    currentConfig: ImmutableObject<IAudiomConfig>,
     mapConfig: MapSyncConfig
-  ): IAudiomConfig => {
+  ): ImmutableObject<IAudiomConfig> => {
     let newConfig = currentConfig
 
     // Map of field names to their corresponding MapSyncConfig values

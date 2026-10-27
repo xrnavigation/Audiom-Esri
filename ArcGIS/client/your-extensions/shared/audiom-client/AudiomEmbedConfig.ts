@@ -1,6 +1,6 @@
 import { StepSize } from './StepSize';
 import { AudiomSource, IAudiomSource } from './AudiomSource';
-import { GeoQuad } from './GeoQuad';
+import { GeoQuad, type IGeoQuad } from './GeoQuad';
 import { Coordinates } from './Coordinates';
 
 /**
@@ -24,13 +24,13 @@ export enum FilterMode {
 }
 
 /**
- * Visual base layer configuration
+ * Visual base layer input. `position` may be a GeoQuad or a plain corner object.
  */
 export interface IVisualBaseLayer {
   /** URL for the visual base layer image overlay */
   url: string;
   /** Position quad for the visual base layer */
-  position?: GeoQuad;
+  position?: IGeoQuad;
 }
 
 /**
@@ -144,7 +144,7 @@ export interface IAudiomEmbedConfig {
 }
 
 /**
- * Audiom embedded map configuration
+ * Audiom embedded map configuration.
  */
 export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   embedId: string | number;
@@ -211,7 +211,12 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     this.filters = config.filters;
     this.filterMode = config.filterMode;
     this.visualStyle = config.visualStyle;
-    this.visualBaseLayers = config.visualBaseLayers;
+    // Copy corners into GeoQuad instances so serialization always has toString().
+    // JSON and Immutable records satisfy IGeoQuad but are not class instances.
+    this.visualBaseLayers = config.visualBaseLayers?.map(layer => ({
+      url: layer.url,
+      position: layer.position ? GeoQuad.from(layer.position) : undefined
+    }));
     this.allowedOrigins = config.allowedOrigins;
     this.additionalParams = config.additionalParams;
   }

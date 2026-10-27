@@ -38,7 +38,7 @@ jest.mock('../../src/utils/mapSyncManager', () => ({
 import { widgetRender, wrapWidget } from 'jimu-for-test'
 import _Widget from '../../src/runtime/widget'
 import { JimuConfig } from '../../src/utils/JimuConfig'
-import { makeConfig } from '../helpers/configFactories'
+import { makeImmutableConfig } from '../helpers/configFactories'
 
 const render = widgetRender()
 
@@ -58,7 +58,7 @@ describe('Audiom runtime widget', () => {
   })
 
   it('renders an iframe with the embed URL', () => {
-    const Widget = wrapWidget(_Widget, { config: makeConfig({ apiKey: 'k' }) as any })
+    const Widget = wrapWidget(_Widget, { config: makeImmutableConfig({ apiKey: 'k' }) as any })
     const { container } = render(<Widget widgetId="audiom-1" />)
     const iframe = container.querySelector('iframe')
     expect(iframe).not.toBeNull()
@@ -67,7 +67,7 @@ describe('Audiom runtime widget', () => {
   })
 
   it('locks down the iframe with a strict sandbox and no-referrer policy (security)', () => {
-    const Widget = wrapWidget(_Widget, { config: makeConfig() as any })
+    const Widget = wrapWidget(_Widget, { config: makeImmutableConfig() as any })
     const { container } = render(<Widget widgetId="audiom-2" />)
     const iframe = container.querySelector('iframe')!
     const sandbox = iframe.getAttribute('sandbox')!.split(/\s+/)
@@ -83,21 +83,21 @@ describe('Audiom runtime widget', () => {
   })
 
   it('uses the config title as iframe title when provided', () => {
-    const Widget = wrapWidget(_Widget, { config: makeConfig({ title: 'My Map' }) as any })
+    const Widget = wrapWidget(_Widget, { config: makeImmutableConfig({ title: 'My Map' }) as any })
     const { container } = render(<Widget widgetId="audiom-3" />)
     const iframe = container.querySelector('iframe')!
     expect(iframe.getAttribute('title')).toBe('My Map')
   })
 
   it('renders no message popup when there are no detected changes', () => {
-    const Widget = wrapWidget(_Widget, { config: makeConfig() as any })
+    const Widget = wrapWidget(_Widget, { config: makeImmutableConfig() as any })
     const { queryByRole } = render(<Widget widgetId="audiom-4" />)
     expect(queryByRole('alert')).toBeNull()
   })
 
   it('does not attach to the map when useExistingMap is false', () => {
     const Widget = wrapWidget(_Widget, {
-      config: makeConfig({ useExistingMap: false }) as any
+      config: makeImmutableConfig({ useExistingMap: false }) as any
     })
     render(<Widget widgetId="audiom-5" />)
     expect(fakeManager.attach).not.toHaveBeenCalled()
@@ -105,7 +105,7 @@ describe('Audiom runtime widget', () => {
 
   it('attaches the MapSyncManager when useExistingMap is true and existingMapId is set', () => {
     const Widget = wrapWidget(_Widget, {
-      config: makeConfig({ useExistingMap: true, existingMapId: 'map-w' }) as any
+      config: makeImmutableConfig({ useExistingMap: true, existingMapId: 'map-w' }) as any
     })
     render(<Widget widgetId="audiom-6" />)
     expect(fakeManager.attach).toHaveBeenCalledWith('map-w', expect.anything())
@@ -114,16 +114,33 @@ describe('Audiom runtime widget', () => {
 
   it('removes the change listener on unmount', () => {
     const Widget = wrapWidget(_Widget, {
-      config: makeConfig({ useExistingMap: true, existingMapId: 'map-w' }) as any
+      config: makeImmutableConfig({ useExistingMap: true, existingMapId: 'map-w' }) as any
     })
     const { unmount } = render(<Widget widgetId="audiom-7" />)
     unmount()
     expect(fakeManager.removeChangeListener).toHaveBeenCalled()
   })
 
+  it('appends visual base layer position as JSON, not "[object Object]"', () => {
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({
+        visualBaseLayers: [{
+          url: 'https://x/img.png',
+          position: '[[-1,1],[1,1],[1,-1],[-1,-1]]'
+        }]
+      }) as any
+    })
+    const { container } = render(<Widget widgetId="audiom-position" />)
+    const src = container.querySelector('iframe')!.getAttribute('src')!
+    expect(src).toContain('visualbaselayerposition0=')
+    expect(src).toContain(encodeURIComponent('[[-1,1],[1,1],[1,-1],[-1,-1]]'))
+    expect(src).not.toContain('[object Object]')
+    expect(src).not.toContain(encodeURIComponent('[object Object]'))
+  })
+
   it('encodes user-supplied title in the iframe src (no script tag injection)', () => {
     const Widget = wrapWidget(_Widget, {
-      config: makeConfig({ title: '<script>alert(1)</script>' }) as any
+      config: makeImmutableConfig({ title: '<script>alert(1)</script>' }) as any
     })
     const { container } = render(<Widget widgetId="audiom-8" />)
     const src = container.querySelector('iframe')!.getAttribute('src')!

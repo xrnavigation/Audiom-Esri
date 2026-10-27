@@ -10,6 +10,11 @@ jest.mock('jimu-ui', () => {
   return createJimuUiStubs()
 })
 
+jest.mock('jimu-ui/advanced/setting-components', () => {
+  const { createSettingComponentsStubs } = require('../helpers/stubComponents')
+  return createSettingComponentsStubs()
+})
+
 const url = 'https://audiom.example/rules/id/9.json?apiKey=pk_one'
 const items = [{ id: 9, name: 'OSM', slug: 'osm', url }]
 const response = (data = items) => ({ ok: true, json: async () => ({ data }) }) as Response
@@ -47,7 +52,7 @@ describe('Rules file catalog selection', () => {
   it('shows the mixed dash in the URL field without treating it as a custom URL', () => {
     const view = render(<RulesFilePicker label="Rules file" value="-" onChange={jest.fn()} mixed catalog={{ status: RulesCatalogStatus.Ready, items }} />)
     expect((view.getByRole('textbox', { name: 'Rules file URL' }) as HTMLInputElement).value).toBe('-')
-    expect((view.getByRole('combobox', { name: 'Rules file' }) as HTMLSelectElement).value).toBe('')
+    expect((view.getByRole('combobox', { name: 'Rules file' }) as HTMLSelectElement).value).toBe('-')
   })
 
   it('preserves a custom URL and permits manual edits when catalog loading fails', async () => {
