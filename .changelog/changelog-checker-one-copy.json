@@ -1,0 +1,5 @@
+{
+	"id": "changelog-checker-one-copy",
+	"kind": "internal",
+	"reason": "The changelog note helper and checker now come from the one shared copy in xrnavigation/changelog-tools instead of a copy in this repository; the checker also compares a pull request from where its branch left master, so a branch behind master no longer fails on notes master gained."
+}
