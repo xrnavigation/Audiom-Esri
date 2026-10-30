@@ -1,9 +1,12 @@
 import { React } from 'jimu-core'
 import { Card, Collapse, Option, Select, TextInput } from 'jimu-ui'
 import { TrashOutlined } from 'jimu-icons/outlined/editor/trash'
+import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
+import { InvisibleOutlined } from 'jimu-icons/outlined/application/invisible'
 import { IVisualBaseLayerConfig, VISUAL_BASE_LAYER_TYPE_OPTIONS } from '../configs'
 import { VisualBaseLayerType } from '../../../../../shared/audiom-client/AudiomEmbedConfig'
 import { Padding } from '../enums'
+import { TOOLTIP_HIDE_VISUAL_BASE_LAYER, TOOLTIP_SHOW_VISUAL_BASE_LAYER } from '../strings'
 import { validateUrl, validateImageLayerUrl } from '../validation/validation'
 import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 import CopyableLabel from './CopyableLabel'
@@ -45,12 +48,16 @@ interface VisualBaseLayerCardProps {
   onToggleExpanded: () => void
   onFieldChange: (field: keyof IVisualBaseLayerConfig, value: string | undefined) => void
   onBaseLayerTypeChange: (type: VisualBaseLayerType) => void
+  onToggleVisible: () => void
   onRemove: () => void
 }
 
 const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
-  const { layer, index, isExpanded, onToggleExpanded, onFieldChange, onBaseLayerTypeChange, onRemove } = props
+  const { layer, index, isExpanded, onToggleExpanded, onFieldChange, onBaseLayerTypeChange, onToggleVisible, onRemove } = props
   const isFeature = layer.type === VisualBaseLayerType.Feature
+  // Missing `visible` means shown, matching DEFAULT_VISUAL_BASE_LAYER.
+  const isVisible = layer.visible !== false
+  const visibilityTooltip = isVisible ? TOOLTIP_HIDE_VISUAL_BASE_LAYER : TOOLTIP_SHOW_VISUAL_BASE_LAYER
 
   const handleUrlChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     onFieldChange('url', e.target.value)
@@ -87,6 +94,15 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
         stopPropagation
       >
         <TrashOutlined />
+      </IconActionButton>
+      <IconActionButton
+        tooltip={visibilityTooltip}
+        ariaLabel={`${visibilityTooltip} ${index + 1}`}
+        onClick={onToggleVisible}
+        stopPropagation
+        active={!isVisible}
+      >
+        {isVisible ? <VisibleOutlined /> : <InvisibleOutlined />}
       </IconActionButton>
     </div>
   )

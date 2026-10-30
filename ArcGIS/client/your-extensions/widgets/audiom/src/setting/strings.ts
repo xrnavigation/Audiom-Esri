@@ -25,6 +25,10 @@ export const TOOLTIP_SHOW_SOURCE = 'Show source'
 export const TOOLTIP_HIDE_SOURCE = 'Hide source'
 export const TOOLTIP_UNLOCK_SOURCE_VISIBILITY = 'Unlock to manually control visibility'
 
+// ─── Visual base layer card ──────────────────────────────────────────────────
+export const TOOLTIP_SHOW_VISUAL_BASE_LAYER = 'Show layer'
+export const TOOLTIP_HIDE_VISUAL_BASE_LAYER = 'Hide layer'
+
 export const FIELD_LABEL_NAME = 'Name'
 export const FIELD_LABEL_SOURCE_URL = 'Source URL'
 export const FIELD_LABEL_RULES_URL = 'Rules File URL'

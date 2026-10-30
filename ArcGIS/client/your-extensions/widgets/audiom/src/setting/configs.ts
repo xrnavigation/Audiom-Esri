@@ -68,12 +68,16 @@ export interface IVisualBaseLayerConfig {
 
   /** Serialized GeoQuad position string: "[[lng,lat],[lng,lat],[lng,lat],[lng,lat]]" */
   position?: string
+
+  /** Whether the visual base layer is visible. Defaults to true. */
+  visible?: boolean
 }
 
 export const DEFAULT_VISUAL_BASE_LAYER: IVisualBaseLayerConfig = {
   url: '',
   type: VisualBaseLayerType.Image,
-  position: undefined
+  position: undefined,
+  visible: true
 }
 
 export interface CoordinatePairFieldConfig {

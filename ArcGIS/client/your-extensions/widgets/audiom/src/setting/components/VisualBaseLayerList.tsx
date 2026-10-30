@@ -45,6 +45,11 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
     onChange(replaceAt(layers, index, patch))
   }, [layers, onChange])
 
+  const handleToggleVisible = useCallback((index: number) => {
+    const isVisible = layers[index]?.visible !== false
+    onChange(replaceAt(layers, index, { visible: !isVisible }))
+  }, [layers, onChange])
+
   const handleRemove = useCallback((index: number) => {
     const updated = layers.filter((_, i) => i !== index)
     onChange(updated)
@@ -86,6 +91,7 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
               onToggleExpanded={() => toggleLayerExpanded(index)}
               onFieldChange={(field, value) => handleFieldChange(index, field, value)}
               onBaseLayerTypeChange={(type) => handleTypeChange(index, type)}
+              onToggleVisible={() => handleToggleVisible(index)}
               onRemove={() => handleRemove(index)}
             />
           ))

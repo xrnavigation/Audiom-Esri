@@ -43,11 +43,14 @@ export interface IVisualBaseLayer {
   /** URL for the visual base layer image overlay */
   url: string;
 
-    /** Base layer source.  Defaults to Image for backward compatibility. */
+  /** Base layer source.  Defaults to Image for backward compatibility. */
   type?: VisualBaseLayerType;
 
   /** Position quad for the visual base layer */
   position?: IGeoQuad;
+
+  /** Whether the visual base layer is visible. Defaults to true. */
+  visible?: boolean;
 }
 
 /**
@@ -233,7 +236,8 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     this.visualBaseLayers = config.visualBaseLayers?.map(layer => ({
       url: layer.url,
       type: layer.type,
-      position: layer.position ? GeoQuad.from(layer.position) : undefined
+      position: layer.position ? GeoQuad.from(layer.position) : undefined,
+      visible: layer.visible
     }));
     this.allowedOrigins = config.allowedOrigins;
     this.additionalParams = config.additionalParams;
@@ -369,12 +373,21 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     }
 
     const resolved: IVisualBaseLayer[] = [];
+
     for (const layer of this.visualBaseLayers) {
+
+      // ignore layers that are not visible
+      if(layer.visible === false) {
+        continue;
+      }
+
+      // Image layers are already resolved, so just copy them
       if ((layer.type ?? VisualBaseLayerType.Image) !== VisualBaseLayerType.Feature) {
         resolved.push(layer);
         continue;
       }
 
+      // convert ImageServer layers to images 
       const imageLayer = await resolveImageServiceLayer(layer);
       if (imageLayer) {
         resolved.push(imageLayer);
