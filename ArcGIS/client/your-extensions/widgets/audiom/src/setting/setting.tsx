@@ -213,10 +213,14 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
   const onPreviewInAudiom = () => {
     // For preview, we use URL mode sources (not existing map sources since we don't have JimuMapView in settings)
     const previewConfig: IAudiomConfig = { ...mutableConfig, useExistingMap: false }
-    const embedConfig = audiomConfigToEmbedConfig(previewConfig)
+    const embedConfig = audiomConfigToEmbedConfig(previewConfig, undefined)
+    const baseUrl = previewConfig.baseUrl || DEFAULT_CONFIG.baseUrl
 
-    const previewUrl = embedConfig.toUrl(previewConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
-    window.open(previewUrl, '_blank', 'noopener,noreferrer')
+    embedConfig.resolveVisualBaseLayers()
+      .catch((): undefined => undefined)
+      .finally(() => {
+        window.open(embedConfig.toUrl(baseUrl), '_blank', 'noopener,noreferrer')
+      })
   }
 
   const renderStepSizeUnitSelector = () => {

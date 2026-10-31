@@ -1,7 +1,11 @@
+import { ServiceManager, geometryUtils, loadArcGISJSAPIModule } from 'jimu-core';
 import { StepSize } from './StepSize';
 import { AudiomSource, IAudiomSource } from './AudiomSource';
 import { GeoQuad, type IGeoQuad } from './GeoQuad';
 import { Coordinates } from './Coordinates';
+
+/** Largest exportImage dimension that stays under common ImageServer limits. */
+const EXPORT_IMAGE_MAX_SIZE = 4096;
 
 /**
  * Visual style options for map rendering
@@ -23,14 +27,33 @@ export enum FilterMode {
   Scan = 'scan'
 }
 
+// Type of base layer for visual map: either a static image overlay or an ArcGIS feature layer
+export enum VisualBaseLayerType {
+  // Static image overlay URL
+  Image = 'image',
+  
+  // ArcGIS image feature layer
+  Feature = 'feature'
+}
+
 /**
  * Visual base layer input. `position` may be a GeoQuad or a plain corner object.
  */
 export interface IVisualBaseLayer {
   /** URL for the visual base layer image overlay */
   url: string;
+
+  /** Base layer source.  Defaults to Image for backward compatibility. */
+  type?: VisualBaseLayerType;
+
   /** Position quad for the visual base layer */
   position?: IGeoQuad;
+
+  /** Whether the visual base layer is visible. Defaults to true. */
+  visible?: boolean;
+
+  // Optional name for visual base layer if url prediction is not sufficient.  If not provided, a name will be generated from the URL.
+  layerName?: string;
 }
 
 /**
@@ -215,7 +238,10 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     // JSON and Immutable records satisfy IGeoQuad but are not class instances.
     this.visualBaseLayers = config.visualBaseLayers?.map(layer => ({
       url: layer.url,
-      position: layer.position ? GeoQuad.from(layer.position) : undefined
+      type: layer.type,
+      position: layer.position ? GeoQuad.from(layer.position) : undefined,
+      visible: layer.visible,
+      layerName: layer.layerName
     }));
     this.allowedOrigins = config.allowedOrigins;
     this.additionalParams = config.additionalParams;
@@ -243,7 +269,10 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   }
 
   /**
-   * Convert configuration to query parameters as key-value pairs
+   * Convert configuration to query parameters as key-value pairs.
+   * ImageServer feature layers are passed through unchanged. Call
+   * {@link resolveVisualBaseLayers} first when those layers should become
+   * exportable image URLs.
    */
   toQueryParams(): Record<string, string> {
     const params: Record<string, string> = {};
@@ -315,6 +344,12 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     if (this.visualBaseLayers && this.visualBaseLayers.length > 0) {
       this.visualBaseLayers.forEach((layer, index) => {
         params[`visualbaselayer${index}`] = layer.url;
+        
+         const layerName = layer.layerName?.trim();
+          if (layerName) {
+            params[`visualbaselayername${index}`] = layerName;
+          }
+
         if (layer.position) {
           params[`visualbaselayerposition${index}`] = layer.position.toString();
         }
@@ -337,6 +372,40 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   }
 
   /**
+   * Replace ImageServer feature layers with a public exportImage URL and a
+   * geographic position. Static image layers are left unchanged. Layers that
+   * cannot be exported are omitted rather than passed through as service URLs.
+   */
+  async resolveVisualBaseLayers(): Promise<void> {
+    if (!this.visualBaseLayers?.length) {
+      return;
+    }
+
+    const resolved: IVisualBaseLayer[] = [];
+
+    for (const layer of this.visualBaseLayers) {
+
+      // ignore layers that are not visible
+      if(layer.visible === false) {
+        continue;
+      }
+
+      // Image layers are already resolved, so just copy them
+      if ((layer.type ?? VisualBaseLayerType.Image) !== VisualBaseLayerType.Feature) {
+        resolved.push(layer);
+        continue;
+      }
+
+      // convert ImageServer layers to images 
+      const imageLayer = await resolveImageServiceLayer(layer);
+      if (imageLayer) {
+        resolved.push(imageLayer);
+      }
+    }
+    this.visualBaseLayers = resolved;
+  }
+
+  /**
    * Generate the complete embed URL
    */
   toUrl(baseUrl: string = AudiomEmbedConfig.defaultBaseURL): string {
@@ -353,5 +422,171 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
    */
   toUrlWithBase(baseUrl: string): string {
     return this.toUrl(baseUrl);
+  }
+}
+
+interface ServiceExtent {
+  xmin: number;
+  ymin: number;
+  xmax: number;
+  ymax: number;
+  spatialReference?: { wkid?: number; latestWkid?: number; wkt?: string };
+}
+
+interface ImageServiceDefinition {
+  extent?: ServiceExtent;
+  spatialReference?: ServiceExtent['spatialReference'];
+  capabilities?: string;
+  pixelSizeX?: number;
+  pixelSizeY?: number;
+  maxImageWidth?: number;
+  maxImageHeight?: number;
+}
+
+/**
+ * Turn an ImageServer URL into a static overlay the embed can fetch.
+ * `capabilities` is not a reliable Export Image signal, so a small export is
+ * probed. The returned URL is public; a blob URL cannot cross into the iframe.
+ */
+async function resolveImageServiceLayer(layer: IVisualBaseLayer): Promise<IVisualBaseLayer | undefined> {
+  const serviceUrl = layer.url.replace(/\/+$/, '');
+  if (!/\/ImageServer$/i.test(serviceUrl)) {
+    return undefined;
+  }
+
+  let info: { definition?: ImageServiceDefinition };
+  try {
+    info = await ServiceManager.getInstance().fetchServiceInfo(serviceUrl);
+  } catch {
+    return undefined;
+  }
+
+  const definition = info?.definition;
+  const extent = definition?.extent;
+  if (!isExtent(extent)) {
+    return undefined;
+  }
+
+  const wkid = extent.spatialReference?.latestWkid
+    ?? extent.spatialReference?.wkid
+    ?? definition?.spatialReference?.latestWkid
+    ?? definition?.spatialReference?.wkid;
+  if (!wkid) {
+    return undefined;
+  }
+
+  const exportUrl = buildExportImageUrl(serviceUrl, extent, wkid, definition);
+  if (!await canExportImage(exportUrl)) {
+    return undefined;
+  }
+
+  const position = await extentToGeoQuad(extent, wkid);
+  if (!position) {
+    return undefined;
+  }
+
+  return {
+    url: exportUrl,
+    type: VisualBaseLayerType.Image,
+    position
+  };
+}
+
+function positive(value: number | undefined): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function isExtent(extent: ServiceExtent | null | undefined): extent is ServiceExtent {
+  return !!extent
+    && Number.isFinite(extent.xmin)
+    && Number.isFinite(extent.ymin)
+    && Number.isFinite(extent.xmax)
+    && Number.isFinite(extent.ymax)
+    && extent.xmax > extent.xmin
+    && extent.ymax > extent.ymin;
+}
+
+function buildExportImageUrl(
+  serviceUrl: string,
+  extent: ServiceExtent,
+  wkid: number,
+  definition?: ImageServiceDefinition
+): string {
+  const pixelSizeX = positive(definition?.pixelSizeX) ?? 1;
+  const pixelSizeY = positive(definition?.pixelSizeY) ?? pixelSizeX;
+  const maxWidth = Math.min(positive(definition?.maxImageWidth) ?? EXPORT_IMAGE_MAX_SIZE, EXPORT_IMAGE_MAX_SIZE);
+  const maxHeight = Math.min(positive(definition?.maxImageHeight) ?? EXPORT_IMAGE_MAX_SIZE, EXPORT_IMAGE_MAX_SIZE);
+  const sourceWidth = (extent.xmax - extent.xmin) / pixelSizeX;
+  const sourceHeight = (extent.ymax - extent.ymin) / pixelSizeY;
+  const scale = Math.min(1, maxWidth / sourceWidth, maxHeight / sourceHeight);
+  const size = `${Math.max(1, Math.round(sourceWidth * scale))},${Math.max(1, Math.round(sourceHeight * scale))}`;
+  const params = new URLSearchParams({
+    bbox: `${extent.xmin},${extent.ymin},${extent.xmax},${extent.ymax}`,
+    bboxSR: String(wkid),
+    imageSR: String(wkid),
+    size,
+    format: 'png',
+    f: 'image'
+  });
+  return `${serviceUrl}/exportImage?${params.toString()}`;
+}
+
+/** Confirm the operation returns an image. A JSON error body means it does not. */
+async function canExportImage(exportUrl: string): Promise<boolean> {
+  const probe = new URL(exportUrl);
+  probe.searchParams.set('size', '64,64');
+  probe.searchParams.set('f', 'json');
+  try {
+    const response = await fetch(probe.toString());
+    if (!response.ok) {
+      return false;
+    }
+    const body = await response.json() as { href?: string; error?: unknown };
+    return typeof body.href === 'string' && !body.error;
+  } catch {
+    return false;
+  }
+}
+
+const GEOGRAPHIC_WKIDS = new Set([4326, 4269]);
+
+/**
+ * Overlay corners are longitude/latitude. Geographic extents are used directly.
+ * Projected extents are converted with the ArcGIS projection engine.
+ */
+async function extentToGeoQuad(extent: ServiceExtent, wkid: number): Promise<GeoQuad | undefined> {
+  const corners = [
+    [extent.xmin, extent.ymax],
+    [extent.xmax, extent.ymax],
+    [extent.xmax, extent.ymin],
+    [extent.xmin, extent.ymin]
+  ];
+  if (GEOGRAPHIC_WKIDS.has(wkid)) {
+    return GeoQuad.fromArray(corners);
+  }
+
+  try {
+    const [Point, SpatialReference] = await Promise.all([
+      loadArcGISJSAPIModule('esri/geometry/Point'),
+      loadArcGISJSAPIModule('esri/geometry/SpatialReference')
+    ]) as [
+      new (properties: { x: number; y: number; spatialReference: unknown }) => __esri.Geometry,
+      new (properties: { wkid: number }) => __esri.SpatialReference
+    ];
+    const source = new SpatialReference({ wkid });
+    const projected = await geometryUtils.projectToSpatialReference(
+      corners.map(([x, y]) => new Point({ x, y, spatialReference: source })),
+      new SpatialReference({ wkid: 4326 })
+    );
+    const geographic = projected.map(point => {
+      const { x, y } = point as __esri.Geometry & { x?: number; y?: number };
+      return [x, y];
+    });
+    if (geographic.some(([lng, lat]) => !Number.isFinite(lng) || !Number.isFinite(lat))) {
+      return undefined;
+    }
+    return GeoQuad.fromArray(geographic as number[][]);
+  } catch {
+    return undefined;
   }
 }
