@@ -51,6 +51,9 @@ export interface IVisualBaseLayer {
 
   /** Whether the visual base layer is visible. Defaults to true. */
   visible?: boolean;
+
+  // Optional name for visual base layer if url prediction is not sufficient.  If not provided, a name will be generated from the URL.
+  layerName?: string;
 }
 
 /**
@@ -237,7 +240,8 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
       url: layer.url,
       type: layer.type,
       position: layer.position ? GeoQuad.from(layer.position) : undefined,
-      visible: layer.visible
+      visible: layer.visible,
+      layerName: layer.layerName
     }));
     this.allowedOrigins = config.allowedOrigins;
     this.additionalParams = config.additionalParams;
@@ -341,6 +345,11 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
       this.visualBaseLayers.forEach((layer, index) => {
         params[`visualbaselayer${index}`] = layer.url;
         
+         const layerName = layer.layerName?.trim();
+          if (layerName) {
+            params[`visualbaselayername${index}`] = layerName;
+          }
+
         if (layer.position) {
           params[`visualbaselayerposition${index}`] = layer.position.toString();
         }

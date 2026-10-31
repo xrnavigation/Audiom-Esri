@@ -23,7 +23,8 @@ const TOOLTIP_REMOVE = 'Remove layer'
 const FIELD_LABEL_TYPE = 'Base Layer Source Type'
 const FIELD_LABEL_IMAGE_URL = 'Image Server URL'
 const PLACEHOLDER_IMAGE_SERVER_URL = 'https://.../ImageServer'
-
+const FIELD_LABEL_LAYER_NAME = 'Layer Name'
+const PLACEHOLDER_LAYER_NAME = 'Enter a name (optional)'
 
 
 const styles = {
@@ -63,6 +64,10 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
     onFieldChange('url', e.target.value)
   }, [onFieldChange])
 
+  const handleLayerNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    onFieldChange('layerName', e.target.value || undefined)
+  }, [onFieldChange])
+
   const handleTypeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const next = e.target.value === VisualBaseLayerType.Feature
       ? VisualBaseLayerType.Feature
@@ -77,7 +82,11 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
   // Safely derive label — URL parsing can fail; fall back to a generic numbered label
   const fallbackLabel = `${LAYER_PREFIX}${index + 1}`
   let safeLabel: string = fallbackLabel
-  if (layer.url) {
+  // Use layerName if provided and non-empty; otherwise, try to derive from URL; otherwise, use fallback
+  if(layer.layerName && layer.layerName.trim() !== "") {
+    safeLabel = layer.layerName
+  }
+  else if (layer.url) {
     try {
       safeLabel = new URL(layer.url).pathname.split('/').pop() || fallbackLabel
     } catch {
@@ -149,6 +158,17 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
               isFeature ? validateImageLayerUrl(String(text)) : validateUrl(String(text))
             )}
             aria-label={`${isFeature ? FIELD_LABEL_IMAGE_URL : FIELD_LABEL_URL} for layer ${index + 1}`}
+          />
+          <CopyableLabel
+            label={FIELD_LABEL_LAYER_NAME}
+            copyValue={layer.layerName || ''}
+          />
+          <TextInput
+            style={{ width: '100%', marginBottom: Padding.ElementGap }}
+            value={layer.layerName || ''}
+            onChange={handleLayerNameChange}
+            placeholder={PLACEHOLDER_LAYER_NAME}
+            aria-label={`${FIELD_LABEL_LAYER_NAME} for layer ${index + 1}`}
           />
           {!isFeature && (
             <GeoQuadEditor

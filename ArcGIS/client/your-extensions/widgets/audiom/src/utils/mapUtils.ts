@@ -117,6 +117,7 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
           type: layer.type ?? VisualBaseLayerType.Image,
           position: layer.position ? GeoQuad.parse(layer.position) : undefined,
           visible: layer.visible !== undefined ? layer.visible : true,
+           layerName: layer.layerName?.trim() || undefined,
         }))
       : undefined,
   });

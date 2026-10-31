@@ -71,13 +71,17 @@ export interface IVisualBaseLayerConfig {
 
   /** Whether the visual base layer is visible. Defaults to true. */
   visible?: boolean
+
+  // Optional name for visual base layer if url prediction is not sufficient.  If not provided, a name will be generated from the URL.
+  layerName?: string;
 }
 
 export const DEFAULT_VISUAL_BASE_LAYER: IVisualBaseLayerConfig = {
   url: '',
   type: VisualBaseLayerType.Image,
   position: undefined,
-  visible: true
+  visible: true,
+  layerName: "",
 }
 
 export interface CoordinatePairFieldConfig {
