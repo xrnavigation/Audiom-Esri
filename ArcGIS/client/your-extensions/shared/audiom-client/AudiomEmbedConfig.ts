@@ -488,7 +488,8 @@ async function resolveImageServiceLayer(layer: IVisualBaseLayer): Promise<IVisua
   return {
     url: exportUrl,
     type: VisualBaseLayerType.Image,
-    position
+    position,
+    layerName: layer.layerName
   };
 }
 

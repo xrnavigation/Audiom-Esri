@@ -28,6 +28,8 @@ export const TOOLTIP_UNLOCK_SOURCE_VISIBILITY = 'Unlock to manually control visi
 // ─── Visual base layer card ──────────────────────────────────────────────────
 export const TOOLTIP_SHOW_VISUAL_BASE_LAYER = 'Show layer'
 export const TOOLTIP_HIDE_VISUAL_BASE_LAYER = 'Hide layer'
+export const TOOLTIP_LOCK_LAYER_NAME = 'Lock to use the name from the URL'
+export const TOOLTIP_UNLOCK_LAYER_NAME = 'Unlock to edit the layer name manually'
 
 export const FIELD_LABEL_NAME = 'Name'
 export const FIELD_LABEL_SOURCE_URL = 'Source URL'

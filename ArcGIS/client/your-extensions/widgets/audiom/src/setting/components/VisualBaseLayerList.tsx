@@ -37,6 +37,10 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
     onChange(replaceAt(layers, index, { [field]: value } as Partial<IVisualBaseLayerConfig>))
   }, [layers, onChange])
 
+  const handleUrlChange = useCallback((index: number, url: string, layerNameUpdate?: { layerName: string | undefined }) => {
+    onChange(replaceAt(layers, index, { url, ...layerNameUpdate }))
+  }, [layers, onChange])
+
   const handleTypeChange = useCallback((index: number, type: VisualBaseLayerType) => {
     const patch: Partial<IVisualBaseLayerConfig> = { type }
     if (type === VisualBaseLayerType.Feature) {
@@ -48,6 +52,10 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
   const handleToggleVisible = useCallback((index: number) => {
     const isVisible = layers[index]?.visible !== false
     onChange(replaceAt(layers, index, { visible: !isVisible }))
+  }, [layers, onChange])
+
+  const handleLayerNameLockChange = useCallback((index: number, locked: boolean, layerName: string | undefined) => {
+    onChange(replaceAt(layers, index, { layerNameLocked: locked, layerName }))
   }, [layers, onChange])
 
   const handleRemove = useCallback((index: number) => {
@@ -90,8 +98,10 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
               isExpanded={expandedLayers[index] ?? true}
               onToggleExpanded={() => toggleLayerExpanded(index)}
               onFieldChange={(field, value) => handleFieldChange(index, field, value)}
+              onUrlChange={(url, layerNameUpdate) => handleUrlChange(index, url, layerNameUpdate)}
               onBaseLayerTypeChange={(type) => handleTypeChange(index, type)}
               onToggleVisible={() => handleToggleVisible(index)}
+              onLayerNameLockChange={(locked, layerName) => handleLayerNameLockChange(index, locked, layerName)}
               onRemove={() => handleRemove(index)}
             />
           ))

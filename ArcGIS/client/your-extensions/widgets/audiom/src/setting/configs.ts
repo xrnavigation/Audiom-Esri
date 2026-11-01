@@ -72,8 +72,22 @@ export interface IVisualBaseLayerConfig {
   /** Whether the visual base layer is visible. Defaults to true. */
   visible?: boolean
 
-  // Optional name for visual base layer if url prediction is not sufficient.  If not provided, a name will be generated from the URL.
-  layerName?: string;
+  /**
+   * Display name. A new valid URL refreshes this from the URL whether or not
+   * the field is locked. While unlocked, it can also be edited manually.
+   */
+  layerName?: string
+
+  /**
+   * When locked (the default), the layer name follows the URL and cannot be edited.
+   * Missing means locked, matching `DEFAULT_VISUAL_BASE_LAYER`.
+   */
+  layerNameLocked?: boolean
+}
+
+/** Locked unless the layer was explicitly unlocked. */
+export function isVisualBaseLayerNameLocked(layer: { layerNameLocked?: boolean } | null | undefined): boolean {
+  return layer?.layerNameLocked !== false
 }
 
 export const DEFAULT_VISUAL_BASE_LAYER: IVisualBaseLayerConfig = {
@@ -81,7 +95,8 @@ export const DEFAULT_VISUAL_BASE_LAYER: IVisualBaseLayerConfig = {
   type: VisualBaseLayerType.Image,
   position: undefined,
   visible: true,
-  layerName: "",
+  layerName: '',
+  layerNameLocked: true,
 }
 
 export interface CoordinatePairFieldConfig {
