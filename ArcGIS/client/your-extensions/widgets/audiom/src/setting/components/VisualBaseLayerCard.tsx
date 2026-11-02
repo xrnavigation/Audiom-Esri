@@ -7,14 +7,14 @@ import { IVisualBaseLayerConfig, VISUAL_BASE_LAYER_TYPE_OPTIONS, isVisualBaseLay
 import { VisualBaseLayerType } from '../../../../../shared/audiom-client/AudiomEmbedConfig'
 import { Padding } from '../enums'
 import { TOOLTIP_HIDE_VISUAL_BASE_LAYER, TOOLTIP_LOCK_LAYER_NAME, TOOLTIP_SHOW_VISUAL_BASE_LAYER, TOOLTIP_UNLOCK_LAYER_NAME } from '../strings'
-import { validateUrl, validateImageLayerUrl } from '../validation/validation'
+import { validateUrl, validateImageLayerUrl, visualBaseLayerTypeFromUrl } from '../validation/validation'
 import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 import CopyableLabel from './CopyableLabel'
 import GeoQuadEditor from './GeoQuadEditor'
 import IconActionButton from './IconActionButton'
 import LockToggle from './LockToggle'
 
-const { useCallback } = React
+const { useCallback, useRef } = React
 
 // UI Text Constants
 const LAYER_PREFIX = 'Layer '
@@ -43,13 +43,18 @@ const styles = {
   } as React.CSSProperties
 }
 
+export interface VisualBaseLayerUrlUpdate {
+  layerName?: string | undefined
+  type?: VisualBaseLayerType
+}
+
 interface VisualBaseLayerCardProps {
   layer: IVisualBaseLayerConfig
   index: number
   isExpanded: boolean
   onToggleExpanded: () => void
   onFieldChange: (field: keyof IVisualBaseLayerConfig, value: string | undefined) => void
-  onUrlChange: (url: string, layerNameUpdate?: { layerName: string | undefined }) => void
+  onUrlChange: (url: string, updates?: VisualBaseLayerUrlUpdate) => void
   onBaseLayerTypeChange: (type: VisualBaseLayerType) => void
   onToggleVisible: () => void
   onLayerNameLockChange: (locked: boolean, layerName: string | undefined) => void
@@ -66,11 +71,11 @@ function nameFromLayerUrl(url: string | undefined): string | undefined {
   }
 }
 
-/** A non-empty URL that changed and passes the layer type's validator. */
-function isNewValidBaseLayerUrl(currentUrl: string | undefined, nextUrl: string, isFeature: boolean): boolean {
+/** A non-empty URL that changed and passes either base-layer validator. */
+function isNewValidBaseLayerUrl(currentUrl: string | undefined, nextUrl: string): boolean {
   const trimmed = nextUrl.trim()
   if (!trimmed || trimmed === (currentUrl ?? '').trim()) return false
-  return (isFeature ? validateImageLayerUrl(trimmed) : validateUrl(trimmed)).valid
+  return visualBaseLayerTypeFromUrl(trimmed) !== undefined
 }
 
 const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
@@ -78,7 +83,7 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
     layer, index, isExpanded, onToggleExpanded, onFieldChange, onUrlChange, onBaseLayerTypeChange,
     onToggleVisible, onLayerNameLockChange, onRemove
   } = props
-  const isFeature = layer.type === VisualBaseLayerType.Feature
+  const isFeature = layer.type === VisualBaseLayerType.ImageServer
   // Missing `visible` means shown, matching DEFAULT_VISUAL_BASE_LAYER.
   const isVisible = layer.visible !== false
   const visibilityTooltip = isVisible ? TOOLTIP_HIDE_VISUAL_BASE_LAYER : TOOLTIP_SHOW_VISUAL_BASE_LAYER
@@ -87,16 +92,29 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
   const derivedName = nameFromLayerUrl(layer.url)
   const customName = !isLayerNameLocked ? layer.layerName?.trim() : ''
   const layerNameValue = isLayerNameLocked ? (derivedName ?? '') : (layer.layerName ?? '')
+  // Last URL whose type was resolved on submit. Re-blurring that URL must not
+  // undo a manual type choice; a different submitted URL should.
+  const submittedUrlRef = useRef((layer.url ?? '').trim())
 
   const handleUrlChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const nextUrl = e.target.value
     // Refresh the stored name from the URL even when the name field is unlocked.
-    if (isNewValidBaseLayerUrl(layer.url, nextUrl, isFeature)) {
+    if (isNewValidBaseLayerUrl(layer.url, nextUrl)) {
       onUrlChange(nextUrl, { layerName: nameFromLayerUrl(nextUrl.trim()) })
       return
     }
     onUrlChange(nextUrl)
-  }, [layer.url, isFeature, onUrlChange])
+  }, [layer.url, onUrlChange])
+
+  const handleUrlAccept = useCallback((value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed || trimmed === submittedUrlRef.current) return
+    const nextType = visualBaseLayerTypeFromUrl(trimmed)
+    if (!nextType) return
+    submittedUrlRef.current = trimmed
+    if (nextType === (layer.type || VisualBaseLayerType.Image)) return
+    onUrlChange(value, { type: nextType })
+  }, [layer.type, onUrlChange])
 
   const handleLayerNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (isLayerNameLocked) return
@@ -112,8 +130,8 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
   }, [isLayerNameLocked, layer.layerName, derivedName, onLayerNameLockChange])
 
   const handleTypeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const next = e.target.value === VisualBaseLayerType.Feature
-      ? VisualBaseLayerType.Feature
+    const next = e.target.value === VisualBaseLayerType.ImageServer
+      ? VisualBaseLayerType.ImageServer
       : VisualBaseLayerType.Image
     onBaseLayerTypeChange(next)
   }, [onBaseLayerTypeChange])
@@ -185,10 +203,17 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
             style={{ width: '100%', marginBottom: Padding.ElementGap }}
             value={layer.url || ''}
             onChange={handleUrlChange}
+            onAcceptValue={handleUrlAccept}
             placeholder={isFeature ? PLACEHOLDER_IMAGE_SERVER_URL : PLACEHOLDER_URL}
-            checkValidityOnAccept={(text) => (
-              isFeature ? validateImageLayerUrl(String(text)) : validateUrl(String(text))
-            )}
+            checkValidityOnAccept={(text) => {
+              const value = String(text ?? '')
+              // Empty still follows the current type. A non-empty URL may belong
+              // to either type; the type is adjusted when the value is accepted.
+              if (!value.trim()) {
+                return isFeature ? validateImageLayerUrl(value) : validateUrl(value)
+              }
+              return validateUrl(value)
+            }}
             aria-label={`${isFeature ? FIELD_LABEL_IMAGE_URL : FIELD_LABEL_URL} for layer ${index + 1}`}
           />
           <CopyableLabel

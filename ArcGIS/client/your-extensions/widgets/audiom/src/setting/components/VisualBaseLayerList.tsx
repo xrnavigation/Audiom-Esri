@@ -6,7 +6,7 @@ import { ButtonType, FlowType } from '../enums'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
 import { replaceAt } from '../../utils/sourceConfigUtils'
 import CollapsibleHeader from './CollapsibleHeader'
-import VisualBaseLayerCard from './VisualBaseLayerCard'
+import VisualBaseLayerCard, { type VisualBaseLayerUrlUpdate } from './VisualBaseLayerCard'
 
 const { useState, useCallback } = React
 
@@ -37,13 +37,24 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
     onChange(replaceAt(layers, index, { [field]: value } as Partial<IVisualBaseLayerConfig>))
   }, [layers, onChange])
 
-  const handleUrlChange = useCallback((index: number, url: string, layerNameUpdate?: { layerName: string | undefined }) => {
-    onChange(replaceAt(layers, index, { url, ...layerNameUpdate }))
+  const handleUrlChange = useCallback((index: number, url: string, updates?: VisualBaseLayerUrlUpdate) => {
+    const patch: Partial<IVisualBaseLayerConfig> = { url }
+    if (updates && 'layerName' in updates) {
+      patch.layerName = updates.layerName
+    }
+    if (updates?.type) {
+      patch.type = updates.type
+      // Image Server layers do not use a static image quad.
+      if (updates.type === VisualBaseLayerType.ImageServer) {
+        patch.position = undefined
+      }
+    }
+    onChange(replaceAt(layers, index, patch))
   }, [layers, onChange])
 
   const handleTypeChange = useCallback((index: number, type: VisualBaseLayerType) => {
     const patch: Partial<IVisualBaseLayerConfig> = { type }
-    if (type === VisualBaseLayerType.Feature) {
+    if (type === VisualBaseLayerType.ImageServer) {
       patch.position = undefined
     }
     onChange(replaceAt(layers, index, patch))

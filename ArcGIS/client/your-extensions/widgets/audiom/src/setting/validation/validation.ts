@@ -1,5 +1,6 @@
 import type { ValidityResult } from 'jimu-ui'
 import { React } from 'jimu-core'
+import { VisualBaseLayerType } from '../../../../../shared/audiom-client/AudiomEmbedConfig'
 import { DEFAULT_CONFIG, IAudiomConfig } from '../configs'
 import { isNullish, isNullishOrWhiteSpace, validateAndClamp, validateAndReset, parseStepSize } from './validationUtils'
 import { createLogger } from '../../utils/logger'
@@ -135,6 +136,24 @@ export function validateImageLayerUrl(value: string | undefined): ValidityResult
   } catch {
     return { valid: false, msg: MESSAGES.INVALID_URL }
   }
+}
+
+/**
+ * Layer type implied by a submitted base-layer URL.
+ * ImageServer URLs are image server layers; any other valid URL is a static image.
+ * Empty or invalid values do not imply a type.
+ */
+export function visualBaseLayerTypeFromUrl(value: string | undefined): VisualBaseLayerType | undefined {
+  if (isNullishOrWhiteSpace(value)) {
+    return undefined
+  }
+  if (validateImageLayerUrl(value).valid) {
+    return VisualBaseLayerType.ImageServer
+  }
+  if (validateUrl(value).valid) {
+    return VisualBaseLayerType.Image
+  }
+  return undefined
 }
 
 /**

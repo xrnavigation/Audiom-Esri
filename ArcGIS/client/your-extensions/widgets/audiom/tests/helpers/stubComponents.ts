@@ -61,6 +61,8 @@ export interface TextInputStubProps {
   disabled?: boolean
   'aria-label'?: string
   onChange?: ChangeEventHandler<HTMLInputElement>
+  onAcceptValue?: (value: string) => void
+  checkValidityOnAccept?: (text: string) => { valid: boolean } | Promise<{ valid: boolean }>
 }
 
 export interface SwitchStubProps {
@@ -140,6 +142,18 @@ export function stubCollapse(p: CollapseStubProps): ReactElement {
   return React.createElement('div', null, p.isOpen ? p.children : null)
 }
 
+function acceptStubTextInput(p: TextInputStubProps, value: string): void {
+  const result = p.checkValidityOnAccept?.(value)
+  if (result && typeof (result as Promise<{ valid: boolean }>).then === 'function') {
+    void (result as Promise<{ valid: boolean }>).then(resolved => {
+      if (!resolved || resolved.valid !== false) p.onAcceptValue?.(value)
+    })
+    return
+  }
+  if (result && (result as { valid: boolean }).valid === false) return
+  p.onAcceptValue?.(value)
+}
+
 export function stubTextInput(p: TextInputStubProps): ReactElement {
   const React = getReact()
   return React.createElement('input', {
@@ -148,7 +162,11 @@ export function stubTextInput(p: TextInputStubProps): ReactElement {
     placeholder: p.placeholder,
     disabled: p.disabled,
     'aria-label': p['aria-label'],
-    onChange: p.onChange
+    onChange: p.onChange,
+    onBlur: (event: { target: { value: string } }) => acceptStubTextInput(p, event.target.value),
+    onKeyUp: (event: { key: string, currentTarget: { value: string } }) => {
+      if (event.key === 'Enter') acceptStubTextInput(p, event.currentTarget.value)
+    }
   })
 }
 

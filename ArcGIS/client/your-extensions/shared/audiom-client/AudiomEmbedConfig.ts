@@ -33,7 +33,7 @@ export enum VisualBaseLayerType {
   Image = 'image',
   
   // ArcGIS image feature layer
-  Feature = 'feature'
+  ImageServer = 'imageServer'
 }
 
 /**
@@ -391,7 +391,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
       }
 
       // Image layers are already resolved, so just copy them
-      if ((layer.type ?? VisualBaseLayerType.Image) !== VisualBaseLayerType.Feature) {
+      if ((layer.type ?? VisualBaseLayerType.Image) !== VisualBaseLayerType.ImageServer) {
         resolved.push(layer);
         continue;
       }
