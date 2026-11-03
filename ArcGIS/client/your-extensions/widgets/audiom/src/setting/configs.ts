@@ -18,12 +18,6 @@ export const MAP_TYPE_OPTIONS = [
   { label: 'Travel', value: MapType.Travel }
 ] as const
 
-/** Visual base layer source options for the visual base layer setting card. */
-export const VISUAL_BASE_LAYER_TYPE_OPTIONS = [
-  { label: 'Static Image', value: VisualBaseLayerType.Image },
-  { label: 'Image Server', value: VisualBaseLayerType.ImageServer }
-] as const
-
 export const DEFAULT_CONFIG = {
   baseUrl: 'https://audiom-staging.herokuapp.com',
   stepSize: 1,
@@ -65,8 +59,8 @@ export interface IVisualBaseLayerConfig {
 
   /**
    * Source kind. Defaults to Image for backward compatibility.
-   * A newly submitted URL sets this from validation: ImageServer URLs become
-   * feature layers, and any other valid URL becomes a static image.
+   * Set from the URL when the user enters one: ImageServer URLs become image
+   * server layers, and any other valid URL becomes a static image.
    */
   type?: VisualBaseLayerType;
 

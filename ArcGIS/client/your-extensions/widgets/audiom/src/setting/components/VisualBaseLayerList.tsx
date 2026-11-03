@@ -52,14 +52,6 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
     onChange(replaceAt(layers, index, patch))
   }, [layers, onChange])
 
-  const handleTypeChange = useCallback((index: number, type: VisualBaseLayerType) => {
-    const patch: Partial<IVisualBaseLayerConfig> = { type }
-    if (type === VisualBaseLayerType.ImageServer) {
-      patch.position = undefined
-    }
-    onChange(replaceAt(layers, index, patch))
-  }, [layers, onChange])
-
   const handleToggleVisible = useCallback((index: number) => {
     const isVisible = layers[index]?.visible !== false
     onChange(replaceAt(layers, index, { visible: !isVisible }))
@@ -109,8 +101,7 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
               isExpanded={expandedLayers[index] ?? true}
               onToggleExpanded={() => toggleLayerExpanded(index)}
               onFieldChange={(field, value) => handleFieldChange(index, field, value)}
-              onUrlChange={(url, layerNameUpdate) => handleUrlChange(index, url, layerNameUpdate)}
-              onBaseLayerTypeChange={(type) => handleTypeChange(index, type)}
+              onUrlChange={(url, updates) => handleUrlChange(index, url, updates)}
               onToggleVisible={() => handleToggleVisible(index)}
               onLayerNameLockChange={(locked, layerName) => handleLayerNameLockChange(index, locked, layerName)}
               onRemove={() => handleRemove(index)}

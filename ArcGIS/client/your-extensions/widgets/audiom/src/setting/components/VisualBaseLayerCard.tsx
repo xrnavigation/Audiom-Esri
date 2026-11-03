@@ -1,9 +1,9 @@
 import { React } from 'jimu-core'
-import { Card, Collapse, Option, Select, TextInput } from 'jimu-ui'
+import { Card, Collapse, TextInput } from 'jimu-ui'
 import { TrashOutlined } from 'jimu-icons/outlined/editor/trash'
 import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
 import { InvisibleOutlined } from 'jimu-icons/outlined/application/invisible'
-import { IVisualBaseLayerConfig, VISUAL_BASE_LAYER_TYPE_OPTIONS, isVisualBaseLayerNameLocked } from '../configs'
+import { IVisualBaseLayerConfig, isVisualBaseLayerNameLocked } from '../configs'
 import { VisualBaseLayerType } from '../../../../../shared/audiom-client/AudiomEmbedConfig'
 import { Padding } from '../enums'
 import { TOOLTIP_HIDE_VISUAL_BASE_LAYER, TOOLTIP_LOCK_LAYER_NAME, TOOLTIP_SHOW_VISUAL_BASE_LAYER, TOOLTIP_UNLOCK_LAYER_NAME } from '../strings'
@@ -14,14 +14,13 @@ import GeoQuadEditor from './GeoQuadEditor'
 import IconActionButton from './IconActionButton'
 import LockToggle from './LockToggle'
 
-const { useCallback, useRef } = React
+const { useCallback } = React
 
 // UI Text Constants
 const LAYER_PREFIX = 'Layer '
 const FIELD_LABEL_URL = 'Image URL'
 const PLACEHOLDER_URL = 'Enter image URL for visual base layer'
 const TOOLTIP_REMOVE = 'Remove layer'
-const FIELD_LABEL_TYPE = 'Base Layer Source Type'
 const FIELD_LABEL_IMAGE_URL = 'Image Server URL'
 const PLACEHOLDER_IMAGE_SERVER_URL = 'https://.../ImageServer'
 const FIELD_LABEL_LAYER_NAME = 'Layer Name'
@@ -55,7 +54,6 @@ interface VisualBaseLayerCardProps {
   onToggleExpanded: () => void
   onFieldChange: (field: keyof IVisualBaseLayerConfig, value: string | undefined) => void
   onUrlChange: (url: string, updates?: VisualBaseLayerUrlUpdate) => void
-  onBaseLayerTypeChange: (type: VisualBaseLayerType) => void
   onToggleVisible: () => void
   onLayerNameLockChange: (locked: boolean, layerName: string | undefined) => void
   onRemove: () => void
@@ -80,7 +78,7 @@ function isNewValidBaseLayerUrl(currentUrl: string | undefined, nextUrl: string)
 
 const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
   const {
-    layer, index, isExpanded, onToggleExpanded, onFieldChange, onUrlChange, onBaseLayerTypeChange,
+    layer, index, isExpanded, onToggleExpanded, onFieldChange, onUrlChange,
     onToggleVisible, onLayerNameLockChange, onRemove
   } = props
   const isFeature = layer.type === VisualBaseLayerType.ImageServer
@@ -92,27 +90,24 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
   const derivedName = nameFromLayerUrl(layer.url)
   const customName = !isLayerNameLocked ? layer.layerName?.trim() : ''
   const layerNameValue = isLayerNameLocked ? (derivedName ?? '') : (layer.layerName ?? '')
-  // Last URL whose type was resolved on submit. Re-blurring that URL must not
-  // undo a manual type choice; a different submitted URL should.
-  const submittedUrlRef = useRef((layer.url ?? '').trim())
 
   const handleUrlChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const nextUrl = e.target.value
-    // Refresh the stored name from the URL even when the name field is unlocked.
+    const trimmed = nextUrl.trim()
+    // A newly valid URL sets the layer name and the source type together.
     if (isNewValidBaseLayerUrl(layer.url, nextUrl)) {
-      onUrlChange(nextUrl, { layerName: nameFromLayerUrl(nextUrl.trim()) })
+      onUrlChange(nextUrl, {
+        layerName: nameFromLayerUrl(trimmed),
+        type: visualBaseLayerTypeFromUrl(trimmed)
+      })
       return
     }
     onUrlChange(nextUrl)
   }, [layer.url, onUrlChange])
 
   const handleUrlAccept = useCallback((value: string) => {
-    const trimmed = value.trim()
-    if (!trimmed || trimmed === submittedUrlRef.current) return
-    const nextType = visualBaseLayerTypeFromUrl(trimmed)
-    if (!nextType) return
-    submittedUrlRef.current = trimmed
-    if (nextType === (layer.type || VisualBaseLayerType.Image)) return
+    const nextType = visualBaseLayerTypeFromUrl(value.trim())
+    if (!nextType || nextType === (layer.type || VisualBaseLayerType.Image)) return
     onUrlChange(value, { type: nextType })
   }, [layer.type, onUrlChange])
 
@@ -128,13 +123,6 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
       onLayerNameLockChange(true, layer.layerName || undefined)
     }
   }, [isLayerNameLocked, layer.layerName, derivedName, onLayerNameLockChange])
-
-  const handleTypeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const next = e.target.value === VisualBaseLayerType.ImageServer
-      ? VisualBaseLayerType.ImageServer
-      : VisualBaseLayerType.Image
-    onBaseLayerTypeChange(next)
-  }, [onBaseLayerTypeChange])
 
   const handlePositionChange = useCallback((value: string) => {
     onFieldChange('position', value || undefined)
@@ -179,44 +167,6 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
       <Collapse isOpen={isExpanded}>
         <div style={styles.content}>
           <CopyableLabel
-            label={FIELD_LABEL_TYPE}
-            copyValue={layer.type || VisualBaseLayerType.Image}
-            showCopyButton={false}
-          />
-          <Select
-            style={{ width: '100%', marginBottom: Padding.ElementGap }}
-            value={layer.type || VisualBaseLayerType.Image}
-            onChange={handleTypeChange}
-            aria-label={`${FIELD_LABEL_TYPE} for layer ${index + 1}`}
-          >
-            {VISUAL_BASE_LAYER_TYPE_OPTIONS.map((option) => (
-              <Option key={option.value} value={option.value}>
-                {option.label}
-              </Option>
-            ))}
-          </Select>
-          <CopyableLabel
-            label={isFeature ? FIELD_LABEL_IMAGE_URL : FIELD_LABEL_URL}
-            copyValue={layer.url || ''}
-          />
-          <TextInput
-            style={{ width: '100%', marginBottom: Padding.ElementGap }}
-            value={layer.url || ''}
-            onChange={handleUrlChange}
-            onAcceptValue={handleUrlAccept}
-            placeholder={isFeature ? PLACEHOLDER_IMAGE_SERVER_URL : PLACEHOLDER_URL}
-            checkValidityOnAccept={(text) => {
-              const value = String(text ?? '')
-              // Empty still follows the current type. A non-empty URL may belong
-              // to either type; the type is adjusted when the value is accepted.
-              if (!value.trim()) {
-                return isFeature ? validateImageLayerUrl(value) : validateUrl(value)
-              }
-              return validateUrl(value)
-            }}
-            aria-label={`${isFeature ? FIELD_LABEL_IMAGE_URL : FIELD_LABEL_URL} for layer ${index + 1}`}
-          />
-          <CopyableLabel
             label={FIELD_LABEL_LAYER_NAME}
             copyValue={layerNameValue}
             actions={
@@ -235,6 +185,27 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
             placeholder={PLACEHOLDER_LAYER_NAME}
             disabled={isLayerNameLocked}
             aria-label={`${FIELD_LABEL_LAYER_NAME} for layer ${index + 1}`}
+          />
+          <CopyableLabel
+            label={isFeature ? FIELD_LABEL_IMAGE_URL : FIELD_LABEL_URL}
+            copyValue={layer.url || ''}
+          />
+          <TextInput
+            style={{ width: '100%', marginBottom: Padding.ElementGap }}
+            value={layer.url || ''}
+            onChange={handleUrlChange}
+            onAcceptValue={handleUrlAccept}
+            placeholder={isFeature ? PLACEHOLDER_IMAGE_SERVER_URL : PLACEHOLDER_URL}
+            checkValidityOnAccept={(text) => {
+              const value = String(text ?? '')
+              // Empty still follows the current type. A non-empty URL may belong
+              // to either type; the type is set from the URL when it is entered.
+              if (!value.trim()) {
+                return isFeature ? validateImageLayerUrl(value) : validateUrl(value)
+              }
+              return validateUrl(value)
+            }}
+            aria-label={`${isFeature ? FIELD_LABEL_IMAGE_URL : FIELD_LABEL_URL} for layer ${index + 1}`}
           />
           {!isFeature && (
             <GeoQuadEditor
