@@ -19,10 +19,9 @@ const { useCallback } = React
 // UI Text Constants
 const LAYER_PREFIX = 'Layer '
 const FIELD_LABEL_URL = 'Image URL'
-const PLACEHOLDER_URL = 'Enter image URL for visual base layer'
+const PLACEHOLDER_URL = 'Enter image or image server URL for visual base layer'
 const TOOLTIP_REMOVE = 'Remove layer'
 const FIELD_LABEL_IMAGE_URL = 'Image Server URL'
-const PLACEHOLDER_IMAGE_SERVER_URL = 'https://.../ImageServer'
 const FIELD_LABEL_LAYER_NAME = 'Layer Name'
 const PLACEHOLDER_LAYER_NAME = 'Enter a name (optional)'
 
@@ -195,7 +194,7 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
             value={layer.url || ''}
             onChange={handleUrlChange}
             onAcceptValue={handleUrlAccept}
-            placeholder={isFeature ? PLACEHOLDER_IMAGE_SERVER_URL : PLACEHOLDER_URL}
+            placeholder={PLACEHOLDER_URL}
             checkValidityOnAccept={(text) => {
               const value = String(text ?? '')
               // Empty still follows the current type. A non-empty URL may belong
