@@ -1,9 +1,12 @@
+import { VisualBaseLayerType } from '../../../shared/audiom-client/AudiomEmbedConfig'
 import {
   validateLatitude,
   validateLongitude,
   validateZoom,
   validateStepSize,
   validateUrl,
+  validateImageLayerUrl,
+  visualBaseLayerTypeFromUrl,
   validateRequired,
   VALIDATION
 } from '../src/setting/validation/validation'
@@ -122,6 +125,45 @@ describe('validation', () => {
 
     it('accepts non-empty', () => {
       expect(validateRequired('hi').valid).toBe(true)
+    })
+  })
+
+  describe('validateImageLayerUrl', () => {
+    it.each([
+      'https://services.example.com/arcgis/rest/services/World/ImageServer',
+      'https://services.example.com/arcgis/rest/services/World/ImageServer/',
+      'https://services.example.com/arcgis/rest/services/World/imageserver?token=1'
+    ])('accepts ImageServer URL %p', (v) => {
+      expect(validateImageLayerUrl(v).valid).toBe(true)
+    })
+
+    it.each([
+      'https://example.com/map.png',
+      'https://example.com/ImageServer/exportImage',
+      './local.png',
+      '',
+      undefined
+    ])('rejects non-ImageServer value %p', (v) => {
+      expect(validateImageLayerUrl(v).valid).toBe(false)
+    })
+  })
+
+  describe('visualBaseLayerTypeFromUrl', () => {
+    it('selects image server for an ImageServer URL', () => {
+      expect(visualBaseLayerTypeFromUrl('https://host/arcgis/rest/services/World/ImageServer')).toBe(VisualBaseLayerType.ImageServer)
+    })
+
+    it('selects image for any other valid URL', () => {
+      expect(visualBaseLayerTypeFromUrl('https://example.com/overlay.png')).toBe(VisualBaseLayerType.Image)
+      expect(visualBaseLayerTypeFromUrl('/overlays/base.png')).toBe(VisualBaseLayerType.Image)
+    })
+
+    it('does not select a type for empty or invalid values', () => {
+      expect(visualBaseLayerTypeFromUrl('')).toBeUndefined()
+      expect(visualBaseLayerTypeFromUrl('   ')).toBeUndefined()
+      expect(visualBaseLayerTypeFromUrl(undefined)).toBeUndefined()
+      expect(visualBaseLayerTypeFromUrl('not a url')).toBeUndefined()
+      expect(visualBaseLayerTypeFromUrl('javascript:alert(1)')).toBeUndefined()
     })
   })
 })

@@ -1,11 +1,12 @@
 import { React } from 'jimu-core'
 import { Collapse, Button } from 'jimu-ui'
+import { VisualBaseLayerType } from '../../../../../shared/audiom-client/AudiomEmbedConfig'
 import { IVisualBaseLayerConfig, DEFAULT_VISUAL_BASE_LAYER } from '../configs'
 import { ButtonType, FlowType } from '../enums'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
 import { replaceAt } from '../../utils/sourceConfigUtils'
 import CollapsibleHeader from './CollapsibleHeader'
-import VisualBaseLayerCard from './VisualBaseLayerCard'
+import VisualBaseLayerCard, { type VisualBaseLayerUrlUpdate } from './VisualBaseLayerCard'
 
 const { useState, useCallback } = React
 
@@ -34,6 +35,30 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
 
   const handleFieldChange = useCallback((index: number, field: keyof IVisualBaseLayerConfig, value: string | undefined) => {
     onChange(replaceAt(layers, index, { [field]: value } as Partial<IVisualBaseLayerConfig>))
+  }, [layers, onChange])
+
+  const handleUrlChange = useCallback((index: number, url: string, updates?: VisualBaseLayerUrlUpdate) => {
+    const patch: Partial<IVisualBaseLayerConfig> = { url }
+    if (updates && 'layerName' in updates) {
+      patch.layerName = updates.layerName
+    }
+    if (updates?.type) {
+      patch.type = updates.type
+      // Image Server layers do not use a static image quad.
+      if (updates.type === VisualBaseLayerType.ImageServer) {
+        patch.position = undefined
+      }
+    }
+    onChange(replaceAt(layers, index, patch))
+  }, [layers, onChange])
+
+  const handleToggleVisible = useCallback((index: number) => {
+    const isVisible = layers[index]?.visible !== false
+    onChange(replaceAt(layers, index, { visible: !isVisible }))
+  }, [layers, onChange])
+
+  const handleLayerNameLockChange = useCallback((index: number, locked: boolean, layerName: string | undefined) => {
+    onChange(replaceAt(layers, index, { layerNameLocked: locked, layerName }))
   }, [layers, onChange])
 
   const handleRemove = useCallback((index: number) => {
@@ -76,6 +101,9 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
               isExpanded={expandedLayers[index] ?? true}
               onToggleExpanded={() => toggleLayerExpanded(index)}
               onFieldChange={(field, value) => handleFieldChange(index, field, value)}
+              onUrlChange={(url, updates) => handleUrlChange(index, url, updates)}
+              onToggleVisible={() => handleToggleVisible(index)}
+              onLayerNameLockChange={(locked, layerName) => handleLayerNameLockChange(index, locked, layerName)}
               onRemove={() => handleRemove(index)}
             />
           ))

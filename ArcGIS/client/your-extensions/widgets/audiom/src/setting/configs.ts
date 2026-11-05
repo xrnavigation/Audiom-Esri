@@ -2,7 +2,7 @@ import type { ValidityResult } from 'jimu-ui'
 import type { React, ImmutableObject } from 'jimu-core'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
-import { VisualStyle } from '../../../../shared/audiom-client/AudiomEmbedConfig'
+import { VisualStyle, VisualBaseLayerType } from '../../../../shared/audiom-client/AudiomEmbedConfig'
 import { FieldType, FilterType } from './enums'
 import type { LockableFieldName } from './configKeys'
 
@@ -56,13 +56,45 @@ export const DEFAULT_FILTER_CONFIG: IFilterConfig = {
 export interface IVisualBaseLayerConfig {
   /** URL for the visual base layer image overlay */
   url: string
+
+  /**
+   * Source kind. Defaults to Image for backward compatibility.
+   * Set from the URL when the user enters one: ImageServer URLs become image
+   * server layers, and any other valid URL becomes a static image.
+   */
+  type?: VisualBaseLayerType;
+
   /** Serialized GeoQuad position string: "[[lng,lat],[lng,lat],[lng,lat],[lng,lat]]" */
   position?: string
+
+  /** Whether the visual base layer is visible. Defaults to true. */
+  visible?: boolean
+
+  /**
+   * Display name. A new valid URL refreshes this from the URL whether or not
+   * the field is locked. While unlocked, it can also be edited manually.
+   */
+  layerName?: string
+
+  /**
+   * When locked (the default), the layer name follows the URL and cannot be edited.
+   * Missing means locked, matching `DEFAULT_VISUAL_BASE_LAYER`.
+   */
+  layerNameLocked?: boolean
+}
+
+/** Locked unless the layer was explicitly unlocked. */
+export function isVisualBaseLayerNameLocked(layer: { layerNameLocked?: boolean } | null | undefined): boolean {
+  return layer?.layerNameLocked !== false
 }
 
 export const DEFAULT_VISUAL_BASE_LAYER: IVisualBaseLayerConfig = {
   url: '',
-  position: undefined
+  type: VisualBaseLayerType.Image,
+  position: undefined,
+  visible: true,
+  layerName: '',
+  layerNameLocked: true,
 }
 
 export interface CoordinatePairFieldConfig {

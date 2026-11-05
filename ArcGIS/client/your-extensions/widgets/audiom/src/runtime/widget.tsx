@@ -28,6 +28,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   const [jimuMapView, setJimuMapView] = useState<JimuMapView>()
   const [hasChanges, setHasChanges] = useState(false)
   const [lastSyncedConfigJson, setLastSyncedConfigJson] = useState<string>('')
+  const [embedUrl, setEmbedUrl] = useState<string>()
   // Per-widget MapSyncManager instance (shared with the same widget's
   // settings panel via the widget id key).
   const mapSyncManager = getMapSyncManager(props.id)
@@ -91,8 +92,25 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     }
   }, [sanitizedConfig?.sourceConfigs, lastSyncedConfigJson])
 
-  const mapConfig = audiomConfigToEmbedConfig({ ...DEFAULT_CONFIG, ...sanitizedConfig }, jimuMapView)
-  const embedUrl = mapConfig.toUrl(sanitizedConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
+  const baseUrl = sanitizedConfig.baseUrl || DEFAULT_CONFIG.baseUrl
+  const embedConfigKey = JSON.stringify({ ...DEFAULT_CONFIG, ...sanitizedConfig, jimuMapViewId: jimuMapView?.id })
+
+  useEffect(() => {
+    let cancelled = false
+    const mapConfig = audiomConfigToEmbedConfig({ ...DEFAULT_CONFIG, ...sanitizedConfig }, jimuMapView)
+    mapConfig.resolveVisualBaseLayers()
+      .catch((): undefined => undefined)
+      .finally(() => {
+        if (!cancelled) {
+          setEmbedUrl(mapConfig.toUrl(baseUrl))
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+    // embedConfigKey captures the inputs; sanitizedConfig and jimuMapView are read from that render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embedConfigKey, baseUrl])
 
   return (
     <div className="jimu-widget" style={styles.container}>
@@ -104,6 +122,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
         message="Map changes detected. Select the Audiom widget to re-synchronize."
         variant={MessageType.Warning}
       />
+      {embedUrl && (
       <iframe
         name="audiom"
         src={embedUrl}
@@ -112,6 +131,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
         sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
         referrerPolicy="no-referrer"
       />
+      )}
     </div>
   )
 }

@@ -138,6 +138,21 @@ describe('audiomConfigToEmbedConfig', () => {
     expect(params.visualbaselayerposition0).not.toContain('[object Object]')
   })
 
+  it('omits hidden visual base layers after resolve', async () => {
+    const cfg = makeConfig({
+      visualBaseLayers: [
+        { url: 'https://x/shown.png', visible: true },
+        { url: 'https://x/hidden.png', visible: false }
+      ]
+    })
+    const embed = audiomConfigToEmbedConfig(cfg, undefined)
+    await embed.resolveVisualBaseLayers()
+    const params = embed.toQueryParams()
+    expect(params.visualbaselayer0).toBe('https://x/shown.png')
+    expect(params.visualbaselayer1).toBeUndefined()
+    expect(JSON.stringify(params)).not.toContain('hidden.png')
+  })
+
   it('serializes Immutable visualBaseLayer positions as JSON after a deep copy', () => {
     const cfg = toMutableConfig(makeImmutableConfig({
       visualBaseLayers: [{
