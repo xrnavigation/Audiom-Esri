@@ -24,6 +24,7 @@ import {
   destroyMapSurface,
   featureDetails,
   featureScreenPoint,
+  dropViewPoint,
   mapPointFromScreen,
   renderedGraphic,
   mountEsriMap,
@@ -627,6 +628,9 @@ function EsriMapSurface (props: {
   const onDrop = props.onDrop
   const onSelect = props.onSelect
   const onFeatureClick = props.onFeatureClick
+  // A drop hit-tests its own pixel and announces that plot. The avatar
+  // report that follows is the same landing. Do not announce it again.
+  const dropLanding = useRef<ReportedAvatar | null>(null)
   const [screen, setScreen] = useState<{ x: number, y: number } | null>(null)
   const [dragScreen, setDragScreen] = useState<{ x: number, y: number } | null>(null)
   const [surfaceReady, setSurfaceReady] = useState(false)
@@ -823,18 +827,25 @@ function EsriMapSurface (props: {
     const view = surface.view
     if (!view.hitTest) return
     const previous = followed.current
-    followed.current = avatar
-    // The runtime reports the load position, then reports it again once the
-    // map surface exists. That second report is not a step. Do not open the
-    // tooltip and do not speak the plot under the compass.
+    // The runtime reports the load position before the map can be hit-tested.
+    // Recording that report makes the first real drop look like the same
+    // place. A drop hit-tests its own pixel; this follow must not announce
+    // that landing again. Record a position only after its screen point resolves.
     const moved = previous != null && (
       previous.longitude !== avatar.longitude || previous.latitude !== avatar.latitude
     )
+    const landing = dropLanding.current
+    const announced = landing != null &&
+      landing.longitude === avatar.longitude &&
+      landing.latitude === avatar.latitude
+    if (announced) dropLanding.current = null
+    if (moved) followed.current = avatar
     let cancelled = false
     // avatarScreenPoint already positions the compass; reuse it so the popup
     // lands on the same pixel. A plain toScreen object returns null in Esri.
     void avatarScreenPoint(surface, avatar).then((screen) => {
       if (cancelled || !screen) return
+      followed.current = avatar
       const { x, y } = screen
       const emit = (data?: { name: string | null, attributes: Record<string, unknown> | null }) => {
         onFollow({
@@ -845,7 +856,8 @@ function EsriMapSurface (props: {
           name: data?.name ?? undefined,
           attributes: data?.attributes ?? undefined,
           // The load position is not spoken and must not open a tooltip.
-          openPopup: moved
+          // A drop already announced this landing from its own hit test.
+          openPopup: moved && !announced
         })
       }
       void view.hitTest?.({ x, y }).then(async (hit) => {
@@ -855,11 +867,14 @@ function EsriMapSurface (props: {
         if (!graphic) { emit(); return }
         emit(await featureDetails(graphic))
       }).catch(() => { if (!cancelled) emit() })
-    }).catch(() => undefined)
+    }).catch((): void => undefined)
     return () => { cancelled = true }
     // onFollow is a stable setter; depending on it would loop on each popup set.
+    // surfaceReady must be a dependency: the effect used to return before the
+    // map existed and never ran again, so the first drop had no recorded
+    // position and opened no tooltip.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.avatar])
+  }, [props.avatar, surfaceReady])
   // The popup is pinned to the plot's geography, not a fixed pixel. Re-project
   // it on every camera change so it stays over the feature, like the compass.
   useEffect(() => {
@@ -958,12 +973,40 @@ function EsriMapSurface (props: {
         onDrag={(point) => { setDragScreen(point) }}
         onDragEnd={(point) => {
           const node = container.current as { __audiomSurface?: MountedMapSurface } | null
-          const geographic = mapPointFromScreen(node?.__audiomSurface ?? null, point)
+          const surface = node?.__audiomSurface ?? null
+          const geographic = mapPointFromScreen(surface, point)
           if (!geographic || !onDrop) {
             setDragScreen(null)
             return
           }
-          void onDrop(geographic.longitude, geographic.latitude).finally(() => {
+          // The avatar follow does not run for this drop until the report
+          // comes back, and the first report is treated as the load position.
+          // Hit-test the drop pixel now so the tooltip and the landing tone
+          // use the painted plot instead of Empty Space.
+          dropLanding.current = {
+            longitude: geographic.longitude,
+            latitude: geographic.latitude,
+            heading: 0
+          }
+          const viewPoint = dropViewPoint(surface, point)
+          const dropped = onDrop(geographic.longitude, geographic.latitude)
+          const hit = viewPoint && surface?.view.hitTest
+            ? surface.view.hitTest(viewPoint).then(async (result) => {
+              const graphic = renderedGraphic(result)
+              return graphic ? featureDetails(graphic) : null
+            }).catch((): null => null)
+            : Promise.resolve(null)
+          void Promise.all([dropped, hit]).then(([, details]) => {
+            props.onFeatureFollow?.({
+              longitude: geographic.longitude,
+              latitude: geographic.latitude,
+              x: viewPoint?.x ?? point.x,
+              y: viewPoint?.y ?? point.y,
+              name: details?.name ?? undefined,
+              attributes: details?.attributes ?? undefined,
+              openPopup: true
+            })
+          }).finally(() => {
             setDragScreen(null)
           })
         }}

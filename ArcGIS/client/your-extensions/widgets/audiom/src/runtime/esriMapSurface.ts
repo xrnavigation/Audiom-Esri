@@ -569,6 +569,27 @@ export async function featureScreenPoint (
 }
 
 /**
+ * Overlay pixel shifted into the map view, for a hit test at a drop.
+ * Same shift mapPointFromScreen uses before toMap.
+ */
+export function dropViewPoint (
+  surface: MountedMapSurface | null,
+  screen: { x: number, y: number }
+): { x: number, y: number } | null {
+  const view = surface?.view
+  if (!view) return null
+  const viewNode = view.container
+  const overlay = viewNode?.parentElement
+  const viewBox = viewNode?.getBoundingClientRect?.()
+  const overlayBox = overlay?.getBoundingClientRect?.()
+  if (!viewBox || !overlayBox) return screen
+  return {
+    x: screen.x - (viewBox.left - overlayBox.left),
+    y: screen.y - (viewBox.top - overlayBox.top)
+  }
+}
+
+/**
  * Geographic point under a screen position in the compass overlay.
  * The overlay is a sibling of the view, so the point is shifted into the
  * view before Esri converts it. Null when the view cannot project it.
