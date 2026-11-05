@@ -637,27 +637,12 @@ export function destroyMapSurface (surface: MountedMapSurface | null): void {
     else map?.remove?.(layer)
     layer.destroy?.()
   }
-  if (surface?.view) sealDestroyedView(surface.view)
-}
-
-/**
- * JimuMapView.destroy also destroys the ArcGIS view, and it detaches the
- * container when `destroyed` is still false. The surface owns that teardown.
- * Mark the view destroyed and make a second destroy a no-op so releasing the
- * published map view cannot blank a view that is already gone.
- */
-function sealDestroyedView (view: MountedMapView): void {
-  if (!view.destroyed) {
-    try {
-      view.destroy?.()
-    } catch (error) {
-      console.error('Audiom could not destroy the map view', error)
-    }
-  }
-  view.destroy = () => undefined
+  const view = surface?.view
+  if (!view || view.destroyed) return
   try {
-    view.destroyed = true
-  } catch {
-    // The API destroy() sets this when the property is writable.
+    // Esri defines destroy as a read-only method. Do not replace it.
+    view.destroy?.()
+  } catch (error) {
+    console.error('Audiom could not destroy the map view', error)
   }
 }

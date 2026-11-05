@@ -410,12 +410,12 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     bundledHandle,
     runtimeLocation === RuntimeLocation.Bundled
   )
-  // Publish after the surface exists so Legend and other map tools can
-  // select this widget. The data source id is captured with the view.
-  // Recreating the JimuMapView on a later source edit would destroy the view.
+  // Only the bundled map is an Esri map other widgets can select. Standalone
+  // embed is an iframe and must not publish a view. The data source id is
+  // captured with the view; recreating the JimuMapView would destroy it.
   useEffect(() => {
     const view = mapSurface?.view
-    if (!view) return
+    if (runtimeLocation !== RuntimeLocation.Bundled || !view) return
     const sources = props.useDataSources ? Array.from(props.useDataSources) : []
     const release = publishOwnedMapView(
       props.id || props.widgetId,
@@ -425,7 +425,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     const surface = mapSurface
     return () => { release(surface.destroyed === true) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapSurface, props.id, props.widgetId])
+  }, [mapSurface, props.id, props.widgetId, runtimeLocation])
   const showPopup = (point: FeatureClickPoint | null) => {
     if (!point) {
       setFeaturePopup(null)
