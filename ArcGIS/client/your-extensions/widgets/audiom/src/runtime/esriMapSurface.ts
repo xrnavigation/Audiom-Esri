@@ -70,6 +70,8 @@ export interface MapViewHandle {
 export interface MountedMapView {
   center?: unknown
   destroy?: () => void
+  /** Set by the API destroy(), or by Audiom after it tears the view down. */
+  destroyed?: boolean
   goTo?: (target: unknown) => Promise<unknown>
   toScreen?: (point: unknown) => { x?: number, y?: number } | null
   toMap?: (point: { x: number, y: number }) => { longitude?: number, latitude?: number } | null
@@ -115,6 +117,8 @@ export interface MountedMapView {
 export interface MountedMapSurface {
   view: MountedMapView
   ownedMap: boolean
+  /** Set when this surface is being torn down, before the view is released. */
+  destroyed?: boolean
   /** Set by the widget so a center or zoom change can keep this view. */
   mapItemId?: string
   portalUrl?: string
@@ -261,7 +265,12 @@ async function attachAvatarLayer (surface: MountedMapSurface): Promise<void> {
   const loaded = await moduleLoader(['esri/layers/GraphicsLayer'])
   const GraphicsLayer = loaded[0] as AvatarModules['GraphicsLayer'] | undefined
   if (!GraphicsLayer) return
-  const layer = new GraphicsLayer({ id: 'audiom-avatar', listMode: 'hide', title: 'Audiom avatar' })
+  const layer = new GraphicsLayer({
+    id: 'audiom-avatar',
+    listMode: 'hide',
+    legendEnabled: false,
+    title: 'Audiom avatar'
+  })
   const map = surface.view.map
   if (map?.layers?.add) map.layers.add(layer)
   else if (map?.add) map.add(layer)
@@ -617,6 +626,7 @@ export function mapPointFromScreen (
 }
 
 export function destroyMapSurface (surface: MountedMapSurface | null): void {
+  if (surface) surface.destroyed = true
   surface?.keyHandle?.remove?.()
   surface?.clickHandle?.remove?.()
   const layer = surface?.avatarLayer
@@ -627,5 +637,27 @@ export function destroyMapSurface (surface: MountedMapSurface | null): void {
     else map?.remove?.(layer)
     layer.destroy?.()
   }
-  surface?.view.destroy?.()
+  if (surface?.view) sealDestroyedView(surface.view)
+}
+
+/**
+ * JimuMapView.destroy also destroys the ArcGIS view, and it detaches the
+ * container when `destroyed` is still false. The surface owns that teardown.
+ * Mark the view destroyed and make a second destroy a no-op so releasing the
+ * published map view cannot blank a view that is already gone.
+ */
+function sealDestroyedView (view: MountedMapView): void {
+  if (!view.destroyed) {
+    try {
+      view.destroy?.()
+    } catch (error) {
+      console.error('Audiom could not destroy the map view', error)
+    }
+  }
+  view.destroy = () => undefined
+  try {
+    view.destroyed = true
+  } catch {
+    // The API destroy() sets this when the property is writable.
+  }
 }

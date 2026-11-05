@@ -33,6 +33,7 @@ import {
   type MountedMapSurface
 } from './esriMapSurface'
 import type { ReportedAvatar } from './reportedAvatar'
+import { ownedMapDataSourceId, publishOwnedMapView } from './publishMapView'
 
 const { useState, useEffect, useRef } = React
 
@@ -224,7 +225,7 @@ const SET_MAP_SOURCE_MESSAGE = 'Set a map source first.'
  * Loading it without that URL is the CONT_0001 "item does not exist" error,
  * which leaves the map with no feature layers.
  */
-type MapSourceJson = { itemId?: string, portalUrl?: string } | null | undefined
+type MapSourceJson = { itemId?: string, portalUrl?: string, type?: string } | null | undefined
 
 function dataSourcesFromState (): Record<string, MapSourceJson> {
   const state = getAppStore().getState() as {
@@ -409,6 +410,22 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     bundledHandle,
     runtimeLocation === RuntimeLocation.Bundled
   )
+  // Publish after the surface exists so Legend and other map tools can
+  // select this widget. The data source id is captured with the view.
+  // Recreating the JimuMapView on a later source edit would destroy the view.
+  useEffect(() => {
+    const view = mapSurface?.view
+    if (!view) return
+    const sources = props.useDataSources ? Array.from(props.useDataSources) : []
+    const release = publishOwnedMapView(
+      props.id || props.widgetId,
+      ownedMapDataSourceId(sources, dataSourcesFromState()),
+      view
+    )
+    const surface = mapSurface
+    return () => { release(surface.destroyed === true) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapSurface, props.id, props.widgetId])
   const showPopup = (point: FeatureClickPoint | null) => {
     if (!point) {
       setFeaturePopup(null)

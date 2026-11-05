@@ -11,10 +11,20 @@
  */
 import { React, getAppStore, type ImmutableArray } from 'jimu-core'
 
+const publishedMapViews: Array<{ mapWidgetId?: string, isActive?: boolean, isEnablePopup?: boolean }> = []
+
 jest.mock('jimu-arcgis', () => ({
   __esModule: true,
   JimuMapViewComponent: (): null => null,
-  MapViewManager: { getInstance: (): undefined => undefined }
+  MapViewManager: {
+    getInstance: () => ({
+      createJimuMapView: (options: { mapWidgetId?: string, isActive?: boolean, isEnablePopup?: boolean }) => {
+        publishedMapViews.push(options)
+        return Promise.resolve(null)
+      },
+      destroyJimuMapView: jest.fn()
+    })
+  }
 }))
 
 const fakeManager = {
@@ -51,6 +61,7 @@ function setBuilder(value: boolean) {
 
 describe('Audiom runtime widget', () => {
   beforeEach(() => {
+    publishedMapViews.length = 0
     Object.values(fakeManager).forEach(v => {
       if (typeof v === 'function' && (v as any).mockClear) (v as any).mockClear()
     })
@@ -224,9 +235,16 @@ describe('Audiom runtime widget', () => {
     expect(container.querySelector('button')).toBeNull()
     const map = container.querySelector('#audiom-esri-map')
     expect(map).not.toBeNull()
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await React.act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
     expect(map!.getAttribute('data-map-mounted')).toBe('true')
     expect(map!.getAttribute('tabindex')).toBe('0')
+    expect(publishedMapViews).toEqual([expect.objectContaining({
+      mapWidgetId: 'audiom-bundled',
+      isActive: true,
+      isEnablePopup: false
+    })])
     unmount()
     expect(created.length).toBe(1)
     expect((created[0].map as { properties: { portalItem?: { id: string } } }).properties.portalItem?.id).toBe('item-1')
