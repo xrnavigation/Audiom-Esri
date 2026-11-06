@@ -53,16 +53,33 @@ expect_failure "missing manifest fails" bash "$SCRIPTS_DIR/stamp-manifest.sh" "$
 echo "== verify-build-output.sh =="
 mkdir -p "$OUT/dist/runtime" "$OUT/dist/setting"
 printf '{ "exbVersion": "1.20" }\n' > "$OUT/manifest.json"
-printf 'baseUrl="%s"\n' "$PRODUCTION_URL" > "$OUT/dist/runtime/widget.js"
+write_widget() {
+  printf 'baseUrl="%s"\naudiom-exb-program\n' "$1" > "$OUT/dist/runtime/widget.js"
+}
+write_widget "$PRODUCTION_URL"
 printf 'ok\n' > "$OUT/dist/setting/setting.js"
 expect_success "good output passes" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.20" "$STAGING_URL"
 expect_failure "wrong version fails" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.19" ""
-printf 'baseUrl="%s"\n' "$STAGING_URL" > "$OUT/dist/runtime/widget.js"
+write_widget "$STAGING_URL"
 expect_failure "forbidden URL fails" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.20" "$STAGING_URL"
 : > "$OUT/dist/setting/setting.js"
 expect_failure "empty essential file fails" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.20" ""
 printf 'ok\n' > "$OUT/dist/setting/setting.js"
+write_widget "$PRODUCTION_URL"
 printf 'baseUrl="%s"\n' "$PRODUCTION_URL" > "$OUT/dist/runtime/widget.js"
+expect_failure "missing program marker fails" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.20" ""
+write_widget "$PRODUCTION_URL"
+printf 'getOwner\n' >> "$OUT/dist/runtime/widget.js"
+expect_failure "host jsx runtime fails" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.20" ""
+write_widget "$PRODUCTION_URL"
+printf 'maplibre-gl/dist/maplibre-gl.js\n' >> "$OUT/dist/runtime/widget.js"
+expect_failure "bundled maplibre fails" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.20" ""
+write_widget "$PRODUCTION_URL"
+printf 'next/dist/server/next.js\n' >> "$OUT/dist/runtime/widget.js"
+expect_failure "bundled next fails" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.20" ""
+write_widget "$PRODUCTION_URL"
+printf 'require("maplibre-gl"); require("next/router");\n' >> "$OUT/dist/runtime/widget.js"
+expect_success "external maplibre and next pass" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.20" ""
 printf '{ "eagerMinifiedBytes": 10, "ceilingBytes": 20, "forbiddenReached": [] }\n' > "$WORK/treeshake.json"
 expect_success "report under ceiling passes" bash "$SCRIPTS_DIR/verify-build-output.sh" "$OUT" "1.20" "" "$WORK/treeshake.json"
 printf '{ "eagerMinifiedBytes": 30, "ceilingBytes": 20, "forbiddenReached": [] }\n' > "$WORK/treeshake.json"
@@ -119,6 +136,58 @@ mkdir -p "$ARTIFACTS_COPY/audiom-1.18/chunks"
 printf 'lazy\n' > "$ARTIFACTS_COPY/audiom-1.18/chunks/runtime.js"
 expect_success "copies chunks beside the widget" bash "$SCRIPTS_DIR/copy-to-docs.sh" "$ARTIFACTS_COPY" "$DOCS"
 if [ -f "$DOCS/1.18/chunks/runtime.js" ]; then ok "chunks copied"; else bad "chunks copied"; fi
+
+echo "== setup webpack overlay =="
+OVERLAY_ROOT="$WORK/overlay-exb"
+mkdir -p "$OVERLAY_ROOT/client/your-extensions/widgets/audiom/exb-webpack" "$OVERLAY_ROOT/client/webpack"
+printf 'overlay-js\n' > "$OVERLAY_ROOT/client/your-extensions/widgets/audiom/exb-webpack/widget-webpack-override.js"
+printf 'shim-js\n' > "$OVERLAY_ROOT/client/your-extensions/widgets/audiom/exb-webpack/host-jsx-runtime.js"
+printf 'stock\n' > "$OVERLAY_ROOT/client/webpack/widget-webpack-override.js"
+UTILS_DIR="$(cd "$SCRIPTS_DIR/../../utils" && pwd)"
+py_path() {
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$1"
+  else
+    printf '%s' "$1"
+  fi
+}
+UTILS_PY="$(py_path "$UTILS_DIR")"
+OVERLAY_PY="$(py_path "$OVERLAY_ROOT")"
+if "$PYTHON_BIN" -c "
+import sys
+sys.modules.setdefault('requests', type(sys)('requests'))
+sys.path.insert(0, r'''$UTILS_PY''')
+from setup_arcgis import apply_webpack_overlay
+from pathlib import Path
+raise SystemExit(0 if apply_webpack_overlay(Path(r'''$OVERLAY_PY''')) else 1)
+"; then
+  ok "overlay copy runs"
+else
+  bad "overlay copy runs"
+fi
+if grep -q overlay-js "$OVERLAY_ROOT/client/webpack/widget-webpack-override.js"; then
+  ok "override replaced stock file"
+else
+  bad "override replaced stock file"
+fi
+if grep -q shim-js "$OVERLAY_ROOT/client/webpack/host-jsx-runtime.js"; then
+  ok "jsx shim copied"
+else
+  bad "jsx shim copied"
+fi
+rm -f "$OVERLAY_ROOT/client/your-extensions/widgets/audiom/exb-webpack/host-jsx-runtime.js"
+if "$PYTHON_BIN" -c "
+import sys
+sys.modules.setdefault('requests', type(sys)('requests'))
+sys.path.insert(0, r'''$UTILS_PY''')
+from setup_arcgis import apply_webpack_overlay
+from pathlib import Path
+raise SystemExit(0 if apply_webpack_overlay(Path(r'''$OVERLAY_PY''')) else 1)
+"; then
+  bad "missing overlay source fails"
+else
+  ok "missing overlay source fails"
+fi
 
 echo
 echo "TOTAL: $PASS passed, $FAIL failed"

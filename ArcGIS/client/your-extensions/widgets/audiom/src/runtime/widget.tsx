@@ -43,7 +43,7 @@ const { useState, useEffect, useRef } = React
 function audiomPopupLines (world: unknown, longitude: number, latitude: number): string[] {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const compiled = require('../../../../../../../../Audiom-Front-End/src/runtime/exbEntry') as {
+    const compiled = require('audiom-front-end/runtime/exbEntry') as {
       popupContentAt?: (world: unknown, longitude: number, latitude: number) => string[]
     }
     return compiled.popupContentAt?.(world, longitude, latitude) ?? []
@@ -1416,9 +1416,9 @@ function useAudiomEmbed (
     let cancelled = false
     let release: (() => void) | undefined
     try {
-      // Experience Builder compiles this sibling file with the widget.
+      // The webpack overlay aliases this id to the Front-End checkout.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const compiled = require('../../../../../../../../Audiom-Front-End/src/runtime/exbEntry') as {
+      const compiled = require('audiom-front-end/runtime/exbEntry') as {
         mountAudiomEmbed?: (
           container: HTMLElement,
           options: {

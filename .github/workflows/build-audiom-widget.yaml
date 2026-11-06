@@ -12,6 +12,9 @@ on:
     - 'ArcGIS/client/your-extensions/widgets/audiom/**'
     - 'ArcGIS/client/your-extensions/shared/audiom-runtime/**'
     - '.github/workflows/build-audiom-widget.yaml'
+    - 'utils/setup_arcgis.py'
+    - '.github/scripts/verify-build-output.sh'
+    - '.github/scripts/tests/test-scripts.sh'
   workflow_dispatch:
 
 
@@ -27,6 +30,12 @@ permissions:
 env:
   AUDIOM_ORIGINAL_URL: 'https://audiom-staging.herokuapp.com'
   AUDIOM_REPLACEMENT_URL: 'https://audiom.net'
+  # Front-End checkout inside this workspace. The widget require cannot walk
+  # outside $GITHUB_WORKSPACE, so the overlay aliases a module id to this path.
+  AUDIOM_FRONTEND_ROOT: ${{ github.workspace }}/Audiom-Front-End
+  # feature/1977-use-map-viewer. Bump the SHA on purpose. A Front-End push
+  # does not rebuild the widget.
+  AUDIOM_FRONTEND_SHA: 9e8782e438dd31c8a1b99435bcb37b3670cbe3ac
   # Absolute path to the workflow helper scripts, anchored to the repo root so
   # every step calls the same location regardless of its working directory.
   SCRIPTS_DIR: ${{ github.workspace }}/.github/scripts
@@ -44,37 +53,55 @@ jobs:
       # Build every version independently; one failure shouldn't cancel the rest.
       fail-fast: false
       matrix:
-        # =====================================================================
-        # Add or remove an entry to build for that release, setting
-        # `node-version` to the recommended Node.js major from Esri's table:
-        # https://developers.arcgis.com/experience-builder/guide/release-versions/
-        # The docs folder `docs/builder-versions/<exb-version>/audiom` is derived
-        # from `exb-version`.
-        # =====================================================================
+        # Bundled mode compiles the Front-End program. 1.18 is React 18
+        # (Enterprise 12.0). 1.20 is React 19 (Enterprise 12.1). Older
+        # versions stay on the embed zips already published under
+        # docs/builder-versions until this graph is proven there.
         include:
-        # Node 16 is EOL; Esri still lists it as the 1.13 recommended major.
-        # Pin 16.20.x here only if ubuntu-latest + Node 16 fails npm ci.
-        - exb-version: '1.12'
-          node-version: '16'
-        - exb-version: '1.13'
-          node-version: '16'
-        - exb-version: '1.14'
-          node-version: '18'
-        - exb-version: '1.15'
-          node-version: '20'
-        - exb-version: '1.16'
-          node-version: '20'
-        - exb-version: '1.17'
-          node-version: '22'
         - exb-version: '1.18'
-          node-version: '22'
-        - exb-version: '1.19'
           node-version: '22'
         - exb-version: '1.20'
           node-version: '24'
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+
+    - name: Require Front-End checkout token
+      env:
+        AUDIOM_FRONTEND_TOKEN: ${{ secrets.AUDIOM_FRONTEND_TOKEN }}
+      run: |
+        if [ -z "$AUDIOM_FRONTEND_TOKEN" ]; then
+          echo "::error::Set AUDIOM_FRONTEND_TOKEN. It must read Coughlan-Lab/Audiom-Front-End and packages in @xrnavigation."
+          exit 1
+        fi
+
+    - name: Checkout Audiom Front-End
+      uses: actions/checkout@v4
+      with:
+        repository: Coughlan-Lab/Audiom-Front-End
+        ref: ${{ env.AUDIOM_FRONTEND_SHA }}
+        path: Audiom-Front-End
+        token: ${{ secrets.AUDIOM_FRONTEND_TOKEN }}
+
+    # Front-End's only file: dependency is ../Audiom-Runtime. The vendored
+    # contract in this repo is that package. Webpack compiles its src.
+    - name: Link vendored runtime for Front-End install
+      run: |
+        rm -rf Audiom-Runtime
+        cp -a ArcGIS/client/your-extensions/shared/audiom-runtime Audiom-Runtime
+        test -f Audiom-Runtime/package.json
+        test -f Audiom-Runtime/src/factory.ts
+
+    - name: Set up Node.js 22 for Front-End install
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Install Audiom Front-End dependencies
+      working-directory: Audiom-Front-End
+      env:
+        NPM_TOKEN: ${{ secrets.AUDIOM_FRONTEND_TOKEN }}
+      run: npm ci
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -115,9 +142,10 @@ jobs:
         NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: npm ci
 
-    # Install dependencies for both the client and the server.
-    - Developer Edition 1.18+ emits the downloadable widget, including lazy
-    # import() chunks, with this script. Older releases keep build:prod.
+    # Developer Edition 1.18+ emits the downloadable widget, including lazy
+    # import() chunks, with build:for-download. Older releases keep build:prod.
+    # build:for-download writes dist-download. Older build:prod writes dist
+    # or dist-prod. Lazy chunks live beside the widget folder.
     - name: Build Audiom widget
       working-directory: ArcGIS/client
       run: |
@@ -126,22 +154,7 @@ jobs:
         else
           npm run build:prod
         fi
-    - name: Install server dependencies
-      working-directory: ArcGIS/server
-      run: npm ci
-build:for-download writes dist-download. Older build:prod writes dist
-    # or dist-prod. Lazy chunks live beside the widget folder.
-    - name: Locate widget build output
-      id: widget-out
-      run: |
-        OUT="$(bash "$SCRIPTS_DIR/resolve-widget-output.sh" "ArcGIS/client")"
-        echo "Found widget output at $OUT"
-        echo "path=$OUT" >> "$GITHUB_OUTPUT"
-        CHUNKS="$(dirname "$OUT")/../chunks"
-        if [ -d "$CHUNKS" ]; then
-          mkdir -p "$OUT/chunks"
-          cp -R "$CHUNKS/." "$OUT/chunks/" "ArcGIS/client/your-extensions/widgets/audiom/treeshake-report.json"
-        fiite to dist.
+
     - name: Locate widget build output
       id: widget-out
       run: |

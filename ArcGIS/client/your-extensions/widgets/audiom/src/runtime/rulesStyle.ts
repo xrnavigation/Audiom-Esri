@@ -158,9 +158,9 @@ function evaluateWithRuntime (
   attributes: Array<Record<string, unknown>>,
   geometryType?: string
 ): Array<Record<string, unknown> | null> {
-  // Experience Builder compiles this sibling file with the widget.
+  // The webpack overlay aliases this id to the Front-End checkout.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const compiled = require('../../../../../../../../Audiom-Front-End/src/runtime/exbEntry') as {
+  const compiled = require('audiom-front-end/runtime/exbEntry') as {
     applyRulesToFeatures?: RulesApplyDeps['applyRules']
   }
   if (!compiled.applyRulesToFeatures) {

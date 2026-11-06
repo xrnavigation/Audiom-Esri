@@ -5,8 +5,8 @@
  * Front-End RuntimeSession (real MapWorld + Avatar). This file does not load
  * a script tag and does not invent movement.
  *
- * The Front-End package is a sibling repository. Tests and hosts that have
- * not installed it supply a program through setAudiomProgram.
+ * The Front-End program is audiom-front-end/runtime/exbEntry. The webpack
+ * overlay resolves that id. Tests supply a program through setAudiomProgram.
  */
 import type { AvatarState, RuntimeHost } from '../../../../shared/audiom-runtime/src/types'
 import type { InProcessRuntime } from '../../../../shared/audiom-runtime/src/factory'
@@ -102,9 +102,10 @@ export function audiomProgramError (): string {
 function loadCompiledProgram (): AudiomProgramFactory | null {
   if (programFactory) return programFactory
   try {
-    // Experience Builder compiles this sibling file with the widget.
+    // The webpack overlay aliases this id to the Front-End checkout.
+    // A variable require is not compiled in. Keep the string literal.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const compiled = require('../../../../../../../../Audiom-Front-End/src/runtime/exbEntry') as {
+    const compiled = require('audiom-front-end/runtime/exbEntry') as {
       createRuntimeSession: AudiomProgramFactory
     }
     programFactory = compiled.createRuntimeSession

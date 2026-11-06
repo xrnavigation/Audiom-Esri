@@ -28,6 +28,18 @@ PRESERVED_FILES = [
 ]
 # Older ExB zips wrap client/server in this directory; newer zips extract at the root.
 NESTED_EXTRACT_DIR = "ArcGISExperienceBuilder"
+# Copied onto the extracted client. The destination is gitignored and replaced
+# on every download, so the source in your-extensions is the one to edit.
+WEBPACK_OVERLAY = [
+    (
+        "client/your-extensions/widgets/audiom/exb-webpack/widget-webpack-override.js",
+        "client/webpack/widget-webpack-override.js",
+    ),
+    (
+        "client/your-extensions/widgets/audiom/exb-webpack/host-jsx-runtime.js",
+        "client/webpack/host-jsx-runtime.js",
+    ),
+]
 
 
 def get_base_path(target_dir: str) -> Path:
@@ -275,6 +287,36 @@ def download_zip(version: str, zip_path: Path) -> bool:
     return download_arcgis_builder(version)
 
 
+def apply_webpack_overlay(base_path: Path) -> bool:
+    """Copy the Audiom webpack overlay onto the extracted Experience Builder client.
+
+    The extract replaces client/webpack. Bundled mode does not compile unless
+    this overlay is put back.
+
+    Args:
+        base_path: Base ArcGIS directory path
+
+    Returns:
+        True when both overlay files were copied
+    """
+    print("Applying Audiom webpack overlay...")
+    missing = False
+    for src_rel, dest_rel in WEBPACK_OVERLAY:
+        src = base_path / src_rel
+        dest = base_path / dest_rel
+        if not src.is_file():
+            print(f"  Missing overlay source: {src}")
+            missing = True
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
+        print(f"  [OK] {dest_rel}")
+    if missing:
+        print("Error: Audiom webpack overlay is incomplete. Bundled mode cannot compile.")
+        return False
+    return True
+
+
 def print_success_message(base_path: Path, version: str) -> None:
     """Print success message with directory structure."""
     print("\n" + "=" * 60)
@@ -383,7 +425,11 @@ def setup_arcgis_builder(version: str = DEFAULT_VERSION, target_dir: str = DEFAU
     # Step 7: Ensure custom directories exist
     print("\nStep 7: Ensuring custom directories exist...")
     ensure_custom_directories(base_path)
-    
+
+    print("\nStep 8: Applying Audiom webpack overlay...")
+    if not apply_webpack_overlay(base_path):
+        return False
+
     print_success_message(base_path, version)
     
     return True
