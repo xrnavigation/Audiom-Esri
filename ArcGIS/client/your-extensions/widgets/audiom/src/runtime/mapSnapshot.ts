@@ -8,6 +8,7 @@ import {
 } from '../../../../shared/audiom-runtime/src/types'
 import { isDataSourceLayerType } from '../utils/mapEnums'
 import { graphicName, loadMapModules } from './esriMapSurface'
+import { applyConfiguredRules } from './rulesStyle'
 
 export interface SnapshotFeature {
   attributes?: Record<string, unknown>
@@ -49,13 +50,18 @@ export interface SnapshotLayer {
     geometry?: unknown
     spatialRelationship?: string
     num?: number
+    start?: number
+    resultOffset?: number
     outStatistics?: Array<{
       onStatisticField?: string
       outStatisticFieldName?: string
       statisticType?: string
     }>
   }
-  queryFeatures?: (query: unknown) => Promise<{ features?: SnapshotFeature[] }>
+  queryFeatures?: (query: unknown) => Promise<{
+    features?: SnapshotFeature[]
+    exceededTransferLimit?: boolean
+  }>
   /** Resolves when the layer can be queried. Absent means query immediately. */
   when?: () => Promise<unknown>
   load?: () => Promise<unknown>
@@ -68,6 +74,8 @@ export interface SnapshotLayer {
   listMode?: string
   /** Feature service URL. Used to match a configured source map type. */
   url?: string
+  /** Rules file evaluated onto this layer's features. Null when none applied. */
+  rulesRef?: string
   /** Test double. Production layers are read through queryFeatures. */
   features?: SnapshotFeature[]
   /** Esri spatial reference. Prototype getter; read it, do not spread the layer. */
@@ -104,6 +112,9 @@ const FAMILY_BY_TYPE: Record<string, GeometryFamily> = {
 }
 
 const FEATURE_LIMIT = 200
+/** Indoor units are the rooms. The first service page is one floor, and every other room says Empty Space. */
+const INDOOR_PAGE = 1000
+const INDOOR_FEATURE_CAP = 5000
 const LAYER_LOAD_TIMEOUT = 'Audiom layer load timed out'
 
 function withTimeout<T> (pending: Promise<T>, ms: number): Promise<T> {
@@ -150,7 +161,7 @@ export function snapshotFromMapView (
       displayName: layer.title || sourceId,
       geometryFamily: FAMILY_BY_TYPE[layer.geometryType || ''] || null,
       mapType: mapTypeForLayer(layer, mapTypes),
-      rulesRef: null,
+      rulesRef: layer.rulesRef?.trim() || null,
       disposition: bound ? LayerDisposition.Bound : LayerDisposition.VisualOnly,
       recordCount: 0,
       status: SourceStatus.Complete
@@ -160,7 +171,8 @@ export function snapshotFromMapView (
     if (!features?.length) return
     // Out of scale stays navigable. Visible queried features are listed too.
     const navigable = supported && (bound || outOfScale)
-    for (const feature of features.slice(0, FEATURE_LIMIT)) {
+    const cap = hasField(layer, 'LEVEL_ID') ? INDOOR_FEATURE_CAP : FEATURE_LIMIT
+    for (const feature of features.slice(0, cap)) {
       const record = featureRecord(dataSourceId, sourceId, layer, feature, navigable)
       if (record) records.push(record)
     }
@@ -180,6 +192,8 @@ export interface SnapshotMapTypeHint {
   title?: string
   url?: string
   mapType?: string
+  /** Absolute or root-relative rules file. Resolved by the caller. */
+  rulesFileUrl?: string
 }
 
 /** Audiom map types. 'standard' is not one of them and becomes travel. */
@@ -273,6 +287,11 @@ export async function snapshotFeaturesFromMapView (
   }
   await Promise.all(pending)
   await projectLoadedFeatures(loaded)
+  // Before rules. The augmenter appends levelName, and the Levels dropdown
+  // reads levelOrdinal. Units only have a LEVEL_ID guid until this join.
+  stampIndoorLevels(loaded)
+  // After the query. Applying earlier stamps copies the query then replaces.
+  await applyConfiguredRules(loaded, mapTypes)
   const view = {
     map: { allLayers: { forEach: (fn: (layer: SnapshotLayer) => void) => { loaded.forEach(fn) } } }
   }
@@ -370,6 +389,7 @@ async function queryLayerFeatures (
   copy.type = layer.type
   copy.geometryType = layer.geometryType
   copy.displayField = layer.displayField
+  copy.url = layer.url || copy.url
   copy.popupTemplate = layer.popupTemplate?.title ? { title: layer.popupTemplate.title } : copy.popupTemplate
   copy.fields = fieldCatalog(layer.fields)
   copy.objectIdField = layer.objectIdField
@@ -393,11 +413,12 @@ async function queryLayerFeatures (
       query.spatialRelationship = 'intersects'
     }
     query.outSpatialReference = { wkid: 4326 }
-    query.num = FEATURE_LIMIT
-    const result = await layer.queryFeatures(query)
-    const page = result?.features || []
-    // The view page is still capped at 200. The tract under the indicator
-    // must be in the snapshot or the step says Empty Space.
+    // A LEVEL_ID layer is an indoor floor plan. The first 200 rows are not
+    // the rooms on the other floors, so page the service. Travel and heatmap
+    // stay on the 200-feature page.
+    const indoor = hasField(copy, 'LEVEL_ID')
+    const page = await queryFeaturePages(layer, query, indoor)
+    // The tract under the indicator must be in the snapshot or the step says Empty Space.
     const standing = await featuresAtIndicator(layer, indicator)
     copy.features = await geographicFeatures(layer, mergeFeatures(page, standing))
     await attachFieldExtents(layer, copy)
@@ -452,6 +473,109 @@ function featureKey (feature: SnapshotFeature): string {
   const attributes = feature.attributes || {}
   const id = attributes.OBJECTID ?? attributes.objectid ?? attributes.FID ?? attributes.fid
   return id == null ? JSON.stringify(feature.geometry || {}) : String(id)
+}
+
+function hasField (layer: SnapshotLayer, name: string): boolean {
+  const target = name.toUpperCase()
+  const fields = layer.fields || []
+  for (const field of fields) {
+    if (field?.name?.toUpperCase() === target) return true
+  }
+  return false
+}
+
+/**
+ * Page a feature service. Esri sets exceededTransferLimit when the page is
+ * not the whole layer. A service that ignores start returns the same page;
+ * merging by object id then stops the loop.
+ */
+async function queryFeaturePages (
+  layer: SnapshotLayer,
+  query: { num?: number, start?: number, resultOffset?: number },
+  indoor: boolean
+): Promise<SnapshotFeature[]> {
+  const pageSize = indoor ? INDOOR_PAGE : FEATURE_LIMIT
+  const cap = indoor ? INDOOR_FEATURE_CAP : FEATURE_LIMIT
+  const collected: SnapshotFeature[] = []
+  for (let page = 0; collected.length < cap && page < 8; page += 1) {
+    query.num = Math.min(pageSize, cap - collected.length)
+    query.start = collected.length
+    query.resultOffset = collected.length
+    const result = await layer.queryFeatures?.(query)
+    const features = result?.features || []
+    const next = mergeFeatures(collected, features)
+    if (!indoor) return next
+    if (!features.length || next.length === collected.length) return next
+    const truncated = result?.exceededTransferLimit === true || features.length >= (query.num || pageSize)
+    if (!truncated) return next
+    collected.splice(0, collected.length, ...next)
+  }
+  return collected
+}
+
+function levelKey (value: unknown): string | undefined {
+  if (value == null || value === '') return undefined
+  const text = String(value).trim()
+  return text ? text.toUpperCase() : undefined
+}
+
+function levelNumber (value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return undefined
+}
+
+function levelLabel (name: string, ordinal: number): string {
+  const trimmed = name.trim()
+  if (!trimmed) return `Level ${ordinal}`
+  const digit = trimmed.match(/Level\s+(\d+)/i)
+  if (digit) return `Level ${digit[1]}`
+  if (/Level\s+G\b/i.test(trimmed) || /\bGround\b/i.test(trimmed)) return 'Ground Level'
+  return trimmed
+}
+
+/**
+ * Esri units carry LEVEL_ID, not levelOrdinal. The Levels layer has the
+ * ordinal and the spoken floor name. Without that join the Levels dropdown
+ * stays empty and every floor is stacked on the one the avatar can hear.
+ */
+function stampIndoorLevels (layers: Array<SnapshotLayer & { features?: SnapshotFeature[] }>): void {
+  const catalog = layers.find((layer) => hasField(layer, 'VERTICAL_ORDER') && hasField(layer, 'LEVEL_ID'))
+    || layers.find((layer) => /^levels?$/i.test(layer.title || ''))
+  if (!catalog?.features?.length) return
+  const mappings = new Map<string, { ordinal: number, name: string }>()
+  for (const feature of catalog.features) {
+    const attributes = feature.attributes || {}
+    const id = levelKey(attributes.LEVEL_ID)
+    if (!id || mappings.has(id)) continue
+    const ordinal = levelNumber(attributes.VERTICAL_ORDER) ?? levelNumber(attributes.LEVEL_NUMBER) ?? 0
+    const raw = [attributes.NAME, attributes.NAME_SHORT, attributes.LEVEL_NAME].find(
+      (value) => typeof value === 'string' && value.trim()
+    )
+    mappings.set(id, {
+      ordinal,
+      name: levelLabel(typeof raw === 'string' ? raw : '', ordinal)
+    })
+  }
+  if (!mappings.size) return
+  for (const layer of layers) {
+    for (const feature of layer.features || []) {
+      const attributes = feature.attributes
+      if (!attributes) continue
+      const id = levelKey(attributes.LEVEL_ID)
+      if (!id) continue
+      const mapped = mappings.get(id)
+      if (!mapped) continue
+      if (levelNumber(attributes.levelOrdinal) == null) attributes.levelOrdinal = mapped.ordinal
+      if (levelNumber(attributes.level) == null) attributes.level = mapped.ordinal
+      if (typeof attributes.levelName !== 'string' || !attributes.levelName.trim()) {
+        attributes.levelName = mapped.name
+      }
+    }
+  }
 }
 
 /**
@@ -536,24 +660,27 @@ function featureRecord (
   const objectId = layer.objectIdField ? attributes[layer.objectIdField] : attributes.OBJECTID ?? attributes.objectid
   const recordId = objectId != null ? String(objectId) : `${layerId}-${recordsFallbackId(feature)}`
   const styled = styleAttributes(attributes)
+  // A rules file already named the plot, including level suffixes. Do not
+  // replace that with the raw popup title. The type-column fallback below is
+  // not a rules file.
+  const ruled = styled.ruleType != null || styled.ruleName != null
   // Audiom looks up step files by category, then by name. A plain Esri layer
   // has no ruleType, so use its type column. The spoken title is not a file.
   if (styled.ruleType == null) {
     const category = featureCategory(attributes, layer)
     if (category) styled.ruleType = category
   }
-  // The tooltip names the plot from the popup title and owner/name columns.
-  // Voice-over reads attributes.name. Store that same title, or a step says
-  // Empty Space on a plot whose name is not in a column called name.
-  const label = graphicName({
-    attributes,
-    layer: {
-      displayField: layer.displayField,
-      objectIdField: layer.objectIdField,
-      popupTemplate: layer.popupTemplate
-    }
-  }) ?? featureLabel(attributes, layer)
-  if (label) styled.name = label
+  if (!ruled || !styled.name) {
+    const label = graphicName({
+      attributes,
+      layer: {
+        displayField: layer.displayField,
+        objectIdField: layer.objectIdField,
+        popupTemplate: layer.popupTemplate
+      }
+    }) ?? featureLabel(attributes, layer)
+    if (label) styled.name = label
+  }
   return {
     key: { dataSourceId, layerId, recordId },
     sourceId: layerId,
@@ -632,6 +759,9 @@ const SOUND_KEYS = [
   'stepSoundPath', 'loopSoundPath', 'shortSound', 'loopSound', 'introSound'
 ]
 
+/** Floor membership. levelOrdinal is numeric and survives the number copy; the name does not. */
+const LEVEL_KEYS = ['levelName', 'passable']
+
 /**
  * Keep rule outputs Audiom already computed, plus the numeric columns a
  * heatmap quantizes. Do not invent colors or patterns.
@@ -642,6 +772,7 @@ function styleAttributes (attributes: Record<string, unknown>): Record<string, S
   putStyle(kept, 'Name', attributes.Name)
   for (const key of STYLE_KEYS) putStyle(kept, key, attributes[key])
   for (const key of SOUND_KEYS) putStyle(kept, key, attributes[key])
+  for (const key of LEVEL_KEYS) putStyle(kept, key, attributes[key])
   for (const [key, value] of Object.entries(attributes)) {
     if (kept[key] != null) continue
     const numeric = typeof value === 'number'

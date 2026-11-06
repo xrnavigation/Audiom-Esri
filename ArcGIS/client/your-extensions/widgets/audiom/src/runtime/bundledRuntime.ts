@@ -269,7 +269,10 @@ export async function paintAudiomStyles (
       item.sourceId === sourceId || item.sourceId === layer.id || item.displayName === layer.title
     )
     const layerType = source?.mapType || mapType
-    applyAudiomSymbols(paintable, modules, features, mode, field, extents, paletteIndex, layerType)
+    const rulesApplied = Boolean(matched?.rulesRef)
+    applyAudiomSymbols(
+      paintable, modules, features, mode, field, extents, paletteIndex, layerType, rulesApplied
+    )
   })
 }
 

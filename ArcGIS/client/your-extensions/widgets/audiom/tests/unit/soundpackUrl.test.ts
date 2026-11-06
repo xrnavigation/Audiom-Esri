@@ -1,4 +1,4 @@
-import { resolveSoundpackFallbackUrl, resolveSoundpackUrl } from '../../src/runtime/soundpackUrl'
+import { bundledSoundpackName, resolveSoundpackFallbackUrl, resolveSoundpackUrl } from '../../src/runtime/soundpackUrl'
 
 describe('soundpack address', () => {
   it('uses the outdoor pack when the config has none', () => {
@@ -7,6 +7,17 @@ describe('soundpack address', () => {
 
   it('maps a registry name onto the asset host', () => {
     expect(resolveSoundpackUrl('Indoor', 'https://audiom.net/')).toBe('https://audiom.net/indoor')
+  })
+
+  it('uses the indoor pack when a source is indoor and no pack was chosen', () => {
+    expect(bundledSoundpackName(undefined, ['indoor'])).toBe('Indoor')
+    expect(bundledSoundpackName('', ['heatmap', 'indoor'])).toBe('Indoor')
+    expect(bundledSoundpackName(undefined, ['heatmap'])).toBeUndefined()
+    expect(bundledSoundpackName(undefined, [])).toBeUndefined()
+    expect(bundledSoundpackName('Outdoor', ['indoor'])).toBe('Outdoor')
+    expect(resolveSoundpackUrl(bundledSoundpackName(undefined, ['indoor']), 'http://localhost:3002')).toBe(
+      'http://localhost:3002/indoor'
+    )
   })
 
   it('points the fallback at the sibling default pack, not a nested path', () => {

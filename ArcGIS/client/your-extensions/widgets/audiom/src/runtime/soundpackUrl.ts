@@ -30,6 +30,20 @@ export function resolveSoundpackUrl (
 }
 
 /**
+ * Pack name the bundled widget should load. An explicit config wins. Otherwise
+ * an indoor layer uses the indoor pack, matching the embed. The caller resolves
+ * an omitted Map Type to indoor before calling this.
+ */
+export function bundledSoundpackName (
+  configured: string | undefined,
+  mapTypes: readonly (string | undefined)[]
+): string | undefined {
+  const chosen = configured?.trim()
+  if (chosen) return chosen
+  return mapTypes.some((type) => type === 'indoor') ? 'Indoor' : undefined
+}
+
+/**
  * UI and route cues live in the sibling `/default` pack. Audiom otherwise
  * derives that fallback by appending `/default` to the primary URL, which
  * 404s (`/audio/default`). Return the real sibling so the caller can pass it

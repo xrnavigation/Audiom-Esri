@@ -82,7 +82,7 @@ describe('audiom symbols', () => {
     }
     expect(applyAudiomSymbols(layer, modules, layer.features)).toBe(true)
     expect(layer.renderer).not.toBe(host)
-    const painted = layer.renderer as FakeSymbol
+    const painted = layer.renderer as unknown as FakeSymbol
     expect(String((painted.properties as { valueExpression?: string }).valueExpression)).toContain('OBJECTID')
     expect(String((painted.properties as { valueExpression?: string }).valueExpression)).toContain('#7bbf75')
     expect(restoreAudiomSymbols(layer)).toBe(true)
@@ -99,7 +99,7 @@ describe('audiom symbols', () => {
     expect(heatmapField(features)?.field).toBe('percent')
     expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Both)).toBe(true)
     expect(layer.renderer).not.toBe(host)
-    const painted = layer.renderer as FakeSymbol
+    const painted = layer.renderer as unknown as FakeSymbol
     const properties = painted.properties as {
       field?: string
       valueExpression?: string
@@ -127,12 +127,12 @@ describe('audiom symbols', () => {
       features
     }
     expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'total_percent', undefined, 1)).toBe(true)
-    const painted = layer.renderer as FakeSymbol
+    const painted = layer.renderer as unknown as FakeSymbol
     const infos = (painted.properties as { classBreakInfos?: Array<{ symbol: FakeSymbol }> }).classBreakInfos
     expect((infos?.[0].symbol.properties as { color?: string }).color).toBe('#fafa6e')
     expect((infos?.[4].symbol.properties as { color?: string }).color).toBe('#2a4858')
     expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'parcel_int', undefined, 0)).toBe(true)
-    const firstStatistic = layer.renderer as FakeSymbol
+    const firstStatistic = layer.renderer as unknown as FakeSymbol
     const firstInfos = (firstStatistic.properties as { classBreakInfos?: Array<{ symbol: FakeSymbol }> }).classBreakInfos
     expect((firstInfos?.[0].symbol.properties as { color?: string }).color).toBe('#edf8fb')
     expect((firstInfos?.[4].symbol.properties as { color?: string }).color).toBe('#810f7c')
@@ -150,6 +150,61 @@ describe('audiom symbols', () => {
     expect(applyAudiomSymbols(layer, modules, layer.features)).toBe(false)
     expect(layer.renderer).toBe(painted)
     expect(layer.__audiomOriginalRenderer).toBe(host)
+  })
+
+  it('paints a rules file category onto indoor features instead of flat grey', () => {
+    const host = { kind: 'host', type: 'simple' }
+    const features = [
+      { attributes: { OBJECTID: 1, USE_TYPE: 'Office', fill: '#e7ecef', stroke: '#6c757d', 'fill-pattern': 'dot-pattern' } },
+      { attributes: { OBJECTID: 2, USE_TYPE: 'Corridor', fill: '#d8e2dc', stroke: '#6c757d', 'fill-pattern': 'grid-pattern' } }
+    ]
+    const layer = {
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      renderer: host,
+      features,
+      __audiomOriginalRenderer: undefined as unknown
+    }
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, undefined, undefined, 0, 'indoor')).toBe(true)
+    const painted = layer.renderer as unknown as FakeSymbol
+    const properties = painted.properties as {
+      field?: string
+      uniqueValueInfos?: Array<{ value: string }>
+      defaultSymbol?: unknown
+    }
+    expect(properties.field).toBe('USE_TYPE')
+    expect(properties.uniqueValueInfos?.map((info) => info.value).sort()).toEqual(['Corridor', 'Office'])
+    expect(properties.defaultSymbol).toBeTruthy()
+    expect(layer.__audiomOriginalRenderer).toBe(host)
+  })
+
+  it('paints indoor floors with colors and ignores fill patterns', () => {
+    const features = [
+      { attributes: { OBJECTID: 1, USE_TYPE: 'Restroom', fill: '#e7ecef', stroke: '#6c757d', 'fill-pattern': 'dot-pattern' } }
+    ]
+    const layer = {
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      renderer: { kind: 'host', type: 'simple' },
+      features
+    }
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Both, undefined, undefined, 0, 'indoor')).toBe(true)
+    const painted = layer.renderer as unknown as FakeSymbol
+    const infos = (painted.properties as { uniqueValueInfos?: Array<{ symbol: FakeSymbol }> }).uniqueValueInfos
+    expect((infos?.[0].symbol.properties as { url?: string }).url).toBeUndefined()
+    expect((infos?.[0].symbol.properties as { color?: string }).color).toBe('#e7ecef')
+  })
+
+  it('leaves the host renderer when a rules file excluded every feature', () => {
+    const host = { kind: 'host', type: 'simple' }
+    const features = [{ attributes: { OBJECTID: 1, USE_TYPE: 'Level' } }]
+    const layer = {
+      geometryType: 'polygon',
+      renderer: host,
+      features
+    }
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, undefined, undefined, 0, 'indoor', true)).toBe(false)
+    expect(layer.renderer).toBe(host)
   })
 
   it('paints travel and indoor as flat grey and keeps the host renderer saved', () => {
@@ -200,7 +255,7 @@ describe('audiom symbols', () => {
       features
     }
     expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent')).toBe(true)
-    const painted = layer.renderer as FakeSymbol
+    const painted = layer.renderer as unknown as FakeSymbol
     const properties = painted.properties as {
       field?: string
       classBreakInfos?: unknown[]
@@ -233,7 +288,7 @@ describe('audiom symbols', () => {
       features
     }
     expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'percent')).toBe(true)
-    const colors = layer.renderer as FakeSymbol
+    const colors = layer.renderer as unknown as FakeSymbol
     const colorSymbol = (colors.properties as {
       classBreakInfos: Array<{ symbol: FakeSymbol }>
     }).classBreakInfos[0].symbol
@@ -241,7 +296,7 @@ describe('audiom symbols', () => {
     expect((colorSymbol.properties as { color?: string }).color).toBeTruthy()
 
     expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Patterns, 'percent')).toBe(true)
-    const patterns = layer.renderer as FakeSymbol
+    const patterns = layer.renderer as unknown as FakeSymbol
     expect(patterns).not.toBe(colors)
     const patternSymbol = (patterns.properties as {
       classBreakInfos: Array<{ symbol: FakeSymbol }>
@@ -261,7 +316,7 @@ describe('audiom symbols', () => {
       features
     }
     expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'casesPerOneMillion')).toBe(true)
-    expect((layer.renderer as FakeSymbol).properties).toMatchObject({ field: 'percent' })
+    expect((layer.renderer as unknown as FakeSymbol).properties).toMatchObject({ field: 'percent' })
 
     const flat = {
       geometryType: 'polygon',
@@ -272,7 +327,7 @@ describe('audiom symbols', () => {
     expect(applyAudiomSymbols(flat, modules, features, VectorStyleMode.Patterns, 'code', {
       code: { min: 1, max: 1 }
     })).toBe(true)
-    const painted = flat.renderer as FakeSymbol
+    const painted = flat.renderer as unknown as FakeSymbol
     expect(painted.properties).toMatchObject({ field: 'percent' })
     const symbol = (painted.properties as {
       classBreakInfos: Array<{ symbol: FakeSymbol }>

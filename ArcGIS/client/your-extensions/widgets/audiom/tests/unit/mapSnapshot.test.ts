@@ -811,6 +811,74 @@ describe('map snapshot', () => {
     expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Library'])
   })
 
+  it('joins indoor LEVEL_ID to the Levels layer and pages past the first room', async () => {
+    const ring = [[[-117.195, 34.056], [-117.194, 34.056], [-117.194, 34.057], [-117.195, 34.056]]]
+    const levelId = '{BAE9BBC5-D74F-4B7A-9904-9763AE70CCF2}'
+    let unitStarts: number[] = []
+    const levels = {
+      id: 'levels',
+      title: 'Levels',
+      type: 'feature',
+      visible: true,
+      geometryType: 'polygon',
+      fields: [
+        { name: 'LEVEL_ID', type: 'esriFieldTypeString' },
+        { name: 'NAME', type: 'esriFieldTypeString' },
+        { name: 'VERTICAL_ORDER', type: 'esriFieldTypeInteger' }
+      ],
+      createQuery () { return {} },
+      queryFeatures () {
+        return Promise.resolve({
+          features: [{
+            attributes: { OBJECTID: 1, LEVEL_ID: levelId, NAME: 'Level 1', VERTICAL_ORDER: 0 },
+            geometry: { rings: ring }
+          }]
+        })
+      }
+    }
+    const units = {
+      id: 'units',
+      title: 'Units',
+      type: 'feature',
+      visible: true,
+      geometryType: 'polygon',
+      fields: [
+        { name: 'LEVEL_ID', type: 'esriFieldTypeString' },
+        { name: 'NAME', type: 'esriFieldTypeString' },
+        { name: 'USE_TYPE', type: 'esriFieldTypeString' }
+      ],
+      createQuery () { return {} },
+      queryFeatures (query: { start?: number }) {
+        unitStarts.push(query.start || 0)
+        if (!query.start) {
+          return Promise.resolve({
+            exceededTransferLimit: true,
+            features: [{
+              attributes: { OBJECTID: 1, NAME: 'Office 201', LEVEL_ID: levelId, USE_TYPE: 'Office' },
+              geometry: { rings: ring }
+            }]
+          })
+        }
+        return Promise.resolve({
+          features: [{
+            attributes: { OBJECTID: 2, NAME: 'Restroom', LEVEL_ID: levelId, USE_TYPE: 'Restroom' },
+            geometry: { rings: [[[-117.193, 34.056], [-117.192, 34.056], [-117.192, 34.057], [-117.193, 34.056]]] }
+          }]
+        })
+      }
+    }
+    const snapshot = await snapshotFeaturesFromMapView({
+      map: { allLayers: { forEach (fn) { fn(levels); fn(units) } } }
+    }, 'map-1')
+
+    expect(unitStarts).toEqual([0, 1])
+    const restroom = snapshot.records.find((record) => record.attributes.name === 'Restroom')
+    const office = snapshot.records.find((record) => record.attributes.name === 'Office 201')
+    expect(restroom?.attributes.levelOrdinal).toBe(0)
+    expect(restroom?.attributes.levelName).toBe('Level 1')
+    expect(office?.attributes.levelName).toBe('Level 1')
+  })
+
   it('starts the bundled runtime against that snapshot', async () => {
     const statuses: string[] = []
     const handle = startBundledRuntime('widget-1', {

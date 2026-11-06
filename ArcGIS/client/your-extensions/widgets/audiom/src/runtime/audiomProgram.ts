@@ -54,7 +54,16 @@ export interface AudiomProgram {
    * Null means the hit test found no painted plot.
    * Optional so a stub program that only drops the avatar still type-checks.
    */
-  announceStanding?(title: string | null, statistic?: unknown): void
+  announceStanding?(
+    title: string | null,
+    statistic?: unknown,
+    place?: Record<string, unknown> | null
+  ): void
+  /**
+   * A painted hit-test has started. Restart the landing wait so it does
+   * not play the hallway, or the empty swoosh, before that room arrives.
+   */
+  expectPaintedHit?(): void
   /** True when Audiom has a soundpack the browser has not unlocked. */
   audioLocked?(): boolean
   /**

@@ -22,7 +22,8 @@ export interface SymbolLayer {
   type?: string
   geometryType?: string
   objectIdField?: string
-  renderer?: { type?: string }
+  /** Host and Audiom renderers. `kind` is a test double; Esri uses `type`. */
+  renderer?: { type?: string, kind?: string, symbol?: unknown }
   /** Host renderer captured the first time Audiom paints this layer. */
   __audiomOriginalRenderer?: unknown
 }
@@ -196,6 +197,101 @@ function featureIsStyled (attributes: Record<string, unknown>): boolean {
     attributes['stroke-width'] != null ||
     attributes['fill-opacity'] != null ||
     attributes['stroke-dasharray'] != null
+}
+
+const CATEGORY_FIELDS = [
+  'USE_TYPE', 'use_type', 'amenity', 'category', 'class', 'fclass', 'landuse',
+  'TYPE', 'type', 'RuleType'
+]
+
+const STYLE_OUTPUTS = new Set([
+  'fill', 'stroke', 'stroke-width', 'fill-pattern', 'fill-opacity',
+  'stroke-opacity', 'stroke-dasharray', 'ruleName', 'ruleNamePlural',
+  'ruleType', 'passable', 'width', 'audiomStyle'
+])
+
+function isIdentityField (field: string): boolean {
+  const key = field.toLowerCase()
+  return key === 'objectid' || key === 'fid' || key === 'globalid' ||
+    key === 'name' || key === 'title' || key === 'label' || key.endsWith('_id')
+}
+
+/**
+ * A service field that already explains the rule styles, such as USE_TYPE.
+ * Painting that field colors the whole layer, not only the queried page.
+ */
+function styleCategoryField (features: SymbolFeature[]): string | null {
+  const styled = features.filter((feature) => featureIsStyled(feature.attributes || {}))
+  if (!styled.length) return null
+  const names = new Set<string>()
+  for (const feature of styled) {
+    for (const key of Object.keys(feature.attributes || {})) names.add(key)
+  }
+  const ordered = [
+    ...CATEGORY_FIELDS.filter((name) => names.has(name)),
+    ...[...names].filter((name) => !CATEGORY_FIELDS.includes(name))
+  ]
+  for (const field of ordered) {
+    if (isIdentityField(field) || STYLE_OUTPUTS.has(field)) continue
+    const groups = new Map<string, string>()
+    let ok = true
+    for (const feature of styled) {
+      const value = feature.attributes?.[field]
+      if (typeof value !== 'string' || !value.trim()) {
+        ok = false
+        break
+      }
+      const key = styleKey(feature.attributes)
+      const previous = groups.get(value)
+      if (previous !== undefined && previous !== key) {
+        ok = false
+        break
+      }
+      groups.set(value, key)
+    }
+    if (!ok || !groups.size) continue
+    // A preferred column such as USE_TYPE is the category even when the page
+    // happens to hold one feature of each type. Other columns that are unique
+    // per feature are names, not styles.
+    const preferred = CATEGORY_FIELDS.includes(field)
+    if (!preferred && styled.length > 1 && groups.size >= styled.length) continue
+    return field
+  }
+  return null
+}
+
+function categoryRenderer (
+  modules: SymbolModules,
+  geometryType: string | undefined,
+  features: SymbolFeature[],
+  mode: VectorStyleMode
+): unknown | null {
+  const field = styleCategoryField(features)
+  if (!field) return null
+  const groups = new Map<string, Record<string, unknown>>()
+  for (const feature of features) {
+    const attributes = feature.attributes || {}
+    if (!featureIsStyled(attributes)) continue
+    const value = attributes[field]
+    if (typeof value !== 'string' || !value.trim() || groups.has(value)) continue
+    groups.set(value, attributes)
+  }
+  if (!groups.size) return null
+  const uniqueValueInfos = [...groups.entries()].map(([value, attributes]) => ({
+    value,
+    symbol: symbolFor(modules, geometryType, attributes, mode)
+  })).filter((info) => info.symbol != null)
+  if (!uniqueValueInfos.length) return null
+  const defaultSymbol = symbolFor(modules, geometryType, {
+    fill: DEFAULT_GREY,
+    stroke: NAVY,
+    'stroke-width': 1
+  }, mode)
+  return new modules.UniqueValueRenderer({
+    field,
+    uniqueValueInfos,
+    ...(defaultSymbol ? { defaultSymbol } : {})
+  })
 }
 
 function arcadeLiteral (value: string): string {
@@ -381,6 +477,7 @@ function paintDefaultGrey (
  * Travel and indoor are a flat grey fill. The web map's own renderer is the
  * patterns and colors the user does not want until a rules file paints them.
  * The host renderer is saved so a later heatmap paint does not capture grey.
+ * Rule outputs already on the features replace that grey, for every map type.
  */
 export function applyAudiomSymbols (
   layer: SymbolLayer & { geometryType?: string, features?: SymbolFeature[] },
@@ -390,26 +487,40 @@ export function applyAudiomSymbols (
   field?: string,
   extents?: Record<string, { min: number, max: number }>,
   paletteIndex?: number,
-  mapType?: string
+  mapType?: string,
+  rulesApplied = false
 ): boolean {
   if (!layer || mode === VectorStyleMode.None || mode === VectorStyleMode.Hidden) return false
+  // Indoor is colors only. The rules file still stamps fill-pattern, and the
+  // heatmap legend can ask for patterns, but an indoor floor plan has no use
+  // for those tiles.
+  const type = mapType === 'standard' ? 'travel' : mapType
+  const paintMode = type === 'indoor' ? VectorStyleMode.Colors : mode
   // A host heatmap renderer already draws the surface. Replacing it with
   // polygon fills would erase that draw.
   const current = layer.renderer
   if (current?.type === 'heatmap' && layer.__audiomOriginalRenderer === undefined) return false
+  // Style keys win, including indoor and travel. A rules file stamps them
+  // before this paint. Grey is only the fallback when nothing was stamped.
+  const styled = features.filter((feature) => featureIsStyled(feature.attributes || {}))
+  if (styled.length) {
+    const categorized = categoryRenderer(modules, layer.geometryType, features, paintMode)
+    if (categorized) {
+      if (layer.__audiomOriginalRenderer === undefined) {
+        layer.__audiomOriginalRenderer = layer.renderer
+      }
+      layer.renderer = categorized
+      return true
+    }
+  }
   // Heatmap is the only type that paints the statistic. Travel and indoor
   // are a flat grey fill until a rules file paints them. 'standard' is
-  // Audiom's travel value. The host renderer stays saved.
-  const type = mapType === 'standard' ? 'travel' : mapType
-  if (type && type !== 'heatmap') {
+  // Audiom's travel value. The host renderer stays saved. A rules file that
+  // excluded every feature must not cover the map with that grey.
+  if (!styled.length && rulesApplied) return false
+  if (!styled.length && type && type !== 'heatmap') {
     return paintDefaultGrey(layer, modules)
   }
-  // A previous paint saved the host renderer. Keep that copy. Assigning it
-  // back here is the flash of the original Esri colors between paints.
-  // Style keys win. Otherwise color a varying numeric field with class
-  // breaks. The field is on the service, so Esri can draw it without an
-  // object-id expression.
-  const styled = features.filter((feature) => featureIsStyled(feature.attributes || {}))
   if (!styled.length) {
     let paint = heatmapField(features, field, extents, paletteIndex)
     // The requested field can be a placeholder, or a column that does not
@@ -418,7 +529,7 @@ export function applyAudiomSymbols (
     if (!paint && field) {
       paint = heatmapField(features, undefined, extents, paletteIndex)
     }
-    const renderer = paint ? classBreaksFor(modules, layer.geometryType, paint, mode) : null
+    const renderer = paint ? classBreaksFor(modules, layer.geometryType, paint, paintMode) : null
     if (!renderer) return false
     if (layer.__audiomOriginalRenderer === undefined) {
       layer.__audiomOriginalRenderer = layer.renderer
@@ -444,7 +555,7 @@ export function applyAudiomSymbols (
   }
   const infos = [...groups.entries()].map(([value, attributes]) => ({
     value,
-    symbol: symbolFor(modules, layer.geometryType, attributes, mode)
+    symbol: symbolFor(modules, layer.geometryType, attributes, paintMode)
   })).filter((info) => info.symbol != null)
   if (!infos.length || !pairs.length) return false
   layer.renderer = new modules.UniqueValueRenderer({
@@ -457,7 +568,7 @@ export function applyAudiomSymbols (
 /** Put the host renderer back. No-op when Audiom never painted the layer. */
 export function restoreAudiomSymbols (layer: SymbolLayer | null | undefined): boolean {
   if (!layer || layer.__audiomOriginalRenderer === undefined) return false
-  layer.renderer = layer.__audiomOriginalRenderer
+  layer.renderer = layer.__audiomOriginalRenderer as SymbolLayer['renderer']
   delete layer.__audiomOriginalRenderer
   return true
 }

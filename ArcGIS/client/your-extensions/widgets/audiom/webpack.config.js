@@ -23,6 +23,20 @@ module.exports = {
       '@xrnavigation/audiom-runtime/contract': path.resolve(
         __dirname,
         '../../shared/audiom-runtime/src/types.ts'
+      ),
+      // The widget evaluates Audiom rules. Point the package at the browser
+      // build so Experience Builder does not pull the Node entry.
+      '@xrnavigation/layerloader/rules/mapboxRuleProcessor': path.resolve(
+        __dirname,
+        '../../../../../../Audiom-Front-End/node_modules/@xrnavigation/layerloader/dist/browser/rules/mapboxRuleProcessor.js'
+      ),
+      '@xrnavigation/layerloader/rules/materializeRuntimeRuleSet': path.resolve(
+        __dirname,
+        '../../../../../../Audiom-Front-End/node_modules/@xrnavigation/layerloader/dist/browser/rules/materializeRuntimeRuleSet.js'
+      ),
+      '@mapbox/mapbox-gl-style-spec': path.resolve(
+        __dirname,
+        '../../../../../../Audiom-Front-End/node_modules/@mapbox/mapbox-gl-style-spec'
       )
     },
     extensions: ['.ts', '.tsx', '.js']

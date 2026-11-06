@@ -6,6 +6,7 @@ import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis'
 import { DEFAULT_CONFIG, IAudiomConfig, toMutableConfig } from '../setting/configs'
 import { sanitizeConfig, useLogWarnings as logWarnings } from '../setting/validation/validation'
 import {
+  DEFAULT_ASSET_BASE_URL,
   isIntegratedRuntime,
   RuntimeLocation,
   runtimeLocationOf
@@ -16,7 +17,8 @@ import { JimuConfig } from '../utils/JimuConfig'
 import { bundledFocusTarget, bundledStatus, paintAudiomStyles, primeBundledAudio, restoreAudiomStyles, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
 import { VectorStyleMode } from './audiomSymbols'
 import { snapshotFeaturesFromMapView, type SnapshotMapTypeHint } from './mapSnapshot'
-import { resolveSoundpackFallbackUrl, resolveSoundpackUrl } from './soundpackUrl'
+import { resolveRulesFileUrl, soundPlaceForGraphic } from './rulesStyle'
+import { bundledSoundpackName, resolveSoundpackFallbackUrl, resolveSoundpackUrl } from './soundpackUrl'
 import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
 import { StepSize, StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import {
@@ -55,6 +57,22 @@ function audiomPopupLines (world: unknown, longitude: number, latitude: number):
  * and it is also content a rules file adds. With no rules file those modes
  * show the name only.
  */
+function bundledRulesUrl (config: {
+  sourceConfigs?: ReadonlyArray<{ rulesFileUrl?: string }>
+  baseUrl?: string
+  assetBaseUrl?: string
+}): string {
+  const raw = (config.sourceConfigs || [])
+    .map((source) => source.rulesFileUrl)
+    .find((url) => url?.trim())
+  return resolveRulesFileUrl(raw, [
+    config.baseUrl,
+    config.assetBaseUrl,
+    DEFAULT_CONFIG.baseUrl,
+    DEFAULT_ASSET_BASE_URL
+  ])
+}
+
 function includeStatistic (
   world: unknown,
   sources: ReadonlyArray<{ mapType?: string, rulesFileUrl?: string }> | undefined
@@ -133,6 +151,16 @@ function isMeasureField (field: string): boolean {
     key === 'objectid' || key === 'fid' || key === 'audiomstyle' || key === 'id' ||
     key === 'name' || key === 'state' || key === 'updated' || key === 'ruletype' ||
     key === 'rulename' || key === 'level' || key === 'origid'
+  ) return false
+  // Floor and room-geometry columns vary, but they are not a choropleth.
+  // Leaving them in made every indoor step a pitched chime.
+  if (
+    key === 'levelordinal' || key === 'level_number' || key === 'levelnumber' ||
+    key === 'vertical_order' || key === 'verticalorder' ||
+    key === 'height_relative' || key === 'heightrelative' ||
+    key === 'area_gross' || key === 'area_net' || key === 'areagross' ||
+    key === 'areanet' || key === 'elevation' || key === 'validationstatus' ||
+    key === 'floor'
   ) return false
   if (
     key === 'shape__length' || key === 'shape__area' || key === 'shape_length' ||
@@ -376,11 +404,15 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
       jimuMapView
     ).toUrl(sanitizedConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
   const title = props.config.title || 'Audiom'
+  const soundpackName = bundledSoundpackName(
+    sanitizedConfig.soundpackUrl,
+    (sanitizedConfig.sourceConfigs || []).map((source) => source.mapType || 'indoor')
+  )
   const soundpackUrl = runtimeLocation === RuntimeLocation.Bundled
-    ? resolveSoundpackUrl(sanitizedConfig.soundpackUrl, sanitizedConfig.assetBaseUrl)
+    ? resolveSoundpackUrl(soundpackName, sanitizedConfig.assetBaseUrl)
     : undefined
   const soundpackFallbackUrl = runtimeLocation === RuntimeLocation.Bundled
-    ? resolveSoundpackFallbackUrl(sanitizedConfig.soundpackUrl, sanitizedConfig.assetBaseUrl)
+    ? resolveSoundpackFallbackUrl(soundpackName, sanitizedConfig.assetBaseUrl)
     : undefined
   const bundledHandle = useBundledRuntime(
     runtimeLocation === RuntimeLocation.Bundled && Boolean(bundledMapItemId),
@@ -398,11 +430,20 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
       id: source.source,
       title: source.name,
       url: source.sourceUrl,
-      mapType: source.mapType
+      // Embed uses the indoor default when a source omits Map Type. The Esri
+      // Building config does that. Leaving it unset painted those layers as travel.
+      mapType: source.mapType || 'indoor',
+      rulesFileUrl: resolveRulesFileUrl(source.rulesFileUrl, [
+        sanitizedConfig.baseUrl,
+        sanitizedConfig.assetBaseUrl,
+        DEFAULT_CONFIG.baseUrl,
+        DEFAULT_ASSET_BASE_URL
+      ])
     })),
     bundledMapItemId
   )
   const embedOverlay = useRef<HTMLDivElement>(null)
+  const followGeneration = useRef(0)
   const headerHeight = useHeaderHeight(embedOverlay)
   useAudiomEmbed(
     embedOverlay,
@@ -471,10 +512,16 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     const statistic = withStatistic && field && point?.attributes
       ? point.attributes[field]
       : undefined
-    bundledHandle?.program?.announceStanding?.(
-      lines.length ? lines.join('. ') : null,
-      statistic
-    )
+    const title = lines.length ? lines.join('. ') : null
+    const rulesUrl = bundledRulesUrl(sanitizedConfig)
+    const generation = ++followGeneration.current
+    void soundPlaceForGraphic(point?.attributes, rulesUrl).then((place) => {
+      if (generation !== followGeneration.current) return
+      bundledHandle?.program?.announceStanding?.(title, statistic, place)
+    }).catch(() => {
+      if (generation !== followGeneration.current) return
+      bundledHandle?.program?.announceStanding?.(title, statistic, null)
+    })
   }
 
   if (isIntegratedRuntime(runtimeLocation)) {
@@ -535,6 +582,9 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
               : undefined}
             onFeatureClick={runtimeLocation === RuntimeLocation.Bundled ? showPopup : undefined}
             onFeatureFollow={runtimeLocation === RuntimeLocation.Bundled ? followPopup : undefined}
+            onFeatureFollowPrepare={runtimeLocation === RuntimeLocation.Bundled
+              ? () => { bundledHandle?.program?.expectPaintedHit?.() }
+              : undefined}
             onUnlock={runtimeLocation === RuntimeLocation.Bundled
               ? () => {
                 primeBundledAudio(bundledHandle)
@@ -634,6 +684,7 @@ function EsriMapSurface (props: {
   onSelect?: () => void
   onFeatureClick?: (point: FeatureClickPoint | null) => void
   onFeatureFollow?: (point: FeatureClickPoint | null) => void
+  onFeatureFollowPrepare?: () => void
   onUnlock?: () => void | Promise<boolean>
   onScreen?: (point: { x: number, y: number } | null) => void
   onSurface?: (surface: MountedMapSurface | null) => void
@@ -843,6 +894,7 @@ function EsriMapSurface (props: {
     if (!avatar || !surface || !onFollow) return
     const view = surface.view
     if (!view.hitTest) return
+    props.onFeatureFollowPrepare?.()
     const previous = followed.current
     // The runtime reports the load position before the map can be hit-tested.
     // Recording that report makes the first real drop look like the same
@@ -1006,6 +1058,7 @@ function EsriMapSurface (props: {
             heading: 0
           }
           const viewPoint = dropViewPoint(surface, point)
+          props.onFeatureFollowPrepare?.()
           const dropped = onDrop(geographic.longitude, geographic.latitude)
           const hit = viewPoint && surface?.view.hitTest
             ? surface.view.hitTest(viewPoint).then(async (result) => {
@@ -1512,6 +1565,8 @@ function useBundledRuntime (
   // layer, which is the long pause after the dropdown changes.
   const mapTypesRef = useRef(mapTypes)
   mapTypesRef.current = mapTypes
+  // A rules file change must re-query so the new outputs replace the stamps.
+  const rulesKey = (mapTypes || []).map((item) => item.rulesFileUrl || '').join('|')
   const loadedSnapshot = useRef<MapSnapshot | null>(null)
   // The Map Type effect must not depend on the surface. A new surface
   // identity would republish. The paint still needs the map that is drawn.
@@ -1683,14 +1738,23 @@ function useBundledRuntime (
       )
     }
     const apply = async () => {
-      // Do not await view.when() or map.when(). A portal item that the a, mapTypespp
+      // Do not await view.when() or map.when(). A portal item that the
       // portal cannot see leaves those promises pending, and the legend
       // then never reads the layers that did load.
-      if (cancelled) return
       // Query the whole service. Passing the drawn extent makes the page
       // the current view, and the next snapshot then drops the indicator
-      // onto whichever plot is nearest in that page.
-      const snapshot = await snapshotFeaturesFromMapView(view, instanceId, mapTypesRef.current)
+      // onto whichever plot is nearest in that page. The standing point is
+      // still merged in, so the room under the compass is not left off the
+      // first page. Indoor layers page past that cap on their own.
+      const reported = reportedRef.current
+      const standingLongitude = reported?.longitude ?? longitudeRef.current
+      const standingLatitude = reported?.latitude ?? latitudeRef.current
+      const indicator = Number.isFinite(standingLongitude) && Number.isFinite(standingLatitude)
+        ? { longitude: standingLongitude as number, latitude: standingLatitude as number }
+        : undefined
+      const snapshot = await snapshotFeaturesFromMapView(
+        view, instanceId, mapTypesRef.current, undefined, indicator
+      )
       if (cancelled) return
       // Record the snapshot before any further async step so a pattern/color
       // repaint, or a Map Type change, has it without querying again.
@@ -1747,7 +1811,7 @@ function useBundledRuntime (
       layerHandle?.remove?.()
       window.removeEventListener('audiom-embed-paint', onPaint)
     }
-  }, [handle, jimuMapView, surface, instanceId])
+  }, [handle, jimuMapView, surface, instanceId, rulesKey])
   // Map Type is audio and the legend, not a new query. Retag the snapshot
   // already loaded and publish that. Querying the service again is the
   // long pause after the dropdown changes.
