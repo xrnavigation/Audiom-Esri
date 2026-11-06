@@ -1,4 +1,4 @@
-import { type AllWidgetProps, React, ReactRedux, AppMode, getAppStore, loadArcGISJSAPIModules, type IMState, type ImmutableObject } from 'jimu-core'
+import { type AllWidgetProps, React, ReactRedux, AppMode, DataSourceTypes, getAppStore, loadArcGISJSAPIModules, type IMState, type ImmutableObject } from 'jimu-core'
 import { audiomConfigToEmbedConfig } from '../utils/mapUtils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { serializeLockedForDiff } from '../utils/sourceConfigUtils'
@@ -20,7 +20,11 @@ import { snapshotFeaturesFromMapView, type SnapshotMapTypeHint } from './mapSnap
 import { resolveRulesFileUrl, soundPlaceForGraphic } from './rulesStyle'
 import { bundledSoundpackName, resolveSoundpackFallbackUrl, resolveSoundpackUrl } from './soundpackUrl'
 import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
+import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { StepSize, StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
+
+/** Must match Audiom-Front-End EMBED_PAINT_EVENT. The widget cannot import that module. */
+const EMBED_PAINT_EVENT = 'audiom-embed-paint'
 import {
   avatarScreenPoint,
   destroyMapSurface,
@@ -80,8 +84,8 @@ function includeStatistic (
   const typed = (sources || []).filter((source) => source.mapType)
   if (!typed.length) return true
   return typed.some((source) => {
-    const mode = source.mapType === 'standard' ? 'travel' : source.mapType
-    if (mode === 'heatmap') return true
+    const mode = source.mapType === 'standard' ? MapType.Travel : source.mapType
+    if (mode === MapType.Heatmap) return true
     return Boolean(source.rulesFileUrl?.trim())
   })
 }
@@ -406,7 +410,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   const title = props.config.title || 'Audiom'
   const soundpackName = bundledSoundpackName(
     sanitizedConfig.soundpackUrl,
-    (sanitizedConfig.sourceConfigs || []).map((source) => source.mapType || 'indoor')
+    (sanitizedConfig.sourceConfigs || []).map((source) => source.mapType || MapType.Indoor)
   )
   const soundpackUrl = runtimeLocation === RuntimeLocation.Bundled
     ? resolveSoundpackUrl(soundpackName, sanitizedConfig.assetBaseUrl)
@@ -432,7 +436,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
       url: source.sourceUrl,
       // Embed uses the indoor default when a source omits Map Type. The Esri
       // Building config does that. Leaving it unset painted those layers as travel.
-      mapType: source.mapType || 'indoor',
+      mapType: source.mapType || MapType.Indoor,
       rulesFileUrl: resolveRulesFileUrl(source.rulesFileUrl, [
         sanitizedConfig.baseUrl,
         sanitizedConfig.assetBaseUrl,
@@ -524,19 +528,15 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     })
   }
 
+  // Integrated runtime is Bundled only. Legacy and Standalone take the iframe below.
   if (isIntegratedRuntime(runtimeLocation)) {
-    const bundled = runtimeLocation === RuntimeLocation.Bundled
-    const mapWidgetId = bundled ? '' : (props.useMapWidgetIds?.[0] || sanitizedConfig.existingMapId)
-    const existingMap = bundled
-      ? undefined
-      : (jimuMapView as { view?: { map?: unknown } } | undefined)?.view?.map
     const mapLabel = bundledStatus(bundledHandle, false)
-    const scene = bundled && props.useDataSources?.some((source) =>
-      String(source.dataSourceId || '').toUpperCase().includes('WEB_SCENE')
+    const scene = props.useDataSources?.some((source) =>
+      String(source.dataSourceId || '').toUpperCase().includes(DataSourceTypes.WebScene)
     )
     // No item yet means there is no data-source JSON. Mounting the map
     // (or asking ExB to resolve that source) reads portalUrl off null.
-    const needsMapSource = bundled && !bundledMapItemId
+    const needsMapSource = !bundledMapItemId
     return (
       <div
         className="jimu-widget"
@@ -544,53 +544,39 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
         aria-label={title}
         style={styles.container}
       >
-        {!bundled && mapWidgetId && (
-          <JimuMapViewComponent useMapWidgetId={mapWidgetId} onActiveViewChange={activeViewChangeHandler} />
-        )}
         <div style={styles.container}>
           {needsMapSource ? (
             <p role="status" style={styles.mapSourcePrompt}>{SET_MAP_SOURCE_MESSAGE}</p>
           ) : (
           <EsriMapSurface
-            existingMap={existingMap}
-            mapItemId={bundled ? bundledMapItemId : undefined}
-            portalUrl={bundled ? portalUrlForItem(props, bundledMapItemId) : undefined}
+            mapItemId={bundledMapItemId}
+            portalUrl={portalUrlForItem(props, bundledMapItemId)}
             scene={scene}
             longitude={sanitizedConfig.centerLongitude}
             latitude={sanitizedConfig.centerLatitude}
             zoom={sanitizedConfig.zoom}
             headerHeight={headerHeight}
             avatar={avatar}
-            onMove={runtimeLocation === RuntimeLocation.Bundled
-              ? (direction) => {
-                // The key handler already started the browser resume. Wait
-                // for the pack before the step, or the first tone looks up
-                // samples that have not loaded and stays silent. A failed
-                // unlock still moves: speech does not need the pack, and
-                // holding the indicator would trap the user.
-                const pending = bundledHandle?.program?.unlockAudio?.()
-                void Promise.resolve(pending).then(() => {
-                  void bundledHandle?.runtime.moveAvatar(direction)
-                })
-              }
-              : undefined}
-            onDrop={runtimeLocation === RuntimeLocation.Bundled
-              ? (longitude, latitude) => bundledHandle?.dropAvatar?.(longitude, latitude) ?? Promise.resolve(false)
-              : undefined}
-            onSelect={runtimeLocation === RuntimeLocation.Bundled
-              ? () => { void bundledHandle?.runtime.focusRuntime(bundledFocusTarget) }
-              : undefined}
-            onFeatureClick={runtimeLocation === RuntimeLocation.Bundled ? showPopup : undefined}
-            onFeatureFollow={runtimeLocation === RuntimeLocation.Bundled ? followPopup : undefined}
-            onFeatureFollowPrepare={runtimeLocation === RuntimeLocation.Bundled
-              ? () => { bundledHandle?.program?.expectPaintedHit?.() }
-              : undefined}
-            onUnlock={runtimeLocation === RuntimeLocation.Bundled
-              ? () => {
-                primeBundledAudio(bundledHandle)
-                return unlockBundledAudio(bundledHandle)
-              }
-              : undefined}
+            onMove={(direction) => {
+              // The key handler already started the browser resume. Wait
+              // for the pack before the step, or the first tone looks up
+              // samples that have not loaded and stays silent. A failed
+              // unlock still moves: speech does not need the pack, and
+              // holding the indicator would trap the user.
+              const pending = bundledHandle?.program?.unlockAudio?.()
+              void Promise.resolve(pending).then(() => {
+                void bundledHandle?.runtime.moveAvatar(direction)
+              })
+            }}
+            onDrop={(longitude, latitude) => bundledHandle?.dropAvatar?.(longitude, latitude) ?? Promise.resolve(false)}
+            onSelect={() => { void bundledHandle?.runtime.focusRuntime(bundledFocusTarget) }}
+            onFeatureClick={showPopup}
+            onFeatureFollow={followPopup}
+            onFeatureFollowPrepare={() => { bundledHandle?.program?.expectPaintedHit?.() }}
+            onUnlock={() => {
+              primeBundledAudio(bundledHandle)
+              return unlockBundledAudio(bundledHandle)
+            }}
             popup={featurePopup}
             onPopupClose={() => { setFeaturePopup(null) }}
             onSurface={setMapSurface}
@@ -1805,11 +1791,11 @@ function useBundledRuntime (
         console.error('Audiom repaint failed', error)
       })
     }
-    window.addEventListener('audiom-embed-paint', onPaint)
+    window.addEventListener(EMBED_PAINT_EVENT, onPaint)
     return () => {
       cancelled = true
       layerHandle?.remove?.()
-      window.removeEventListener('audiom-embed-paint', onPaint)
+      window.removeEventListener(EMBED_PAINT_EVENT, onPaint)
     }
   }, [handle, jimuMapView, surface, instanceId, rulesKey])
   // Map Type is audio and the legend, not a new query. Retag the snapshot

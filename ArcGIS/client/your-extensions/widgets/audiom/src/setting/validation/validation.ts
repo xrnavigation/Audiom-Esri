@@ -1,12 +1,10 @@
 import type { ValidityResult } from 'jimu-ui'
 import { React } from 'jimu-core'
 import { DEFAULT_CONFIG, IAudiomConfig } from '../configs'
-import { AudiomConfigKey } from '../configKeys'
 import {
   DEFAULT_ASSET_BASE_URL,
   DEFAULT_RUNTIME_LOCATION,
   ignoredSettingKeys,
-  isEmbedRuntime,
   RuntimeLocation,
   runtimeLocationOf
 } from '../runtimeLocation'

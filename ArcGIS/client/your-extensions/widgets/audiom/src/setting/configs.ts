@@ -5,7 +5,7 @@ import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import { VisualStyle } from '../../../../shared/audiom-client/AudiomEmbedConfig'
 import { FieldType, FilterType } from './enums'
 import type { LockableFieldName } from './configKeys'
-import { RuntimeLocation } from './runtimeLocation'
+import { DEFAULT_ASSET_BASE_URL, RuntimeLocation } from './runtimeLocation'
 
 /**
  * Centralized default configuration values for the Audiom widget.
@@ -36,7 +36,7 @@ export const DEFAULT_CONFIG = {
   centerLongitudeLocked: true,
   zoomLocked: true,
   runtimeLocation: RuntimeLocation.Standalone,
-  assetBaseUrl: 'https://audiom.net',
+  assetBaseUrl: DEFAULT_ASSET_BASE_URL,
 } as const satisfies Partial<IAudiomConfig>
 
 export const DEFAULT_SOURCE_CONFIG: ISourceConfig = {

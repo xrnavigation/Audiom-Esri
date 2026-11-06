@@ -6,9 +6,13 @@ import {
   type SourceSnapshot,
   SourceStatus
 } from '../../../../shared/audiom-runtime/src/types'
-import { isDataSourceLayerType } from '../utils/mapEnums'
+import { MapType } from '../../../../shared/audiom-client/AudiomSource'
+import { isDataSourceLayerType, isRasterLayerType } from '../utils/mapEnums'
 import { graphicName, loadMapModules } from './esriMapSurface'
 import { applyConfiguredRules } from './rulesStyle'
+
+/** Same fallback as Audiom-Front-End esriLayerSync. A mismatch misses the eye toggle. */
+export const FALLBACK_LAYER_SOURCE_ID = 'layer'
 
 export interface SnapshotFeature {
   attributes?: Record<string, unknown>
@@ -153,7 +157,7 @@ export function snapshotFromMapView (
 
   listed.forEach((layer) => {
     if (isInternalLayer(layer)) return
-    const sourceId = layer.id || layer.title || 'layer'
+    const sourceId = layer.id || layer.title || FALLBACK_LAYER_SOURCE_ID
     const supported = !isRasterLayer(layer) && (
       isDataSourceLayerType(layer.type || '') ||
       (typeof layer.queryFeatures === 'function' && typeof layer.createQuery === 'function')
@@ -205,15 +209,15 @@ export interface SnapshotMapTypeHint {
 
 /** Audiom map types. 'standard' is not one of them and becomes travel. */
 function audiomMapType (value: string | undefined): string {
-  if (value === 'heatmap' || value === 'indoor' || value === 'travel') return value
-  return 'travel'
+  if (value === MapType.Heatmap || value === MapType.Indoor || value === MapType.Travel) return value
+  return MapType.Travel
 }
 
 function mapTypeForLayer (
   layer: SnapshotLayer,
   hints: readonly SnapshotMapTypeHint[] | undefined
 ): string {
-  if (!hints?.length) return 'travel'
+  if (!hints?.length) return MapType.Travel
   const id = layer.id || ''
   const title = layer.title || ''
   const url = layer.url || ''
@@ -229,7 +233,7 @@ function mapTypeForLayer (
   // One configured heatmap source is the map the panel was asked to draw.
   const configured = hints.filter((item) => item.mapType)
   if (configured.length === 1) return audiomMapType(configured[0].mapType)
-  return 'travel'
+  return MapType.Travel
 }
 
 /** Basemap base and reference layers. They ride in allLayers, sometimes as a different object. */
@@ -370,12 +374,7 @@ function isInternalLayer (layer: SnapshotLayer): boolean {
  * not features, and must not be listed or queried.
  */
 function isRasterLayer (layer: SnapshotLayer): boolean {
-  const type = layer.type || ''
-  return type === 'tile' || type === 'vector-tile' || type === 'imagery' ||
-    type === 'imagery-tile' || type === 'georeferenced-image' ||
-    type === 'web-tile' || type === 'base-tile' || type === 'open-street-map' ||
-    type === 'bing-maps' || type === 'base-dynamic' || type === 'wcs' ||
-    type === 'elevation' || type === 'media'
+  return isRasterLayerType(layer.type || '')
 }
 
 /** Wait for the layer, then query. A layer that is still loading has no features yet. */

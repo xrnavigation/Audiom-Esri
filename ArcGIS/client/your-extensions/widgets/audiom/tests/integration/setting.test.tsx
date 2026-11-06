@@ -32,7 +32,6 @@ jest.mock('jimu-ui/advanced/data-source-selector', () => {
   const React = require('react')
   return {
     __esModule: true,
-    AllDataSourceTypes: { WebMap: 'WEB_MAP', WebScene: 'WEB_SCENE' },
     DataSourceSelector: (props: Record<string, unknown>): React.ReactElement =>
       React.createElement('div', {
         'data-testid': 'map-source-selector',

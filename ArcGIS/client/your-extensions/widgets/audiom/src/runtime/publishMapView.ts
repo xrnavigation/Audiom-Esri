@@ -1,5 +1,6 @@
 import type MapView from '@arcgis/core/views/MapView'
 import type SceneView from '@arcgis/core/views/SceneView'
+import { DataSourceTypes } from 'jimu-core'
 import { MapViewManager } from 'jimu-arcgis'
 import type { MountedMapView } from './esriMapSurface'
 
@@ -9,7 +10,10 @@ import type { MountedMapView } from './esriMapSurface'
  * that widget published. Audiom draws its own view, so it has to publish
  * that view under its widget id or Legend and the other map tools stay empty.
  */
-const MAP_SOURCE_TYPES = new Set(['WEB_MAP', 'WEB_SCENE'])
+const MAP_SOURCE_TYPES = new Set<string>([
+  DataSourceTypes.WebMap,
+  DataSourceTypes.WebScene
+])
 
 export interface OwnedMapSource {
   dataSourceId?: string

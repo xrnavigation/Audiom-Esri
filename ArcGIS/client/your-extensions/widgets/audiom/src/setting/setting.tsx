@@ -1,8 +1,8 @@
-import { DataSourceManager, getAppStore, Immutable, ImmutableObject, React, type IMDataSourceJson, type UseDataSource } from 'jimu-core'
+import { DataSourceManager, DataSourceTypes, getAppStore, Immutable, ImmutableObject, React, type IMDataSourceJson, type UseDataSource } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { JimuMapViewComponent, type JimuMapView } from 'jimu-arcgis'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
-import { AllDataSourceTypes, DataSourceSelector } from 'jimu-ui/advanced/data-source-selector'
+import { DataSourceSelector } from 'jimu-ui/advanced/data-source-selector'
 import { NumericInput, Switch, Button, ButtonGroup, Collapse, Tooltip, Label } from 'jimu-ui'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 
@@ -35,8 +35,8 @@ const { useEffect, useCallback, useState, useRef } = React
 const logger = createLogger('Setting')
 
 const MAP_SOURCE_TYPES = Immutable.from([
-  AllDataSourceTypes.WebMap,
-  AllDataSourceTypes.WebScene
+  DataSourceTypes.WebMap,
+  DataSourceTypes.WebScene
 ])
 
 const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) => {

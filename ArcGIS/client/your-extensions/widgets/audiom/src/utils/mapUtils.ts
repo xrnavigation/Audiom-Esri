@@ -359,7 +359,7 @@ export function mapConfigFromView(view: {
       filters.push({ expression: expr, mapExpression: expr, filterType: FilterType.Where, mapFilterType: FilterType.Where, locked: true, fromMap: true })
     }
     // Extract timeExtent from the layer if available (FeatureLayer, etc.)
-    const layerTimeExtent = (layer as any)?.timeExtent
+    const layerTimeExtent = layer && hasTimeExtent(layer) ? layer.timeExtent : undefined
     if (layerTimeExtent) {
       const timeExpr = formatTimeExtent(layerTimeExtent)
       if (timeExpr) {
@@ -550,9 +550,19 @@ export function withoutFloorFilter (
   return kept.map((clause) => `(${unwrapParens(clause)})`).join(' AND ')
 }
 
-function sourceWhere (expression: string | null | undefined, floorFields: readonly string[]) {
-  const where = withoutFloorFilter(expression, floorFields)
-  return where ? raw(where) : undefined
+function expressionWhere (expression: string | null | undefined) {
+  return expression?.trim() ? raw(expression) : undefined
+}
+
+interface LayerTimeExtent {
+  start?: Date
+  end?: Date
+}
+
+function hasTimeExtent (
+  layer: __esri.Layer
+): layer is __esri.Layer & { timeExtent?: LayerTimeExtent | null } {
+  return 'timeExtent' in layer
 }
 
 function processFeatureLayer(layer: FeatureLayer | null): AudiomSource | null {
@@ -565,7 +575,7 @@ function processFeatureLayer(layer: FeatureLayer | null): AudiomSource | null {
     source: layer.id,
     url: `${layer.url}/${layer.layerId}`,
     mapType: MapType.Indoor,
-    where: sourceWhere(layer.definitionExpression, [])
+    where: expressionWhere(layer.definitionExpression)
   });
 
   logger.debug(`Found FeatureLayer: ${layer.title} - ${layer.url}`);
@@ -617,7 +627,7 @@ function processMapImageLayer(layer: MapImageLayer | null): AudiomSource[] {
       source: `${layer.id}_${sublayer.id}`,
       url: sublayer.url,
       mapType: MapType.Indoor,
-      where: sourceWhere((sublayer as any).definitionExpression, [])
+      where: expressionWhere(sublayer.definitionExpression)
     });
 
     sources.push(source);

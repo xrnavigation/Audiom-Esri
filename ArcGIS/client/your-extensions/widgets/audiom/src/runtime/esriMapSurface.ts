@@ -89,10 +89,14 @@ export interface MountedMapView {
   ui?: {
     components?: string[]
   }
+  /**
+   * Click-to-open. Popup.enabled and Popup.autoOpenEnabled are not on this
+   * SDK's Popup. popupEnabled is the switch that stops the lazy popup.
+   */
+  popupEnabled?: boolean
+  closePopup?: () => void
   /** Present on a MapView. Audiom turns this off; it does not render it. */
   popup?: {
-    enabled?: boolean
-    autoOpenEnabled?: boolean
     visible?: boolean
     close?: () => void
   }
@@ -136,7 +140,7 @@ export interface MountedMapSurface {
 export interface MapModules {
   Map: new (properties: {
     basemap?: string
-    portalItem?: { id: string, portal?: { url: string } }
+    portalItem?: { id: string, portal?: { url?: string } }
   }) => unknown
   MapView: new (properties: {
     container: HTMLElement
@@ -303,12 +307,12 @@ export function hideNativeZoom (view: MountedMapView): void {
  * style. A missing popup API must not abort the map.
  */
 export function disableNativePopup (view: MountedMapView): void {
+  view.popupEnabled = false
   const popup = view.popup
-  if (!popup) return
+  if (!popup?.visible) return
   try {
-    popup.autoOpenEnabled = false
-    popup.enabled = false
-    if (popup.visible) popup.close?.()
+    if (view.closePopup) view.closePopup()
+    else popup.close?.()
   } catch {
     // Already closed, or this view has no popup widget.
   }

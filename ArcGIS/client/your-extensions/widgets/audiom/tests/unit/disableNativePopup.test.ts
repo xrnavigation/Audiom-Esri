@@ -1,16 +1,29 @@
 import { disableNativePopup, featureDetails, graphicIsRendered, graphicName, hitFeatureData, hitFeatureName, hitFeatureNames, renderedGraphic, resolvePopupTitle, type MountedMapView } from '../../src/runtime/esriMapSurface'
 
 describe('disableNativePopup', () => {
-  it('turns the Esri popup off and closes one that is already open', () => {
-    const close = jest.fn()
+  it('turns click-to-open off and closes one that is already open', () => {
+    const closePopup = jest.fn()
     const view: MountedMapView = {
-      popup: { enabled: true, autoOpenEnabled: true, visible: true, close }
+      popupEnabled: true,
+      closePopup,
+      popup: { visible: true }
     }
 
     disableNativePopup(view)
 
-    expect(view.popup?.enabled).toBe(false)
-    expect(view.popup?.autoOpenEnabled).toBe(false)
+    expect(view.popupEnabled).toBe(false)
+    expect(closePopup).toHaveBeenCalled()
+  })
+
+  it('closes through popup.close when the view has no closePopup', () => {
+    const close = jest.fn()
+    const view: MountedMapView = {
+      popup: { visible: true, close }
+    }
+
+    disableNativePopup(view)
+
+    expect(view.popupEnabled).toBe(false)
     expect(close).toHaveBeenCalled()
   })
 

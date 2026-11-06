@@ -1,23 +1,20 @@
 import {
   CONTRACT_VERSION,
   type AppliedResult,
-  type AudiomRuntime,
   type AvatarState,
   type CanonicalKey,
   type ContractError,
   FocusTarget,
   type FocusResult,
-  SelectionOp,
   type SelectionResult,
-  type Viewpoint,
-  WidgetLifecycle
+  type Viewpoint
 } from '../../../../shared/audiom-runtime/src/types'
 import {
   createInProcessRuntime,
   type InProcessRuntime
 } from '../../../../shared/audiom-runtime/src/factory'
 import { applyAudiomSymbols, restoreAudiomSymbols, VectorStyleMode, type SymbolLayer, type SymbolModules } from './audiomSymbols'
-import { snapshotFeaturesFromMapView, type SnapshotLayer, type SnapshotMapView } from './mapSnapshot'
+import { FALLBACK_LAYER_SOURCE_ID, snapshotFeaturesFromMapView, type SnapshotLayer, type SnapshotMapView } from './mapSnapshot'
 import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
 import { showAvatar, type MountedMapSurface } from './esriMapSurface'
 import { audiomProgramError, createAudiomProgram, type AudiomProgram } from './audiomProgram'
@@ -173,7 +170,7 @@ export function startBundledRuntime (
     const snapshot = await snapshotFeaturesFromMapView(jimuMapView, instanceId)
     // This hello view is not the drawn map. An empty replace lands after the
     // widget's plots and the next step then says Empty Space.
-    if (!snapshot.sources.length) return applied(handle.runtime.snapshot?.revision ?? 0)
+    if (!snapshot.sources.length) return applied(0)
     // Do not paint here. This path has no field and no property order, so
     // it colored the map with a different ramp than the legend.
     return handle.runtime.replaceSources(snapshot, 1)
@@ -197,19 +194,7 @@ export function bundledStatus (
   return `Using the existing map (${handle.runtime.snapshot?.sources.length ?? 0} layers)`
 }
 
-export async function setBundledLifecycle (
-  runtime: AudiomRuntime,
-  opened: boolean
-): Promise<void> {
-  await runtime.setHostLifecycle(
-    opened ? WidgetLifecycle.Opened : WidgetLifecycle.Closed,
-    '2d',
-    'anonymous'
-  )
-}
-
 export const bundledFocusTarget = FocusTarget.Map
-export const bundledSelection = SelectionOp.Replace
 
 /**
  * Paint Audiom fill, stroke, width, opacity, dash, and pattern onto layers
@@ -255,8 +240,8 @@ export async function paintAudiomStyles (
   // back, which is the flash of the original Esri colors. Unmount restores.
   const queried = (snapshot as MapSnapshot & { queriedLayers?: SnapshotLayer[] }).queriedLayers || []
   layers.forEach((layer) => {
-    const sourceId = layer.id || layer.title || 'layer'
-    const match = queried.find((item) => (item.id || item.title || 'layer') === sourceId)
+    const sourceId = layer.id || layer.title || FALLBACK_LAYER_SOURCE_ID
+    const match = queried.find((item) => (item.id || item.title || FALLBACK_LAYER_SOURCE_ID) === sourceId)
     const matched = match as (SnapshotLayer & { features?: Array<{ attributes?: Record<string, unknown> }> }) | undefined
     const features = matched?.features
     if (!features?.length) return
