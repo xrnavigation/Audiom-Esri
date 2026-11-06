@@ -826,6 +826,7 @@ describe('map snapshot', () => {
         { name: 'NAME', type: 'esriFieldTypeString' },
         { name: 'VERTICAL_ORDER', type: 'esriFieldTypeInteger' }
       ],
+      definitionExpression: `LEVEL_ID = '${levelId}'`,
       createQuery () { return {} },
       queryFeatures () {
         return Promise.resolve({
@@ -847,8 +848,10 @@ describe('map snapshot', () => {
         { name: 'NAME', type: 'esriFieldTypeString' },
         { name: 'USE_TYPE', type: 'esriFieldTypeString' }
       ],
-      createQuery () { return {} },
-      queryFeatures (query: { start?: number }) {
+      createQuery () { return { where: "LEVEL_ID = '{OLD}'" } },
+      queryFeatures (query: { start?: number, where?: string }) {
+        // The view floor filter must not page only the current floor.
+        expect(query.where).toBe('1=1')
         unitStarts.push(query.start || 0)
         if (!query.start) {
           return Promise.resolve({

@@ -74,6 +74,10 @@ export interface SnapshotLayer {
   listMode?: string
   /** Feature service URL. Used to match a configured source map type. */
   url?: string
+  /** The map's own feature filter. A floor picker is rewritten, not hardcoded. */
+  definitionExpression?: string | null
+  /** Esri floor-aware layers name the floor field here. */
+  floorInfo?: { field?: string } | null
   /** Rules file evaluated onto this layer's features. Null when none applied. */
   rulesRef?: string
   /** Test double. Production layers are read through queryFeatures. */
@@ -143,8 +147,11 @@ export function snapshotFromMapView (
   const records: RecordSnapshot[] = []
   const layers = jimuMapView?.view?.map?.allLayers || jimuMapView?.map?.allLayers
   if (!layers) return { sources, records, dataSourceId }
+  const listed: SnapshotLayer[] = []
+  layers.forEach((layer) => listed.push(layer))
+  const floorFields = floorFieldsFromSnapshots(listed)
 
-  layers.forEach((layer) => {
+  listed.forEach((layer) => {
     if (isInternalLayer(layer)) return
     const sourceId = layer.id || layer.title || 'layer'
     const supported = !isRasterLayer(layer) && (
@@ -171,7 +178,7 @@ export function snapshotFromMapView (
     if (!features?.length) return
     // Out of scale stays navigable. Visible queried features are listed too.
     const navigable = supported && (bound || outOfScale)
-    const cap = hasField(layer, 'LEVEL_ID') ? INDOOR_FEATURE_CAP : FEATURE_LIMIT
+    const cap = isFloorLayer(layer, floorFields) ? INDOOR_FEATURE_CAP : FEATURE_LIMIT
     for (const feature of features.slice(0, cap)) {
       const record = featureRecord(dataSourceId, sourceId, layer, feature, navigable)
       if (record) records.push(record)
@@ -273,6 +280,9 @@ export async function snapshotFeaturesFromMapView (
     const layer = queue[index]
     layer.layers?.forEach((child) => queue.push(child))
     layer.sublayers?.forEach((child) => queue.push(child))
+  }
+  const floorFields = floorFieldsFromSnapshots(queue)
+  for (const layer of queue) {
     // Basemap base and reference layers (terrain hillshade, say) ride in
     // allLayers but carry no features. Drop them before a force-load; the
     // hillshade tile service can hang and stall the whole snapshot.
@@ -283,7 +293,13 @@ export async function snapshotFeaturesFromMapView (
     if (isInternalLayer(layer)) continue
     if (layer.visible === false) continue
     if (typeof layer.queryFeatures !== 'function' || typeof layer.createQuery !== 'function') continue
-    pending.push(queryLayerFeatures(layer, copy, viewExtent ?? jimuMapView?.view?.extent, indicator))
+    pending.push(queryLayerFeatures(
+      layer,
+      copy,
+      viewExtent ?? jimuMapView?.view?.extent,
+      indicator,
+      floorFields
+    ))
   }
   await Promise.all(pending)
   await projectLoadedFeatures(loaded)
@@ -318,6 +334,8 @@ function layerCopy (layer: SnapshotLayer): SnapshotLayer & { features?: Snapshot
     spatialReference: layer.spatialReference,
     fields: fieldCatalog(layer.fields),
     url: layer.url,
+    definitionExpression: layer.definitionExpression,
+    floorInfo: layer.floorInfo?.field ? { field: layer.floorInfo.field } : undefined,
     isBasemap: layer.isBasemap,
     listMode: layer.listMode,
     features: layer.features
@@ -365,7 +383,8 @@ async function queryLayerFeatures (
   layer: SnapshotLayer,
   copy: SnapshotLayer & { features?: SnapshotFeature[] },
   viewExtent?: unknown,
-  indicator?: { longitude: number, latitude: number }
+  indicator?: { longitude: number, latitude: number },
+  floorFields: readonly string[] = []
 ): Promise<void> {
   try {
     if (typeof layer.when === 'function') await withTimeout(layer.when(), 8000)
@@ -401,9 +420,12 @@ async function queryLayerFeatures (
   }
   try {
     const query = layer.createQuery()
-    query.where = query.where || '1=1'
     query.returnGeometry = true
     query.outFields = ['*']
+    // Layers that carry the map's floor field are queried whole. Travel
+    // keeps its own where.
+    const indoor = isFloorLayer(copy, floorFields) || isFloorLayer(layer, floorFields)
+    query.where = indoor ? '1=1' : (query.where || '1=1')
     // Audiom stores longitude and latitude. A web map in Web Mercator
     // otherwise returns meters, which the ENU projection rejects.
     // The first 200 features in the service are not the tracts under the
@@ -416,7 +438,6 @@ async function queryLayerFeatures (
     // A LEVEL_ID layer is an indoor floor plan. The first 200 rows are not
     // the rooms on the other floors, so page the service. Travel and heatmap
     // stay on the 200-feature page.
-    const indoor = hasField(copy, 'LEVEL_ID')
     const page = await queryFeaturePages(layer, query, indoor)
     // The tract under the indicator must be in the snapshot or the step says Empty Space.
     const standing = await featuresAtIndicator(layer, indicator)
@@ -537,45 +558,135 @@ function levelLabel (name: string, ordinal: number): string {
   return trimmed
 }
 
-/**
- * Esri units carry LEVEL_ID, not levelOrdinal. The Levels layer has the
- * ordinal and the spoken floor name. Without that join the Levels dropdown
- * stays empty and every floor is stacked on the one the avatar can hear.
+/** Units carry the map's floor id, not levelOrdinal. The floor catalog layer
+ * has the ordinal and the spoken name. The id field is the one the map's own
+ * filter uses, not a fixed indoor column.
  */
 function stampIndoorLevels (layers: Array<SnapshotLayer & { features?: SnapshotFeature[] }>): void {
-  const catalog = layers.find((layer) => hasField(layer, 'VERTICAL_ORDER') && hasField(layer, 'LEVEL_ID'))
-    || layers.find((layer) => /^levels?$/i.test(layer.title || ''))
-  if (!catalog?.features?.length) return
-  const mappings = new Map<string, { ordinal: number, name: string }>()
-  for (const feature of catalog.features) {
-    const attributes = feature.attributes || {}
-    const id = levelKey(attributes.LEVEL_ID)
-    if (!id || mappings.has(id)) continue
-    const ordinal = levelNumber(attributes.VERTICAL_ORDER) ?? levelNumber(attributes.LEVEL_NUMBER) ?? 0
-    const raw = [attributes.NAME, attributes.NAME_SHORT, attributes.LEVEL_NAME].find(
-      (value) => typeof value === 'string' && value.trim()
-    )
-    mappings.set(id, {
-      ordinal,
-      name: levelLabel(typeof raw === 'string' ? raw : '', ordinal)
-    })
-  }
-  if (!mappings.size) return
-  for (const layer of layers) {
-    for (const feature of layer.features || []) {
-      const attributes = feature.attributes
-      if (!attributes) continue
-      const id = levelKey(attributes.LEVEL_ID)
-      if (!id) continue
-      const mapped = mappings.get(id)
-      if (!mapped) continue
-      if (levelNumber(attributes.levelOrdinal) == null) attributes.levelOrdinal = mapped.ordinal
-      if (levelNumber(attributes.level) == null) attributes.level = mapped.ordinal
-      if (typeof attributes.levelName !== 'string' || !attributes.levelName.trim()) {
-        attributes.levelName = mapped.name
+  const floorFields = floorFieldsFromSnapshots(layers)
+  for (const floorField of floorFields) {
+    const catalog = layers.find((layer) => orderFieldOf(layer, floorField))
+    const orderField = catalog ? orderFieldOf(catalog, floorField) : undefined
+    if (!catalog?.features?.length || !orderField) continue
+    const mappings = new Map<string, { ordinal: number, name: string }>()
+    for (const feature of catalog.features) {
+      const attributes = feature.attributes || {}
+      const id = levelKey(attribute(attributes, floorField))
+      const ordinal = levelNumber(attribute(attributes, orderField))
+      if (!id || ordinal == null || mappings.has(id)) continue
+      const raw = [attributes.NAME, attributes.NAME_SHORT, attributes.LEVEL_NAME].find(
+        (value) => typeof value === 'string' && value.trim()
+      )
+      mappings.set(id, {
+        ordinal,
+        name: levelLabel(typeof raw === 'string' ? raw : '', ordinal)
+      })
+    }
+    if (!mappings.size) continue
+    for (const layer of layers) {
+      if (!hasField(layer, floorField)) continue
+      for (const feature of layer.features || []) {
+        const attributes = feature.attributes
+        if (!attributes) continue
+        const id = levelKey(attribute(attributes, floorField))
+        if (!id) continue
+        const mapped = mappings.get(id)
+        if (!mapped) continue
+        if (levelNumber(attributes.levelOrdinal) == null) attributes.levelOrdinal = mapped.ordinal
+        if (levelNumber(attributes.level) == null) attributes.level = mapped.ordinal
+        if (typeof attributes.levelName !== 'string' || !attributes.levelName.trim()) {
+          attributes.levelName = mapped.name
+        }
       }
     }
   }
+}
+
+function attribute (attributes: Record<string, unknown>, field: string): unknown {
+  if (field in attributes) return attributes[field]
+  const target = field.toUpperCase()
+  for (const key of Object.keys(attributes)) {
+    if (key.toUpperCase() === target) return attributes[key]
+  }
+  return undefined
+}
+
+function floorFieldsFromSnapshots (layers: readonly SnapshotLayer[]): string[] {
+  const fields: string[] = []
+  const seen = new Set<string>()
+  const add = (field?: string) => {
+    if (!field || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(field)) return
+    const key = field.toUpperCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    fields.push(field)
+  }
+  const selectors: string[] = []
+  const selector = /\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:=|IN)\s*/gi
+  for (const layer of layers) {
+    add(layer.floorInfo?.field)
+    const expression = layer.definitionExpression || ''
+    selector.lastIndex = 0
+    let match = selector.exec(expression)
+    while (match) {
+      selectors.push(match[1])
+      match = selector.exec(expression)
+    }
+  }
+  for (const field of selectors) {
+    if (layers.filter((layer) => hasField(layer, field)).length >= 2) add(field)
+  }
+  return fields
+}
+
+function isFloorLayer (layer: SnapshotLayer, floorFields: readonly string[]): boolean {
+  return floorFields.some((field) => hasField(layer, field))
+}
+
+function orderFieldOf (layer: SnapshotLayer, floorField: string): string | undefined {
+  const rows = layer.features || []
+  if (!rows.length) return undefined
+  const objectId = layer.objectIdField?.toUpperCase()
+  let best: { name: string, span: number, min: number } | undefined
+  for (const field of layer.fields || []) {
+    const name = field.name
+    if (!name || name.toUpperCase() === floorField.toUpperCase()) continue
+    if (objectId && name.toUpperCase() === objectId) continue
+    const byFloor = new Map<string, number>()
+    const used = new Set<number>()
+    let ok = true
+    for (const feature of rows) {
+      const attributes = feature.attributes || {}
+      const id = levelKey(attribute(attributes, floorField))
+      const ordinal = levelNumber(attribute(attributes, name))
+      if (!id || ordinal == null) {
+        ok = false
+        break
+      }
+      const previous = byFloor.get(id)
+      if (previous != null && previous !== ordinal) {
+        ok = false
+        break
+      }
+      byFloor.set(id, ordinal)
+    }
+    if (!ok || !byFloor.size) continue
+    for (const ordinal of byFloor.values()) {
+      if (used.has(ordinal)) {
+        ok = false
+        break
+      }
+      used.add(ordinal)
+    }
+    if (!ok) continue
+    const nums = [...used]
+    const span = Math.max(...nums) - Math.min(...nums)
+    const min = Math.min(...nums)
+    if (!best || span < best.span || (span === best.span && min < best.min)) {
+      best = { name, span, min }
+    }
+  }
+  return best?.name
 }
 
 /**
