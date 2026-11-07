@@ -125,6 +125,34 @@ describe('map snapshot', () => {
     expect(units.visible).toBe(true)
   })
 
+  it('counts features on a source configuration whose eye is off', () => {
+    const snapshot = snapshotFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'sites',
+              title: 'Sites',
+              type: 'feature',
+              visible: false,
+              geometryType: 'polygon',
+              features: [{
+                attributes: { OBJECTID: 1, NAME: 'Esri' },
+                geometry: { rings: [[[-117.2, 34.05], [-117.19, 34.05], [-117.19, 34.06], [-117.2, 34.05]]] }
+              }]
+            })
+          }
+        }
+      }
+    }, 'map-1', [
+      { id: 'sites', title: 'Sites', enabled: false, mapType: 'indoor' }
+    ])
+
+    expect(snapshot.sources[0].disposition).toBe(LayerDisposition.VisualOnly)
+    expect(snapshot.sources[0].recordCount).toBe(1)
+    expect(snapshot.records[0].navigable).toBe(false)
+  })
+
   it('queries an enabled indoor layer that is hidden until it loads', async () => {
     const units: {
       id: string
@@ -585,7 +613,7 @@ describe('map snapshot', () => {
     setMapModuleLoader(null)
   })
 
-  it('drops a plot whose projection did not become longitude and latitude', async () => {
+  it('converts Web Mercator meters when the projection engine is missing', async () => {
     setMapModuleLoader(async () => {
       throw new Error('projection engine missing')
     })
@@ -622,7 +650,9 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    expect(snapshot.records).toEqual([])
+    const coordinates = snapshot.records[0].geometry?.coordinates as number[][][]
+    expect(coordinates[0][0][0]).toBeCloseTo(-77.345, 2)
+    expect(coordinates[0][0][1]).toBeCloseTo(38.708, 2)
     setMapModuleLoader(null)
   })
 
@@ -983,6 +1013,191 @@ describe('map snapshot', () => {
     expect(restroom?.attributes.levelOrdinal).toBe(0)
     expect(restroom?.attributes.levelName).toBe('Level 1')
     expect(office?.attributes.levelName).toBe('Level 1')
+  })
+
+  it('queries every floor after the embed clears the published floor clause', async () => {
+    const ring = [[[-117.195, 34.056], [-117.194, 34.056], [-117.194, 34.057], [-117.195, 34.056]]]
+    const floors = [
+      { id: '{LEVEL-1}', name: 'Level 1', order: 0 },
+      { id: '{LEVEL-2}', name: 'Level 2', order: 1 },
+      { id: '{LEVEL-3}', name: 'Level 3', order: 2 }
+    ]
+    const fields = (names: string[]) => ({
+      length: names.length,
+      forEach (fn: (field: { name: string }) => void) {
+        names.forEach((name) => fn({ name }))
+      }
+    })
+    const levelFeatures = floors.map((floor, index) => ({
+      attributes: { OBJECTID: index + 1, LEVEL_ID: floor.id, NAME: floor.name, VERTICAL_ORDER: floor.order },
+      geometry: { rings: ring }
+    }))
+    const unitFeatures = floors.map((floor, index) => ({
+      attributes: { OBJECTID: index + 1, NAME: `Room ${index}`, LEVEL_ID: floor.id },
+      geometry: { rings: ring }
+    }))
+    const levels = {
+      id: 'levels',
+      title: 'Levels',
+      type: 'feature',
+      visible: true,
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      fields: fields(['LEVEL_ID', 'NAME', 'VERTICAL_ORDER', 'OBJECTID']),
+      definitionExpression: `LEVEL_ID = '${floors[0].id}'`,
+      when () {
+        this.definitionExpression = null
+        return Promise.resolve()
+      },
+      createQuery () { return { where: this.definitionExpression || undefined } },
+      queryFeatures (query: { where?: string, outStatistics?: unknown }) {
+        if (!query.outStatistics) expect(query.where).toBe('1=1')
+        return Promise.resolve({ features: query.outStatistics ? [] : levelFeatures })
+      }
+    }
+    const units = {
+      id: 'units',
+      title: 'Units',
+      type: 'feature',
+      visible: true,
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      fields: fields(['LEVEL_ID', 'NAME', 'OBJECTID']),
+      definitionExpression: `LEVEL_ID = '${floors[0].id}'`,
+      when () {
+        this.definitionExpression = null
+        return Promise.resolve()
+      },
+      createQuery () { return {} },
+      queryFeatures (query: { where?: string, outStatistics?: unknown }) {
+        if (!query.outStatistics) expect(query.where).toBe('1=1')
+        return Promise.resolve({ features: query.outStatistics ? [] : unitFeatures })
+      }
+    }
+    const snapshot = await snapshotFeaturesFromMapView({
+      map: { allLayers: { forEach (fn) { fn(levels); fn(units) } } }
+    }, 'map-1', [
+      { id: 'levels', title: 'Levels', enabled: true, mapType: 'indoor' },
+      { id: 'units', title: 'Units', enabled: true, mapType: 'indoor' }
+    ])
+
+    expect([...new Set(snapshot.records.map((record) => record.attributes.levelOrdinal))].sort()).toEqual([0, 1, 2])
+  })
+
+  it('stamps floors when the floor clause was already cleared', async () => {
+    const ring = [[[-117.195, 34.056], [-117.194, 34.056], [-117.194, 34.057], [-117.195, 34.056]]]
+    const floors = [
+      { id: '{LEVEL-1}', name: 'Level 1', order: 0 },
+      { id: '{LEVEL-2}', name: 'Level 2', order: 1 }
+    ]
+    const levels = {
+      id: 'levels',
+      title: 'Levels',
+      type: 'feature',
+      visible: true,
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      fields: [
+        { name: 'LEVEL_ID' },
+        { name: 'NAME' },
+        { name: 'VERTICAL_ORDER' },
+        { name: 'OBJECTID' }
+      ],
+      definitionExpression: null,
+      createQuery () { return {} },
+      queryFeatures (query: { outStatistics?: unknown }) {
+        if (query.outStatistics) return Promise.resolve({ features: [] })
+        return Promise.resolve({
+          features: floors.map((floor, index) => ({
+            attributes: { OBJECTID: index + 1, LEVEL_ID: floor.id, NAME: floor.name, VERTICAL_ORDER: floor.order },
+            geometry: { rings: ring }
+          }))
+        })
+      }
+    }
+    const units = {
+      id: 'units',
+      title: 'Units',
+      type: 'feature',
+      visible: true,
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      fields: [{ name: 'LEVEL_ID' }, { name: 'NAME' }, { name: 'OBJECTID' }],
+      definitionExpression: null,
+      createQuery () { return {} },
+      queryFeatures (query: { outStatistics?: unknown }) {
+        if (query.outStatistics) return Promise.resolve({ features: [] })
+        return Promise.resolve({
+          features: floors.flatMap((floor, floorIndex) => [0, 1].map((room) => ({
+            attributes: {
+              OBJECTID: floorIndex * 2 + room + 1,
+              NAME: `Room ${floorIndex}-${room}`,
+              LEVEL_ID: floor.id
+            },
+            geometry: { rings: ring }
+          })))
+        })
+      }
+    }
+    const snapshot = await snapshotFeaturesFromMapView({
+      map: { allLayers: { forEach (fn) { fn(levels); fn(units) } } }
+    }, 'map-1', [
+      { id: 'levels', title: 'Levels', enabled: true, mapType: 'indoor' },
+      { id: 'units', title: 'Units', enabled: true, mapType: 'indoor' }
+    ])
+
+    const levelRows = snapshot.records.filter((record) => record.sourceId === 'levels')
+    expect(levelRows.map((record) => record.attributes.levelOrdinal).sort()).toEqual([0, 1])
+    expect(snapshot.records.find((record) => record.attributes.name === 'Room 0-0')?.attributes.levelName).toBe('Level 1')
+  })
+
+  it('counts every unit when the floor clause matches nothing and rings are meters', async () => {
+    setMapModuleLoader(async () => {
+      throw new Error('projection unavailable')
+    })
+    const ring = [[[-13046083.87, 4036397.97], [-13046029.17, 4036397.97], [-13046029.17, 4036434.96], [-13046083.87, 4036397.97]]]
+    const units = {
+      id: 'units',
+      title: 'Units',
+      type: 'feature',
+      visible: true,
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      spatialReference: { wkid: 102100 },
+      fields: [{ name: 'LEVEL_ID' }, { name: 'NAME' }, { name: 'OBJECTID' }],
+      definitionExpression: "LEVEL_ID = '{missing}'",
+      createQuery () {
+        return { where: this.definitionExpression || undefined }
+      },
+      queryFeatureCount () {
+        return Promise.resolve(239)
+      },
+      queryFeatures (query: { where?: string, outStatistics?: unknown }) {
+        if (query.outStatistics) return Promise.resolve({ features: [] })
+        expect(query.where).toBe('1=1')
+        expect(this.definitionExpression).toBeNull()
+        return Promise.resolve({
+          features: [{
+            attributes: { OBJECTID: 1, NAME: 'Office', LEVEL_ID: '{LEVEL-1}' },
+            geometry: { rings: ring }
+          }]
+        })
+      }
+    }
+    try {
+      const snapshot = await snapshotFeaturesFromMapView({
+        map: { allLayers: { forEach (fn) { fn(units) } } }
+      }, 'map-1', [
+        { id: 'units', title: 'Units', enabled: true, mapType: 'indoor' }
+      ])
+      expect(snapshot.sources.find((source) => source.sourceId === 'units')?.recordCount).toBe(239)
+      expect(snapshot.records).toHaveLength(1)
+      const office = snapshot.records[0]
+      expect(office.attributes.name).toBe('Office')
+      expect(Math.abs((office.geometry?.coordinates as number[][][])[0][0][0] + 117)).toBeLessThan(1)
+    } finally {
+      setMapModuleLoader(null)
+    }
   })
 
   it('starts the bundled runtime against that snapshot', async () => {

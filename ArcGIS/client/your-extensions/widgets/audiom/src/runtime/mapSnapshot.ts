@@ -66,6 +66,10 @@ export interface SnapshotLayer {
     features?: SnapshotFeature[]
     exceededTransferLimit?: boolean
   }>
+  /** Service total. The legend uses this when geometry pages come back short. */
+  queryFeatureCount?: (query: unknown) => Promise<number | { count?: number }>
+  /** Queried service total. Not a contract field. */
+  serviceFeatureCount?: number
   /** Resolves when the layer can be queried. Absent means query immediately. */
   when?: () => Promise<unknown>
   load?: () => Promise<unknown>
@@ -185,14 +189,18 @@ export function snapshotFromMapView (
       mapType: mapTypeForLayer(layer, mapTypes),
       rulesRef: layer.rulesRef?.trim() || null,
       disposition: bound ? LayerDisposition.Bound : LayerDisposition.VisualOnly,
-      recordCount: 0,
+      // The service total, when the geometry page was dropped. The loop below
+      // raises it if more records were actually emitted.
+      recordCount: layer.serviceFeatureCount || 0,
       status: SourceStatus.Complete
     })
-    if (!supported || hidden) return
     const features = (layer as SnapshotLayer & { features?: SnapshotFeature[] }).features
     if (!features?.length) return
-    // Out of scale stays navigable. Visible queried features are listed too.
-    const navigable = supported && (bound || outOfScale)
+    // A hidden configuration is still a layer with features. Dropping them
+    // made the legend count 0. The eye, not this count, decides navigation.
+    if ((!supported || hidden) && !hint) return
+    // Out of scale stays navigable. A closed eye does not.
+    const navigable = hint ? hint.enabled !== false : supported && (bound || outOfScale)
     const cap = isFloorLayer(layer, floorFields) ? INDOOR_FEATURE_CAP : FEATURE_LIMIT
     for (const feature of features.slice(0, cap)) {
       const record = featureRecord(dataSourceId, sourceId, layer, feature, navigable)
@@ -200,7 +208,8 @@ export function snapshotFromMapView (
     }
   })
   for (const source of sources) {
-    source.recordCount = records.filter((record) => record.sourceId === source.sourceId).length
+    const emitted = records.filter((record) => record.sourceId === source.sourceId).length
+    source.recordCount = Math.max(source.recordCount, emitted)
   }
   return { sources, records, dataSourceId }
 }
@@ -365,7 +374,10 @@ export async function snapshotFeaturesFromMapView (
     if (isInternalLayer(layer)) continue
     const hint = configured.length ? hintForLayer(layer, configured) : undefined
     if (configured.length && !hint) continue
-    if (layer.visible === false) continue
+    // A Source Configuration is counted even when its eye is off. Skipping
+    // the query is why Details, Facilities, Sites, and a not-yet-visible
+    // Units all read 0. The eye still controls whether the map draws them.
+    if (layer.visible === false && !hint) continue
     const canQuery = typeof layer.queryFeatures === 'function' && typeof layer.createQuery === 'function'
     // A configured layer may not expose queryFeatures until it loads. Waiting
     // here is what puts Units in the snapshot with Levels, not after it.
@@ -383,7 +395,7 @@ export async function snapshotFeaturesFromMapView (
   await projectLoadedFeatures(loaded)
   // Before rules. The augmenter appends levelName, and the Levels dropdown
   // reads levelOrdinal. Units only have a LEVEL_ID guid until this join.
-  stampIndoorLevels(loaded)
+  stampIndoorLevels(loaded, mapTypes)
   // After the query. Applying earlier stamps copies the query then replaces.
   await applyConfiguredRules(loaded, mapTypes)
   const view = {
@@ -494,6 +506,11 @@ async function queryLayerFeatures (
   copy.popupTemplate = layer.popupTemplate?.title ? { title: layer.popupTemplate.title } : copy.popupTemplate
   copy.fields = fieldCatalog(layer.fields)
   copy.objectIdField = layer.objectIdField
+  // The embed clears the published floor clause and draws the floor with a
+  // layer-view filter. Keep the clause we copied before that, or the query
+  // stays on one floor and the Levels toggle never sees a second ordinal.
+  copy.definitionExpression = layer.definitionExpression || copy.definitionExpression
+  copy.floorInfo = layer.floorInfo?.field ? { field: layer.floorInfo.field } : copy.floorInfo
   // Load also settles the type. A raster whose type was blank when it was
   // queued is a picture, not a feature source, and must not be queried.
   if (isRasterLayer(layer) || typeof layer.queryFeatures !== 'function' || typeof layer.createQuery !== 'function') {
@@ -501,13 +518,23 @@ async function queryLayerFeatures (
     return
   }
   try {
+    // Layers that carry the map's floor field are queried whole. Travel
+    // keeps its own where. The shared floor list is often empty until load,
+    // and the live clause may already have been cleared, so the copy's
+    // published clause counts too. Otherwise Units stops at the 200-feature
+    // page, only one floor is stamped, and the Levels toggle is omitted.
+    const indoor = isFloorLayer(copy, floorFields) || isFloorLayer(layer, floorFields) || Boolean(ownFloorField(copy)) || Boolean(ownFloorField(layer))
+    // A floor clause left on the layer is ANDed with this query. Units and
+    // Levels then come back empty, and the legend says 0. Clear it before
+    // createQuery copies it. The view filter still draws the selected floor.
+    if (indoor && layer.definitionExpression) {
+      try { layer.definitionExpression = null } catch { /* where = 1=1 still replaces a copied clause */ }
+    }
     const query = layer.createQuery()
     query.returnGeometry = true
     query.outFields = ['*']
-    // Layers that carry the map's floor field are queried whole. Travel
-    // keeps its own where.
-    const indoor = isFloorLayer(copy, floorFields) || isFloorLayer(layer, floorFields)
     query.where = indoor ? '1=1' : (query.where || '1=1')
+    if (!viewExtent) query.geometry = null
     // Audiom stores longitude and latitude. A web map in Web Mercator
     // otherwise returns meters, which the ENU projection rejects.
     // The first 200 features in the service are not the tracts under the
@@ -517,6 +544,10 @@ async function queryLayerFeatures (
       query.spatialRelationship = 'intersects'
     }
     query.outSpatialReference = { wkid: 4326 }
+    // The legend number is the service total, not how many rings survived
+    // projection. A floor-filtered queryFeatures can return none while the
+    // count is 239.
+    copy.serviceFeatureCount = await countServiceFeatures(layer)
     // A LEVEL_ID layer is an indoor floor plan. The first 200 rows are not
     // the rooms on the other floors, so page the service. Travel and heatmap
     // stay on the 200-feature page.
@@ -531,8 +562,25 @@ async function queryLayerFeatures (
     }
   } catch (error) {
     copy.features = []
+    if (copy.serviceFeatureCount == null) copy.serviceFeatureCount = await countServiceFeatures(layer)
     // eslint-disable-next-line no-console
     console.error('Audiom layer query failed', copy.title || copy.id, error)
+  }
+}
+
+/** Whole-layer count. Ignores a floor clause already cleared by the caller. */
+async function countServiceFeatures (layer: SnapshotLayer): Promise<number | undefined> {
+  if (typeof layer.queryFeatureCount !== 'function' || typeof layer.createQuery !== 'function') return undefined
+  try {
+    const query = layer.createQuery()
+    query.where = '1=1'
+    query.geometry = null
+    query.returnGeometry = false
+    const result = await layer.queryFeatureCount(query)
+    const count = typeof result === 'number' ? result : result?.count
+    return typeof count === 'number' && Number.isFinite(count) ? count : undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -578,13 +626,39 @@ function featureKey (feature: SnapshotFeature): string {
   return id == null ? JSON.stringify(feature.geometry || {}) : String(id)
 }
 
+function eachField (
+  fields: SnapshotLayer['fields'],
+  visit: (field: { name?: string }) => void
+): void {
+  if (!fields) return
+  // Esri fields are a Collection. for...of misses it; fieldCatalog already
+  // reads it with forEach. A missed LEVEL_ID keeps the one-floor query.
+  const list = fields as ArrayLike<{ name?: string }> & {
+    forEach?: (fn: (field: { name?: string }) => void) => void
+  }
+  if (typeof list.forEach === 'function') list.forEach(visit)
+  else Array.from(list).forEach(visit)
+}
+
 function hasField (layer: SnapshotLayer, name: string): boolean {
   const target = name.toUpperCase()
-  const fields = layer.fields || []
-  for (const field of fields) {
-    if (field?.name?.toUpperCase() === target) return true
+  let found = false
+  eachField(layer.fields, (field) => {
+    if (field?.name?.toUpperCase() === target) found = true
+  })
+  return found
+}
+
+function expressionFieldNames (expression: string | null | undefined): string[] {
+  const names: string[] = []
+  const selector = /\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:=|IN)\s*/gi
+  const text = expression || ''
+  let match = selector.exec(text)
+  while (match) {
+    names.push(match[1])
+    match = selector.exec(text)
   }
-  return false
+  return names
 }
 
 /**
@@ -644,44 +718,150 @@ function levelLabel (name: string, ordinal: number): string {
  * has the ordinal and the spoken name. The id field is the one the map's own
  * filter uses, not a fixed indoor column.
  */
-function stampIndoorLevels (layers: Array<SnapshotLayer & { features?: SnapshotFeature[] }>): void {
+function stampIndoorLevels (
+  layers: Array<SnapshotLayer & { features?: SnapshotFeature[] }>,
+  mapTypes?: readonly SnapshotMapTypeHint[]
+): void {
   const floorFields = floorFieldsFromSnapshots(layers)
+  let stamped = false
   for (const floorField of floorFields) {
-    const catalog = layers.find((layer) => orderFieldOf(layer, floorField))
-    const orderField = catalog ? orderFieldOf(catalog, floorField) : undefined
-    if (!catalog?.features?.length || !orderField) continue
-    const mappings = new Map<string, { ordinal: number, name: string }>()
-    for (const feature of catalog.features) {
-      const attributes = feature.attributes || {}
+    if (stampFloorField(layers, floorField)) stamped = true
+  }
+  // The embed may have cleared every floor clause before this snapshot was
+  // copied. The catalog join still knows which id is a floor.
+  if (!stamped) stampFloorCatalog(layers, mapTypes)
+}
+
+function stampFloorField (
+  layers: Array<SnapshotLayer & { features?: SnapshotFeature[] }>,
+  floorField: string
+): boolean {
+  const catalog = layers.find((layer) => orderFieldOf(layer, floorField))
+  const orderField = catalog ? orderFieldOf(catalog, floorField) : undefined
+  if (!catalog?.features?.length || !orderField) return false
+  const mappings = floorMappings(catalog, floorField, orderField)
+  if (!mappings.size) return false
+  return applyFloorMappings(layers, floorField, mappings)
+}
+
+function floorMappings (
+  catalog: SnapshotLayer & { features?: SnapshotFeature[] },
+  floorField: string,
+  orderField: string
+): Map<string, { ordinal: number, name: string }> {
+  const mappings = new Map<string, { ordinal: number, name: string }>()
+  for (const feature of catalog.features || []) {
+    const attributes = feature.attributes || {}
+    const id = levelKey(attribute(attributes, floorField))
+    const ordinal = levelNumber(attribute(attributes, orderField))
+    if (!id || ordinal == null || mappings.has(id)) continue
+    const raw = [attributes.NAME, attributes.NAME_SHORT, attributes.LEVEL_NAME].find(
+      (value) => typeof value === 'string' && value.trim()
+    )
+    mappings.set(id, {
+      ordinal,
+      name: levelLabel(typeof raw === 'string' ? raw : '', ordinal)
+    })
+  }
+  return mappings
+}
+
+function applyFloorMappings (
+  layers: Array<SnapshotLayer & { features?: SnapshotFeature[] }>,
+  floorField: string,
+  mappings: Map<string, { ordinal: number, name: string }>
+): boolean {
+  let stamped = false
+  for (const layer of layers) {
+    for (const feature of layer.features || []) {
+      const attributes = feature.attributes
+      if (!attributes) continue
       const id = levelKey(attribute(attributes, floorField))
-      const ordinal = levelNumber(attribute(attributes, orderField))
-      if (!id || ordinal == null || mappings.has(id)) continue
-      const raw = [attributes.NAME, attributes.NAME_SHORT, attributes.LEVEL_NAME].find(
-        (value) => typeof value === 'string' && value.trim()
-      )
-      mappings.set(id, {
-        ordinal,
-        name: levelLabel(typeof raw === 'string' ? raw : '', ordinal)
-      })
-    }
-    if (!mappings.size) continue
-    for (const layer of layers) {
-      if (!hasField(layer, floorField)) continue
-      for (const feature of layer.features || []) {
-        const attributes = feature.attributes
-        if (!attributes) continue
-        const id = levelKey(attribute(attributes, floorField))
-        if (!id) continue
-        const mapped = mappings.get(id)
-        if (!mapped) continue
-        if (levelNumber(attributes.levelOrdinal) == null) attributes.levelOrdinal = mapped.ordinal
-        if (levelNumber(attributes.level) == null) attributes.level = mapped.ordinal
-        if (typeof attributes.levelName !== 'string' || !attributes.levelName.trim()) {
-          attributes.levelName = mapped.name
-        }
+      if (!id) continue
+      const mapped = mappings.get(id)
+      if (!mapped) continue
+      if (levelNumber(attributes.levelOrdinal) == null) attributes.levelOrdinal = mapped.ordinal
+      if (levelNumber(attributes.level) == null) attributes.level = mapped.ordinal
+      if (typeof attributes.levelName !== 'string' || !attributes.levelName.trim()) {
+        attributes.levelName = mapped.name
       }
+      stamped = true
     }
   }
+  return stamped
+}
+
+/** A floor catalog is one row per floor, referenced by another layer. Used
+ * when the published floor clause is already gone. Indoor hints only, so a
+ * travel join is not turned into a floor list.
+ */
+function stampFloorCatalog (
+  layers: Array<SnapshotLayer & { features?: SnapshotFeature[] }>,
+  mapTypes?: readonly SnapshotMapTypeHint[]
+): void {
+  const indoor = mapTypes?.some((hint) => String(hint.mapType || '').toLowerCase() === 'indoor')
+    || layers.some((layer) => Boolean(layer.floorInfo?.field))
+  if (!indoor) return
+  for (const catalog of layers) {
+    const rows = catalog.features || []
+    if (rows.length < 2 || rows.length > 50) continue
+    const objectId = catalog.objectIdField?.toUpperCase()
+    for (const idField of candidateIdFields(catalog, objectId)) {
+      const orderField = orderFieldOf(catalog, idField)
+      if (!orderField) continue
+      const mappings = floorMappings(catalog, idField, orderField)
+      if (mappings.size < 2 || mappings.size > 50) continue
+      const ordinals = [...mappings.values()].map((item) => item.ordinal)
+      if (ordinals.some((ordinal) => Math.abs(ordinal) > 200)) continue
+      const referenced = layers.some((layer) =>
+        layer !== catalog &&
+        (layer.features?.length || 0) > mappings.size &&
+        matchingFloorIds(layer, idField, mappings) >= 2
+      )
+      if (!referenced) continue
+      applyFloorMappings(layers, idField, mappings)
+      if (!catalog.floorInfo?.field) catalog.floorInfo = { field: idField }
+      return
+    }
+  }
+}
+
+function candidateIdFields (
+  layer: SnapshotLayer & { features?: SnapshotFeature[] },
+  objectId?: string
+): string[] {
+  const names = new Set<string>()
+  eachField(layer.fields, (field) => {
+    if (field?.name) names.add(field.name)
+  })
+  for (const feature of layer.features || []) {
+    for (const key of Object.keys(feature.attributes || {})) names.add(key)
+  }
+  const rows = layer.features || []
+  return [...names].filter((name) => {
+    if (objectId && name.toUpperCase() === objectId) return false
+    if (/^(OBJECTID|FID|levelOrdinal|level|levelName)$/i.test(name)) return false
+    const values = new Set<string>()
+    for (const feature of rows) {
+      const id = levelKey(attribute(feature.attributes || {}, name))
+      if (!id) return false
+      values.add(id)
+    }
+    return values.size === rows.length
+  })
+}
+
+function matchingFloorIds (
+  layer: SnapshotLayer & { features?: SnapshotFeature[] },
+  floorField: string,
+  mappings: Map<string, { ordinal: number, name: string }>
+): number {
+  let matched = 0
+  for (const feature of layer.features || []) {
+    const id = levelKey(attribute(feature.attributes || {}, floorField))
+    if (id && mappings.has(id)) matched += 1
+  }
+  return matched
 }
 
 function attribute (attributes: Record<string, unknown>, field: string): unknown {
@@ -704,16 +884,24 @@ function floorFieldsFromSnapshots (layers: readonly SnapshotLayer[]): string[] {
     fields.push(field)
   }
   const selectors: string[] = []
-  const selector = /\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:=|IN)\s*/gi
+  const clauseLayers = new Map<string, { name: string, count: number }>()
   for (const layer of layers) {
     add(layer.floorInfo?.field)
-    const expression = layer.definitionExpression || ''
-    selector.lastIndex = 0
-    let match = selector.exec(expression)
-    while (match) {
-      selectors.push(match[1])
-      match = selector.exec(expression)
+    const named = new Set<string>()
+    for (const field of expressionFieldNames(layer.definitionExpression)) {
+      selectors.push(field)
+      const key = field.toUpperCase()
+      if (named.has(key)) continue
+      named.add(key)
+      const entry = clauseLayers.get(key) || { name: field, count: 0 }
+      entry.count += 1
+      clauseLayers.set(key, entry)
     }
+  }
+  // Two layers publishing the same floor clause is the floor field, even
+  // before their field collections have loaded.
+  for (const entry of clauseLayers.values()) {
+    if (entry.count >= 2) add(entry.name)
   }
   for (const field of selectors) {
     if (layers.filter((layer) => hasField(layer, field)).length >= 2) add(field)
@@ -721,17 +909,34 @@ function floorFieldsFromSnapshots (layers: readonly SnapshotLayer[]): string[] {
   return fields
 }
 
+/** The floor field this layer's own filter names, once its fields have loaded. */
+function ownFloorField (layer: SnapshotLayer): string | undefined {
+  if (layer.floorInfo?.field) return layer.floorInfo.field
+  for (const name of expressionFieldNames(layer.definitionExpression)) {
+    if (hasField(layer, name)) return name
+  }
+  return undefined
+}
+
 function isFloorLayer (layer: SnapshotLayer, floorFields: readonly string[]): boolean {
-  return floorFields.some((field) => hasField(layer, field))
+  if (floorFields.some((field) => hasField(layer, field))) return true
+  const named = new Set(expressionFieldNames(layer.definitionExpression).map((name) => name.toUpperCase()))
+  return floorFields.some((field) => named.has(field.toUpperCase()))
 }
 
 function orderFieldOf (layer: SnapshotLayer, floorField: string): string | undefined {
   const rows = layer.features || []
   if (!rows.length) return undefined
   const objectId = layer.objectIdField?.toUpperCase()
+  const names = new Set<string>()
+  eachField(layer.fields, (field) => {
+    if (field?.name) names.add(field.name)
+  })
+  for (const feature of rows) {
+    for (const key of Object.keys(feature.attributes || {})) names.add(key)
+  }
   let best: { name: string, span: number, min: number } | undefined
-  for (const field of layer.fields || []) {
-    const name = field.name
+  for (const name of names) {
     if (!name || name.toUpperCase() === floorField.toUpperCase()) continue
     if (objectId && name.toUpperCase() === objectId) continue
     const byFloor = new Map<string, number>()
@@ -1076,19 +1281,67 @@ function pointCoordinates (geometry: NonNullable<SnapshotFeature['geometry']>): 
   return null
 }
 
+const WEB_MERCATOR_HALF = 20037508.342789244
+
+function isWebMercatorWkid (wkid?: number): boolean {
+  return wkid === 102100 || wkid === 3857 || wkid === 102113
+}
+
+/** A floor query can ignore outSpatialReference and return Web Mercator meters
+ * while the layer still says 4326. Dropping those rings is why Units and Levels
+ * count 0. Convert that known CRS; leave any other projected CRS alone.
+ */
+function shouldTreatAsWebMercator (layer: SnapshotLayer, features: SnapshotFeature[]): boolean {
+  const wkid = layer.spatialReference?.latestWkid || layer.spatialReference?.wkid
+  if (isWebMercatorWkid(wkid)) return true
+  if (wkid && wkid !== 4326 && wkid !== 84) return false
+  return features.some((feature) => feature.geometry && !featureIsGeographic(feature))
+}
+
+function mercatorToLonLat (x: number, y: number): [number, number] {
+  const lon = (x / WEB_MERCATOR_HALF) * 180
+  const lat = (Math.atan(Math.exp((y / WEB_MERCATOR_HALF) * Math.PI)) * 360) / Math.PI - 90
+  return [lon, lat]
+}
+
+function convertMercatorPosition (position: number[]): number[] {
+  const [lon, lat] = mercatorToLonLat(position[0], position[1])
+  return position.length > 2 ? [lon, lat, ...position.slice(2)] : [lon, lat]
+}
+
+function convertMercatorGeometry (geometry: SnapshotFeature['geometry']): SnapshotFeature['geometry'] {
+  if (!geometry) return geometry
+  if (typeof geometry.x === 'number' && typeof geometry.y === 'number') {
+    const [x, y] = mercatorToLonLat(geometry.x, geometry.y)
+    return { ...geometry, x, y }
+  }
+  return {
+    ...geometry,
+    paths: geometry.paths?.map((path) => path.map(convertMercatorPosition)),
+    rings: geometry.rings?.map((ring) => ring.map(convertMercatorPosition))
+  }
+}
+
+function asWebMercator (features: SnapshotFeature[]): SnapshotFeature[] {
+  return features.map((feature) => (
+    !feature.geometry || featureIsGeographic(feature)
+      ? feature
+      : { ...feature, geometry: convertMercatorGeometry(feature.geometry) }
+  ))
+}
+
 /**
  * A query can ignore outSpatialReference and return projected meters.
- * Audiom's ENU projection only accepts longitude and latitude, so project
- * those meters with the layer's own spatial reference. Do not guess a CRS.
+ * Audiom's ENU projection only accepts longitude and latitude. Web Mercator
+ * is converted here when the ArcGIS projection module is missing, so a floor
+ * layer is not counted as 0.
  */
 async function geographicFeatures (
   layer: SnapshotLayer,
   features: SnapshotFeature[]
 ): Promise<SnapshotFeature[]> {
+  if (!features.length || features.every(featureIsGeographic)) return features
   const source = layer.spatialReference
-  const wkid = source?.latestWkid || source?.wkid
-  if (!features.length || !source || wkid === 4326 || wkid === 84) return features
-  if (features.every(featureIsGeographic)) return features
   try {
     const loaded = await loadMapModules(['esri/geometry/projection', 'esri/geometry/SpatialReference'])
     const projection = loaded[0] as {
@@ -1096,21 +1349,23 @@ async function geographicFeatures (
       project: (geometry: unknown, spatialReference: unknown) => SnapshotFeature['geometry']
     } | undefined
     const SpatialReference = loaded[1] as (new (properties: { wkid: number }) => unknown) | undefined
-    if (!projection || !SpatialReference) return features
-    if (typeof projection.load === 'function') await projection.load()
-    const geographic = new SpatialReference({ wkid: 4326 })
-    return features.flatMap((feature) => {
-      if (!feature.geometry || featureIsGeographic(feature)) return [feature]
-      const projected = projection.project({ ...feature.geometry, spatialReference: source }, geographic)
-      if (!projected || !featureIsGeographic({ geometry: projected })) return []
-      return [{ ...feature, geometry: projected }]
-    })
+    if (projection && SpatialReference && source) {
+      if (typeof projection.load === 'function') await projection.load()
+      const geographic = new SpatialReference({ wkid: 4326 })
+      const projected = features.flatMap((feature) => {
+        if (!feature.geometry || featureIsGeographic(feature)) return [feature]
+        const next = projection.project({ ...feature.geometry, spatialReference: source }, geographic)
+        if (!next || !featureIsGeographic({ geometry: next })) return []
+        return [{ ...feature, geometry: next }]
+      })
+      if (projected.length === features.length) return projected
+    }
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Audiom could not project layer', layer.title || layer.id, error)
-    // Meter rings are not plots. Keeping them makes every step say Empty Space.
-    return []
   }
+  if (!shouldTreatAsWebMercator(layer, features)) return []
+  return asWebMercator(features)
 }
 
 function featureIsGeographic (feature: SnapshotFeature): boolean {
@@ -1132,35 +1387,8 @@ async function projectLoadedFeatures (layers: SnapshotLayer[]): Promise<void> {
   const pending = layers.filter((layer) =>
     layer.features?.some((feature) => feature.geometry && !featureIsGeographic(feature))
   )
-  if (!pending.length) return
-  try {
-    const loaded = await loadMapModules(['esri/geometry/projection', 'esri/geometry/SpatialReference'])
-    const projection = loaded[0] as {
-      load?: () => Promise<unknown>
-      project: (geometry: unknown, spatialReference: unknown) => SnapshotFeature['geometry']
-    } | undefined
-    const SpatialReference = loaded[1] as (new (properties: { wkid: number }) => unknown) | undefined
-    if (!projection || !SpatialReference) return
-    if (typeof projection.load === 'function') await projection.load()
-    const geographic = new SpatialReference({ wkid: 4326 })
-    const webMercator = new SpatialReference({ wkid: 3857 })
-    for (const layer of pending) {
-      const source = layer.spatialReference
-      const wkid = source?.latestWkid || source?.wkid
-      const from = source && wkid !== 4326 && wkid !== 84 ? source : webMercator
-      layer.features = (layer.features || []).flatMap((feature) => {
-        if (!feature.geometry || featureIsGeographic(feature)) return [feature]
-        const projected = projection.project(
-          { ...feature.geometry, spatialReference: from },
-          geographic
-        )
-        if (!projected || !featureIsGeographic({ geometry: projected })) return []
-        return [{ ...feature, geometry: projected }]
-      })
-    }
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Audiom could not project snapshot features', error)
+  for (const layer of pending) {
+    layer.features = await geographicFeatures(layer, layer.features || [])
   }
 }
 
