@@ -11,6 +11,8 @@ cd Audiom-Esri/ArcGIS/server
 npm start -- --port 3000 --https_port 3001
 ```
 
+The indoor rules and speech strings come from the Front-End dev server on port 3002 (`npm run dev` in Audiom-Front-End).
+
 Then, from the workspace root:
 
 ```
@@ -18,3 +20,5 @@ node Audiom-Front-End/node_modules/@playwright/test/cli.js test --config Audiom-
 ```
 
 Setup writes `ArcGIS/server/public/apps/e2e-live/` and teardown deletes it. That folder is gitignored. The fixture uses the public Esri Building web map and does not store an API key.
+
+What the suite covers, and which widget features are still missing, is in [missing-features.md](missing-features.md).
