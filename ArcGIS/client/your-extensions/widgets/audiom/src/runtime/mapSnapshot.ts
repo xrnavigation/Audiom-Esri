@@ -155,21 +155,32 @@ export function snapshotFromMapView (
   layers.forEach((layer) => listed.push(layer))
   const floorFields = floorFieldsFromSnapshots(listed)
 
+  const configured = visibilityHints(mapTypes)
   listed.forEach((layer) => {
+    // The Source Configuration eye wins over a layer that has not applied
+    // its web-map visibility yet. Units was still hidden while Levels was not.
+    applyConfiguredVisibility(layer, mapTypes)
     if (isInternalLayer(layer)) return
+    const hint = configured.length ? hintForLayer(layer, configured) : undefined
+    // Data Sources lists Source Configurations. The indoor service folder
+    // ("ArcGIS Indoors Sample Data WFL1") is on the map and is not one.
+    if (configured.length && !hint) return
     const sourceId = layer.id || layer.title || FALLBACK_LAYER_SOURCE_ID
-    const supported = !isRasterLayer(layer) && (
-      isDataSourceLayerType(layer.type || '') ||
-      (typeof layer.queryFeatures === 'function' && typeof layer.createQuery === 'function')
-    )
-    const hidden = layer.visible === false
+    const supported = hint
+      ? hint.enabled !== false
+      : !isRasterLayer(layer) && (
+        isDataSourceLayerType(layer.type || '') ||
+        (typeof layer.queryFeatures === 'function' && typeof layer.createQuery === 'function')
+      )
+    const hidden = hint ? hint.enabled === false : layer.visible === false
     const outOfScale = layer.scaleVisible === false
-    // A visible operational layer is a data source even before its features
-    // are queried. Rule colors are painted later and must not hide the layer.
+    // A configured or visible operational layer is a data source even before
+    // its features are queried. Rule colors are painted later and must not
+    // hide the layer.
     const bound = supported && !hidden
     sources.push({
       sourceId,
-      displayName: layer.title || sourceId,
+      displayName: hint?.title || layer.title || sourceId,
       geometryFamily: FAMILY_BY_TYPE[layer.geometryType || ''] || null,
       mapType: mapTypeForLayer(layer, mapTypes),
       rulesRef: layer.rulesRef?.trim() || null,
@@ -205,9 +216,56 @@ export interface SnapshotMapTypeHint {
   mapType?: string
   /** Absolute or root-relative rules file. Resolved by the caller. */
   rulesFileUrl?: string
+  /**
+   * Source Configuration eye. When any hint sets this, Data Sources lists
+   * those configurations only, and the eye follows this flag.
+   */
+  enabled?: boolean
 }
 
-/** Audiom map types. 'standard' is not one of them and becomes travel. */
+/** Hints that name a Source Configuration and its eye. Map-type-only hints do not. */
+function visibilityHints (hints: readonly SnapshotMapTypeHint[] | undefined): SnapshotMapTypeHint[] {
+  return (hints || []).filter((hint) =>
+    typeof hint.enabled === 'boolean' && Boolean(hint.id || hint.title || hint.url)
+  )
+}
+
+function featureServiceUrl (url: string): string {
+  return url.split('?')[0].replace(/\/+$/, '').toLowerCase()
+}
+
+function sameFeatureUrl (layerUrl: string, hintUrl: string): boolean {
+  return featureServiceUrl(layerUrl) === featureServiceUrl(hintUrl)
+}
+
+/**
+ * Id, then the exact feature-service URL, then the title. A parent folder
+ * named after the service must not match a child configuration.
+ */
+function hintForLayer (
+  layer: SnapshotLayer,
+  hints: readonly SnapshotMapTypeHint[]
+): SnapshotMapTypeHint | undefined {
+  const id = layer.id || ''
+  const title = layer.title || ''
+  const url = layer.url || ''
+  return hints.find((hint) => Boolean(hint.id && id && hint.id === id)) ||
+    hints.find((hint) => Boolean(hint.url && url && sameFeatureUrl(url, hint.url))) ||
+    hints.find((hint) => Boolean(hint.title && title && hint.title === title))
+}
+
+/** The configuration eye is what Data Sources shows, and what the map draws. */
+function applyConfiguredVisibility (
+  layer: SnapshotLayer,
+  hints: readonly SnapshotMapTypeHint[] | undefined
+): void {
+  const configured = visibilityHints(hints)
+  if (!configured.length) return
+  const hint = hintForLayer(layer, configured)
+  if (!hint) return
+  layer.visible = hint.enabled !== false
+}
+
 function audiomMapType (value: string | undefined): string {
   if (value === MapType.Heatmap || value === MapType.Indoor || value === MapType.Travel) return value
   return MapType.Travel
@@ -282,21 +340,37 @@ export async function snapshotFeaturesFromMapView (
   layers.forEach((layer) => queue.push(layer))
   for (let index = 0; index < queue.length; index += 1) {
     const layer = queue[index]
-    layer.layers?.forEach((child) => queue.push(child))
-    layer.sublayers?.forEach((child) => queue.push(child))
+    const enqueue = (child: SnapshotLayer) => {
+      if (!queue.includes(child)) queue.push(child)
+    }
+    layer.layers?.forEach(enqueue)
+    layer.sublayers?.forEach(enqueue)
   }
   const floorFields = floorFieldsFromSnapshots(queue)
+  const configured = visibilityHints(mapTypes)
+  const processed = new Set<SnapshotLayer>()
   for (const layer of queue) {
+    if (processed.has(layer)) continue
+    processed.add(layer)
     // Basemap base and reference layers (terrain hillshade, say) ride in
     // allLayers but carry no features. Drop them before a force-load; the
     // hillshade tile service can hang and stall the whole snapshot.
     // Identity misses when allLayers holds a wrapper of the basemap layer.
     if (isBasemapMember(layer, basemapLayers)) continue
+    // Apply the Source Configuration eye before copying. An indoor layer can
+    // still report visible false while it loads; the copy would keep that.
+    applyConfiguredVisibility(layer, mapTypes)
     const copy = layerCopy(layer)
     loaded.push(copy)
     if (isInternalLayer(layer)) continue
+    const hint = configured.length ? hintForLayer(layer, configured) : undefined
+    if (configured.length && !hint) continue
     if (layer.visible === false) continue
-    if (typeof layer.queryFeatures !== 'function' || typeof layer.createQuery !== 'function') continue
+    const canQuery = typeof layer.queryFeatures === 'function' && typeof layer.createQuery === 'function'
+    // A configured layer may not expose queryFeatures until it loads. Waiting
+    // here is what puts Units in the snapshot with Levels, not after it.
+    const waitForLoad = Boolean(hint) && typeof layer.when === 'function'
+    if (!canQuery && !waitForLoad) continue
     pending.push(queryLayerFeatures(
       layer,
       copy,
@@ -362,10 +436,19 @@ function fieldCatalog (fields: SnapshotLayer['fields']): SnapshotLayer['fields']
   return catalog
 }
 
-/** The avatar marker, basemap tiles, and rasters are not feature data sources. */
+/** A service folder. Children are the sources. The folder title is the service name. */
+function isGroupLayer (layer: SnapshotLayer): boolean {
+  if (layer.type === 'group') return true
+  // An unloaded group has children and cannot be queried. A feature layer does not.
+  if (layer.type) return false
+  return Boolean(layer.layers) && typeof layer.queryFeatures !== 'function'
+}
+
+/** The avatar marker, basemap tiles, rasters, and service folders are not data sources. */
 function isInternalLayer (layer: SnapshotLayer): boolean {
   if (layer.id === 'audiom-avatar' || layer.listMode === 'hide') return true
   if (layer.isBasemap) return true
+  if (isGroupLayer(layer)) return true
   return isRasterLayer(layer)
 }
 

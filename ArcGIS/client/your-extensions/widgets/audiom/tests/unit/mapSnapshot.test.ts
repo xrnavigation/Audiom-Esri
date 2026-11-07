@@ -72,6 +72,109 @@ describe('map snapshot', () => {
     expect(snapshot.sources[0].mapType).toBe('heatmap')
   })
 
+  it('lists source configurations and follows their visibility, not the service folder', () => {
+    const units = {
+      id: 'units',
+      title: 'Units',
+      type: 'feature',
+      visible: false,
+      geometryType: 'polygon',
+      url: 'https://services.example/FeatureServer/1'
+    }
+    const snapshot = snapshotFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'wfl1',
+              title: 'ArcGIS Indoors Sample Data WFL1',
+              type: 'group',
+              visible: true,
+              layers: { forEach () { /* children are also in allLayers */ } }
+            })
+            fn({
+              id: 'levels',
+              title: 'Levels',
+              type: 'feature',
+              visible: true,
+              geometryType: 'polygon',
+              url: 'https://services.example/FeatureServer/2'
+            })
+            fn(units)
+            fn({
+              id: 'sites',
+              title: 'Sites',
+              type: 'feature',
+              visible: true,
+              geometryType: 'polygon',
+              url: 'https://services.example/FeatureServer/4'
+            })
+          }
+        }
+      }
+    }, 'map-1', [
+      { id: 'levels', title: 'Levels', url: 'https://services.example/FeatureServer/2', enabled: true, mapType: 'indoor' },
+      { id: 'units', title: 'Units', url: 'https://services.example/FeatureServer/1', enabled: true, mapType: 'indoor' },
+      { id: 'sites', title: 'Sites', url: 'https://services.example/FeatureServer/4', enabled: false, mapType: 'indoor' }
+    ])
+
+    expect(snapshot.sources.map((source) => source.displayName).sort()).toEqual(['Levels', 'Sites', 'Units'])
+    expect(snapshot.sources.find((source) => source.displayName === 'Levels')?.disposition).toBe(LayerDisposition.Bound)
+    expect(snapshot.sources.find((source) => source.displayName === 'Units')?.disposition).toBe(LayerDisposition.Bound)
+    expect(snapshot.sources.find((source) => source.displayName === 'Sites')?.disposition).toBe(LayerDisposition.VisualOnly)
+    expect(units.visible).toBe(true)
+  })
+
+  it('queries an enabled indoor layer that is hidden until it loads', async () => {
+    const units: {
+      id: string
+      title: string
+      visible: boolean
+      type?: string
+      geometryType?: string
+      when: () => Promise<void>
+      createQuery?: () => Record<string, unknown>
+      queryFeatures?: () => Promise<{ features: unknown[] }>
+    } = {
+      id: 'units',
+      title: 'Units',
+      visible: false,
+      when () {
+        units.type = 'feature'
+        units.geometryType = 'polygon'
+        units.createQuery = () => ({})
+        units.queryFeatures = () => Promise.resolve({
+          features: [{
+            attributes: { OBJECTID: 1, NAME: 'Lobby' },
+            geometry: { rings: [[[-117.2, 34.05], [-117.19, 34.05], [-117.19, 34.06], [-117.2, 34.05]]] }
+          }]
+        })
+        return Promise.resolve()
+      }
+    }
+    const snapshot = await snapshotFeaturesFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'folder',
+              title: 'ArcGIS Indoors Sample Data WFL1',
+              layers: { forEach () { /* unloaded group, no type yet */ } }
+            })
+            fn(units)
+          }
+        }
+      }
+    }, 'map-1', [
+      { id: 'units', title: 'Units', enabled: true, mapType: 'indoor' }
+    ])
+
+    expect(snapshot.sources.map((source) => source.displayName)).toEqual(['Units'])
+    expect(snapshot.sources[0].disposition).toBe(LayerDisposition.Bound)
+    expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Lobby'])
+    expect(units.visible).toBe(true)
+  })
+
   it('keeps a feature that is out of scale and drops a hidden one', () => {
     const snapshot = snapshotFromMapView({
       map: {

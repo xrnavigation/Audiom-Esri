@@ -437,6 +437,8 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
       // Embed uses the indoor default when a source omits Map Type. The Esri
       // Building config does that. Leaving it unset painted those layers as travel.
       mapType: source.mapType || MapType.Indoor,
+      // Data Sources follows this eye, not the layer's visibility mid-load.
+      enabled: source.enabled !== false,
       rulesFileUrl: resolveRulesFileUrl(source.rulesFileUrl, [
         sanitizedConfig.baseUrl,
         sanitizedConfig.assetBaseUrl,
@@ -1553,6 +1555,11 @@ function useBundledRuntime (
   mapTypesRef.current = mapTypes
   // A rules file change must re-query so the new outputs replace the stamps.
   const rulesKey = (mapTypes || []).map((item) => item.rulesFileUrl || '').join('|')
+  // A Source Configuration eye change must re-query. Hiding Units in settings
+  // and leaving it open in Data Sources is the bug this key refreshes.
+  const visibilityKey = (mapTypes || []).map((item) =>
+    `${item.id || item.title || item.url || ''}:${item.enabled === false ? '0' : item.enabled === true ? '1' : ''}`
+  ).join('|')
   const loadedSnapshot = useRef<MapSnapshot | null>(null)
   // The Map Type effect must not depend on the surface. A new surface
   // identity would republish. The paint still needs the map that is drawn.
@@ -1797,7 +1804,7 @@ function useBundledRuntime (
       layerHandle?.remove?.()
       window.removeEventListener(EMBED_PAINT_EVENT, onPaint)
     }
-  }, [handle, jimuMapView, surface, instanceId, rulesKey])
+  }, [handle, jimuMapView, surface, instanceId, rulesKey, visibilityKey])
   // Map Type is audio and the legend, not a new query. Retag the snapshot
   // already loaded and publish that. Querying the service again is the
   // long pause after the dropdown changes.
