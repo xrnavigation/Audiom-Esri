@@ -356,6 +356,34 @@ describe('map snapshot', () => {
     expect(snapshot.records[0].attributes.name).toBe('CITY OF MANASSAS PARK')
   })
 
+  it('does not speak the floor catalog as Levels: Level 1', () => {
+    const snapshot = snapshotFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'levels',
+              title: 'Levels',
+              type: 'feature',
+              visible: true,
+              geometryType: 'polygon',
+              floorCatalog: true,
+              popupTemplate: { title: 'Levels: {NAME}' },
+              features: [{
+                attributes: { OBJECTID: 1, NAME: 'Level 1' },
+                geometry: { rings: [[[-117.2, 34.05], [-117.19, 34.05], [-117.19, 34.06], [-117.2, 34.05]]] }
+              }]
+            })
+          }
+        }
+      }
+    }, 'map-1')
+
+    expect(snapshot.records[0].attributes.name).toBe('Level 1')
+    expect(snapshot.records[0].attributes.ruleType).toBe('level')
+    expect(snapshot.records[0].attributes.name).not.toContain('Levels:')
+  })
+
   it('waits for a layer to load before querying its features', async () => {
     let ready = false
     const snapshot = await snapshotFeaturesFromMapView({

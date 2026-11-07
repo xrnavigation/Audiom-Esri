@@ -86,6 +86,8 @@ export interface SnapshotLayer {
   definitionExpression?: string | null
   /** Esri floor-aware layers name the floor field here. */
   floorInfo?: { field?: string } | null
+  /** Floor catalog. The rules file excludes Level; this layer has no use type. */
+  floorCatalog?: boolean
   /** Rules file evaluated onto this layer's features. Null when none applied. */
   rulesRef?: string
   /** Test double. Production layers are read through queryFeatures. */
@@ -741,6 +743,7 @@ function stampFloorField (
   if (!catalog?.features?.length || !orderField) return false
   const mappings = floorMappings(catalog, floorField, orderField)
   if (!mappings.size) return false
+  catalog.floorCatalog = true
   return applyFloorMappings(layers, floorField, mappings)
 }
 
@@ -820,6 +823,7 @@ function stampFloorCatalog (
       )
       if (!referenced) continue
       applyFloorMappings(layers, idField, mappings)
+      catalog.floorCatalog = true
       if (!catalog.floorInfo?.field) catalog.floorInfo = { field: idField }
       return
     }
@@ -1072,6 +1076,7 @@ function featureRecord (
     const label = graphicName({
       attributes,
       layer: {
+        title: layer.title,
         displayField: layer.displayField,
         objectIdField: layer.objectIdField,
         popupTemplate: layer.popupTemplate
@@ -1079,6 +1084,9 @@ function featureRecord (
     }) ?? featureLabel(attributes, layer)
     if (label) styled.name = label
   }
+  // The floor catalog covers every room. The rules file excludes Level, and
+  // this layer has no use type, so the step must not say "Levels: Level 1".
+  if (layer.floorCatalog) styled.ruleType = 'level'
   return {
     key: { dataSourceId, layerId, recordId },
     sourceId: layerId,

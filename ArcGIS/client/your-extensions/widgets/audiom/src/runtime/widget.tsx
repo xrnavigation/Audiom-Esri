@@ -17,7 +17,7 @@ import { JimuConfig } from '../utils/JimuConfig'
 import { bundledFocusTarget, bundledStatus, paintAudiomStyles, primeBundledAudio, restoreAudiomStyles, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
 import { VectorStyleMode } from './audiomSymbols'
 import { snapshotFeaturesFromMapView, type SnapshotMapTypeHint } from './mapSnapshot'
-import { resolveRulesFileUrl, soundPlaceForGraphic } from './rulesStyle'
+import { resolveRulesFileUrl, soundPlaceForGraphic, spokenPlaceTitle } from './rulesStyle'
 import { bundledSoundpackName, resolveSoundpackFallbackUrl, resolveSoundpackUrl } from './soundpackUrl'
 import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
@@ -28,11 +28,10 @@ const EMBED_PAINT_EVENT = 'audiom-embed-paint'
 import {
   avatarScreenPoint,
   destroyMapSurface,
-  featureDetails,
   featureScreenPoint,
   dropViewPoint,
   mapPointFromScreen,
-  renderedGraphic,
+  roomUnderHit,
   mountEsriMap,
   showAvatar,
   type FeatureClickPoint,
@@ -480,17 +479,17 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     }
     const world = bundledHandle?.program?.world
     const withStatistic = includeStatistic(world, sanitizedConfig.sourceConfigs)
-    const lines: string[] = []
+    // The rules file's name expression is the tooltip. Esri's popup title is only
+    // the fallback when that file did not name the plot.
+    const fromRules = world
+      ? audiomPopupLines(world, point.longitude, point.latitude)
+      : []
+    const lines = fromRules.length ? [...fromRules] : []
     const name = point.name?.trim()
-    if (name) lines.push(name)
-    const stat = withStatistic ? statisticLine(world, point) : ''
+    if (!lines.length && name) lines.push(name)
+    const stat = withStatistic && !fromRules.length ? statisticLine(world, point) : ''
     if (stat) lines.push(stat)
-    // The clicked graphic wins. Audiom's world content is only the fallback.
-    const resolved = lines.length
-      ? lines
-      : (world && withStatistic
-        ? audiomPopupLines(world, point.longitude, point.latitude)
-        : (name ? [name] : []))
+    const resolved = lines
     if (!resolved.length) {
       setFeaturePopup(null)
       return
@@ -523,7 +522,12 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     const generation = ++followGeneration.current
     void soundPlaceForGraphic(point?.attributes, rulesUrl).then((place) => {
       if (generation !== followGeneration.current) return
-      bundledHandle?.program?.announceStanding?.(title, statistic, place)
+      // Same string the rules file wrote into name. Do not append the role.
+      const ruled = spokenPlaceTitle(place)
+      if (ruled && point && world && !audiomPopupLines(world, point.longitude, point.latitude).length) {
+        showPopup({ ...point, name: ruled })
+      }
+      bundledHandle?.program?.announceStanding?.(ruled || title, ruled ? undefined : statistic, place)
     }).catch(() => {
       if (generation !== followGeneration.current) return
       bundledHandle?.program?.announceStanding?.(title, statistic, null)
@@ -920,9 +924,9 @@ function EsriMapSurface (props: {
       void view.hitTest?.({ x, y }).then(async (hit) => {
         if (cancelled) return
         // Only a painted pattern or color. The visual base layer is not one.
-        const graphic = renderedGraphic(hit)
-        if (!graphic) { emit(); return }
-        emit(await featureDetails(graphic))
+        const details = await roomUnderHit(hit)
+        if (!details) { emit(); return }
+        emit(details)
       }).catch(() => { if (!cancelled) emit() })
     }).catch((): void => undefined)
     return () => { cancelled = true }
@@ -996,12 +1000,12 @@ function EsriMapSurface (props: {
     void view.hitTest({ x, y }).then(async (hit) => {
       if (hit.results?.some((result) => result.graphic?.attributes?.audiomAvatar)) return
       // Only a painted pattern or color. The visual base layer is not one.
-      const graphic = renderedGraphic(hit)
-      if (!graphic) {
+      const details = await roomUnderHit(hit)
+      if (!details) {
         emit()
         return
       }
-      emit(await featureDetails(graphic))
+      emit(details)
     }).catch(() => { emit() })
   }
   return (
@@ -1050,8 +1054,7 @@ function EsriMapSurface (props: {
           const dropped = onDrop(geographic.longitude, geographic.latitude)
           const hit = viewPoint && surface?.view.hitTest
             ? surface.view.hitTest(viewPoint).then(async (result) => {
-              const graphic = renderedGraphic(result)
-              return graphic ? featureDetails(graphic) : null
+              return roomUnderHit(result)
             }).catch((): null => null)
             : Promise.resolve(null)
           void Promise.all([dropped, hit]).then(([, details]) => {

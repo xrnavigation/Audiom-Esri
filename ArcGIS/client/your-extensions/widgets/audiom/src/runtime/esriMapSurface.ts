@@ -448,7 +448,47 @@ export function resolvePopupTitle (graphic: MapHitGraphic | null | undefined): s
     return value == null ? '' : String(value)
   }).trim()
   if (!resolved || resolved.includes('{')) return null
-  return resolved
+  // Indoors popups are "Levels: {NAME}". The layer title is not the place.
+  return withoutLayerPrefix(resolved, graphic.layer?.title)
+}
+
+function withoutLayerPrefix (title: string, layerTitle?: string): string {
+  const prefix = layerTitle?.trim()
+  if (!prefix) return title
+  const lead = `${prefix}:`
+  if (title.length <= lead.length) return title
+  if (title.slice(0, lead.length).toLowerCase() !== lead.toLowerCase()) return title
+  const rest = title.slice(lead.length).trim()
+  return rest || title
+}
+
+function useTypeOf (attributes?: Record<string, unknown> | null): string {
+  const value = attributes?.USE_TYPE ?? attributes?.use_type
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function isRoomUse (use: string): boolean {
+  return Boolean(use) && use.toLowerCase() !== 'level'
+}
+
+/**
+ * The room under the pointer. The floor polygon is painted on top and its
+ * popup is "Levels: Level 1". A use type other than Level is the place.
+ */
+export async function roomUnderHit (
+  hit: MapViewHit | null | undefined
+): Promise<{ name: string | null, attributes: Record<string, unknown> | null } | null> {
+  const graphics = (hit?.results || [])
+    .map((result) => result.graphic)
+    .filter((graphic): graphic is MapHitGraphic => Boolean(graphic) && !graphic.attributes?.audiomAvatar)
+  const quick = graphics.find((graphic) => isRoomUse(useTypeOf(graphic.attributes)))
+  if (quick) return featureDetails(quick)
+  for (const graphic of graphics.slice(0, 6)) {
+    if (!graphicIsRendered(graphic) && typeof graphic.layer?.queryFeatures !== 'function') continue
+    const details = await featureDetails(graphic)
+    if (isRoomUse(useTypeOf(details.attributes))) return details
+  }
+  return null
 }
 
 /**

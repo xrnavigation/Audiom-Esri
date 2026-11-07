@@ -88,6 +88,12 @@ function textValue (value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+/** The rules file's name expression, including its augmenters. The role is a sound, not a suffix. */
+export function spokenPlaceTitle (place: Record<string, unknown> | null | undefined): string | null {
+  if (!place || place.ruleType === 'level') return null
+  return textValue(place.name) || textValue(place.ruleName) || null
+}
+
 function soundKeys (attributes: Record<string, unknown>): Record<string, unknown> {
   const name = textValue(attributes.name) || textValue(attributes.Name) || textValue(attributes.NAME)
   const ruleName = textValue(attributes.ruleName)
