@@ -964,7 +964,7 @@ function EsriMapSurface (props: {
     }
   }, [props.popup, surfaceReady])
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const direction = movementDirection(event.key)
+    const direction = unmodifiedArrow(event)
     if (!direction || !props.onMove) return
     event.preventDefault()
     event.stopPropagation()
@@ -1229,7 +1229,7 @@ function AudiomIndicator (props: {
     } else props.onDragCancel?.()
   }
   const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
-    const direction = movementDirection(event.key)
+    const direction = unmodifiedArrow(event)
     if (!direction || !props.onMove) return
     event.preventDefault()
     event.stopPropagation()
@@ -1371,6 +1371,11 @@ function stepSizeMeters (value?: number, unit?: StepSizeUnit): number | undefine
   const stepUnit = unit ?? DEFAULT_CONFIG.stepSizeUnit
   if (!size || size <= 0) return undefined
   return StepSize.create(size, stepUnit).toMeters().value
+}
+
+function unmodifiedArrow (event: { key: string, shiftKey: boolean, ctrlKey: boolean, altKey: boolean, metaKey: boolean }): string | null {
+  if (event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return null
+  return movementDirection(event.key)
 }
 
 function movementDirection (key: string): string | null {

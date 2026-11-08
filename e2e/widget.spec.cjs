@@ -204,4 +204,70 @@ test.describe.serial('bundled widget live window', () => {
       await expect(page.locator(`#${previousId}`)).not.toBeChecked()
     }
   })
+
+  test('turning sounds back on does not wait for unlock', async () => {
+    await page.getByRole('button', { name: 'Enable Global Sounds' }).click()
+    await expect(page.getByRole('button', { name: 'Mute Global Sounds' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('the speech log button opens the sidebar', async () => {
+    await collapseMenus(page)
+    const logButton = page.getByRole('button', { name: /Speech Log/ })
+    if ((await logButton.getAttribute('aria-pressed')) === 'true') await logButton.click()
+    await logButton.click()
+    await expect(page.getByRole('button', { name: /^(Show|Hide) Menus$/ })).toHaveAttribute('aria-expanded', 'true')
+    await expect(speechLog(page)).toBeVisible()
+  })
+
+  test('shift arrow turns and does not step', async () => {
+    const compass = page.getByRole('button', { name: 'Audiom navigation indicator' })
+    await openSpeechLog(page)
+    await compass.focus()
+    const before = await compassAxis(compass, 'left')
+    await compass.press('Shift+ArrowRight')
+    await expect(speechLog(page)).toContainText('degrees')
+    expect(Math.abs((await compassAxis(compass, 'left')) - before)).toBeLessThan(1)
+  })
+
+  test('step size, briefing, sonar, and road following speak', async () => {
+    await openSpeechLog(page)
+    await page.locator('#audiom-esri-map').focus()
+    await page.keyboard.press('=')
+    await expect(speechLog(page)).toContainText('each step')
+    await page.keyboard.press('i')
+    await expect(speechLog(page)).toContainText(/facing|Indoor|feature/i)
+    await page.keyboard.press('Shift+E')
+    await expect(speechLog(page)).toContainText('Sonar is now enabled')
+    await page.keyboard.press('Shift+F')
+    await expect(speechLog(page)).toContainText('No followable road')
+    await page.keyboard.press('j')
+    await expect(speechLog(page)).toContainText('Encounter volume')
+  })
+
+  test('coordinate and heading dialogs open from the keyboard', async () => {
+    await page.locator('#audiom-esri-map').focus()
+    await page.keyboard.press('Shift+G')
+    const goTo = page.getByRole('dialog', { name: 'Go To' })
+    await expect(goTo).toBeVisible()
+    await goTo.getByRole('button', { name: 'Close' }).click()
+    await expect(goTo).toBeHidden()
+    await page.keyboard.press('Shift+O')
+    const heading = page.getByRole('dialog', { name: 'Set Orientation' })
+    await expect(heading).toBeVisible()
+    await heading.getByRole('button', { name: 'Close' }).click()
+    await expect(heading).toBeHidden()
+  })
+
+  test('the floor key focuses a level', async () => {
+    await page.locator('#audiom-esri-map').focus()
+    await page.keyboard.press('l')
+    await expect(page.locator('input[name="level"]:focus')).toBeVisible()
+  })
+
+  test('map display options render', async () => {
+    await expandMenus(page)
+    await page.getByRole('menuitem', { name: 'Map display options' }).click()
+    await expect(page.getByText('The menu failed to render')).toHaveCount(0)
+    await expect(page.getByText('Screen layout')).toBeVisible()
+  })
 })

@@ -98,11 +98,14 @@ function aliasAudiomRuntimeToSource (config) {
     // Bundled mode evaluates the same rules engine as the embed. The browser
     // build avoids the Node entry. Exact requests, so other package imports
     // are unchanged.
-    '@xrnavigation/layerloader/rules/mapboxRuleProcessor': path.join(
+    '@xrnavigation/layerloader$': path.join(__dirname, 'layerloader-rules.js'),
+    // Source imports the dist path because the Front-End tsconfig uses
+    // moduleResolution "node" and cannot see the package exports subpath.
+    '@xrnavigation/layerloader/dist/rules/mapboxRuleProcessor.js': path.join(
       frontEndModules,
       '@xrnavigation/layerloader/dist/browser/rules/mapboxRuleProcessor.js'
     ),
-    '@xrnavigation/layerloader/rules/materializeRuntimeRuleSet': path.join(
+    '@xrnavigation/layerloader/dist/rules/materializeRuntimeRuleSet.js': path.join(
       frontEndModules,
       '@xrnavigation/layerloader/dist/browser/rules/materializeRuntimeRuleSet.js'
     ),
