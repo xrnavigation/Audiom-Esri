@@ -61,7 +61,7 @@
       "config": {
         "existingMapId": "widget_1",
         "runtimeLocation": "bundled",
-        "assetBaseUrl": "http://localhost:3002",
+        "assetBaseUrl": "https://audiom-staging.herokuapp.com",
         "mapItemId": "5c51c0d1b66b4c488f3b1a43e0a27a31",
         "centerLatitude": 34.05669873306259,
         "centerLongitude": -117.19468783901752,
@@ -73,35 +73,45 @@
             "source": "19c06d1cbae-layer-3",
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/4",
             "enabled": false,
-            "rulesFileUrl": "/rules/esri-indoor.json"
+            "mapType": "indoor",
+            "rulesFileUrl": "https://gist.githubusercontent.com/ScionOfDesign/3a44abca25615bf994d8af057958e287/raw/32575d376511449faa87cbd09f9a3f943825414c/esri-building.json",
+            "filters": []
           },
           {
             "name": "Facilities",
             "source": "19c06d1cbaf-layer-4",
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/3",
             "enabled": false,
-            "rulesFileUrl": "/rules/esri-indoor.json"
+            "mapType": "indoor",
+            "rulesFileUrl": "https://gist.githubusercontent.com/ScionOfDesign/3a44abca25615bf994d8af057958e287/raw/32575d376511449faa87cbd09f9a3f943825414c/esri-building.json",
+            "filters": []
           },
           {
             "name": "Levels",
             "source": "19c06d1cbaf-layer-5",
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/2",
             "enabled": true,
-            "rulesFileUrl": "/rules/esri-indoor.json"
+            "mapType": "indoor",
+            "rulesFileUrl": "https://gist.githubusercontent.com/ScionOfDesign/3a44abca25615bf994d8af057958e287/raw/32575d376511449faa87cbd09f9a3f943825414c/esri-building.json",
+            "filters": []
           },
           {
             "name": "Units",
             "source": "19c06d1cbaf-layer-6",
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
             "enabled": true,
-            "rulesFileUrl": "/rules/esri-indoor.json"
+            "mapType": "indoor",
+            "rulesFileUrl": "https://gist.githubusercontent.com/ScionOfDesign/3a44abca25615bf994d8af057958e287/raw/32575d376511449faa87cbd09f9a3f943825414c/esri-building.json",
+            "filters": []
           },
           {
             "name": "Details",
             "source": "19c06d1cbb0-layer-7",
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/0",
             "enabled": false,
-            "rulesFileUrl": "/rules/esri-indoor.json"
+            "mapType": "indoor",
+            "rulesFileUrl": "https://gist.githubusercontent.com/ScionOfDesign/3a44abca25615bf994d8af057958e287/raw/32575d376511449faa87cbd09f9a3f943825414c/esri-building.json",
+            "filters": []
           }
         ],
         "apiKey": "wO35blaGsjJREGuXehqWU"
@@ -127,7 +137,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1793921962117,
+  "timestamp": 1794288848336,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {

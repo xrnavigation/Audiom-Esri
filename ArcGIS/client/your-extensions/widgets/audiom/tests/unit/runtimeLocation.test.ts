@@ -41,4 +41,10 @@ describe('runtime location field visibility', () => {
     expect(isSettingVisible(AudiomConfigKey.AssetBaseUrl, RuntimeLocation.Bundled)).toBe(true)
     expect(isSettingVisible(AudiomConfigKey.AssetBaseUrl, RuntimeLocation.Standalone)).toBe(false)
   })
+
+  it('shows map controls only on the bundled Esri map', () => {
+    expect(isSettingVisible(AudiomConfigKey.ShowMapControls, RuntimeLocation.Bundled)).toBe(true)
+    expect(isSettingVisible(AudiomConfigKey.ShowMapControls, RuntimeLocation.Standalone)).toBe(false)
+    expect(isSettingVisible(AudiomConfigKey.ShowMapControls, RuntimeLocation.Legacy)).toBe(false)
+  })
 })

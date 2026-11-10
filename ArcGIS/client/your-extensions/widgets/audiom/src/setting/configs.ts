@@ -25,6 +25,7 @@ export const DEFAULT_CONFIG = {
   stepSizeUnit: StepSizeUnit.Meters,
   showVisualMap: true,
   showHeading: false,
+  showMapControls: true,
   zoom: 10,
   heading: 3,
   useExistingMap: true,
@@ -145,6 +146,8 @@ export interface IAudiomConfig {
   stepSizeUnit?: StepSizeUnit
   showVisualMap?: boolean
   showHeading?: boolean
+  /** Bundled mode. Zoom, compass, fullscreen, and center controls. */
+  showMapControls?: boolean
   soundpackUrl?: string
   visualBaseLayers?: IVisualBaseLayerConfig[]
   visualStyle?: VisualStyle

@@ -20,6 +20,8 @@ export enum AudiomConfigKey {
   StepSizeUnit = 'stepSizeUnit',
   ShowVisualMap = 'showVisualMap',
   ShowHeading = 'showHeading',
+  /** Bundled map: zoom, compass, fullscreen, and center-on-indicator. */
+  ShowMapControls = 'showMapControls',
   SoundpackUrl = 'soundpackUrl',
   VisualBaseLayers = 'visualBaseLayers',
   VisualStyle = 'visualStyle',

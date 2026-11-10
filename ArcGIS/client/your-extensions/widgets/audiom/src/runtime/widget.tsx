@@ -450,11 +450,13 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   const embedOverlay = useRef<HTMLDivElement>(null)
   const followGeneration = useRef(0)
   const headerHeight = useHeaderHeight(embedOverlay)
+  const showMapControls = sanitizedConfig.showMapControls !== false
   useAudiomEmbed(
     embedOverlay,
     mapSurface,
     bundledHandle,
-    runtimeLocation === RuntimeLocation.Bundled
+    runtimeLocation === RuntimeLocation.Bundled,
+    showMapControls
   )
   // Only the bundled map is an Esri map other widgets can select. Standalone
   // embed is an iframe and must not publish a view. The data source id is
@@ -1398,9 +1400,13 @@ function useAudiomEmbed (
   overlay: { current: HTMLDivElement | null },
   surface: MountedMapSurface | null,
   handle: BundledRuntimeHandle | null,
-  enabled: boolean
+  enabled: boolean,
+  showMapControls: boolean
 ): boolean {
   const [mounted, setMounted] = useState(false)
+  const setControls = useRef<((container: HTMLElement, show: boolean) => void) | null>(null)
+  const showMapControlsRef = useRef(showMapControls)
+  showMapControlsRef.current = showMapControls
   useEffect(() => {
     const node = overlay.current
     // The menu does not wait on the program. A failed program used to skip
@@ -1422,19 +1428,23 @@ function useAudiomEmbed (
             view: MountedMapSurface['view']
             project: typeof projectEmbedPoint
             controllerOptions: { welcome: false }
+            showMapControls?: boolean
           }
         ) => { release: () => void }
+        setEmbedMapControls?: (container: HTMLElement, show: boolean) => void
         unmountAudiomEmbed?: (container: HTMLElement) => void
       }
       const session = handle?.program as { world?: unknown } | null
       if (!compiled.mountAudiomEmbed) {
         throw new Error('Audiom menu entry has no mountAudiomEmbed')
       }
+      setControls.current = compiled.setEmbedMapControls ?? null
       const controller = compiled.mountAudiomEmbed(node, {
         session: session?.world ? session as { world: unknown } : null,
         view: surface.view,
         project: projectEmbedPoint,
-        controllerOptions: { welcome: false }
+        controllerOptions: { welcome: false },
+        showMapControls: showMapControlsRef.current
       })
       release = () => {
         controller?.release()
@@ -1451,9 +1461,15 @@ function useAudiomEmbed (
     return () => {
       cancelled = true
       release?.()
+      setControls.current = null
       setMounted(false)
     }
   }, [enabled, surface, handle, overlay])
+  useEffect(() => {
+    const node = overlay.current
+    if (!mounted || !node) return
+    setControls.current?.(node, showMapControls)
+  }, [showMapControls, mounted, overlay])
   return mounted
 }
 

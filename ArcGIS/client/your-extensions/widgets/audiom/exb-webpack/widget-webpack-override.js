@@ -181,7 +181,35 @@ function aliasAudiomRuntimeToSource (config) {
   // DotPad SDK builds those URLs at runtime for optional liblouis files.
   // parser.url is the supported switch that leaves the calls alone.
   config.module = config.module || {}
-  config.module.rules = (config.module.rules || []).concat([
+  // Experience Builder's css-loader enables modules for every stylesheet, so a
+  // plain Front-End .css file would ship hashed class names that match nothing.
+  // Keep those class names, and let *.module.css keep the normal module rule.
+  const rules = config.module.rules || []
+  rules.forEach((rule) => {
+    if (!rule || typeof rule.test !== 'function') return
+    const original = rule.test
+    rule.test = (file) => {
+      const normalized = String(file).replace(/\\/g, '/')
+      if (/Audiom-Front-End\/src\/.+\.css$/.test(normalized) && !/\.module\.css$/.test(normalized)) {
+        return false
+      }
+      return original(file)
+    }
+  })
+  config.module.rules = [{
+    test: /Audiom-Front-End[\\/]src[\\/].+\.css$/,
+    exclude: /\.module\.css$/,
+    use: [
+      'style-loader',
+      {
+        loader: 'css-loader',
+        options: {
+          url: false,
+          modules: false
+        }
+      }
+    ]
+  }].concat(rules, [
     {
       test: /[\\/]dotpad[\\/]DotPadSDK-3\.0\.2\.js$/,
       parser: {

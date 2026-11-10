@@ -282,7 +282,10 @@ async function attachAvatarLayer (surface: MountedMapSurface): Promise<void> {
   surface.avatarLayer = layer
 }
 
-/** Esri adds zoom by default. Audiom already has zoom controls. */
+/**
+ * Esri adds zoom by default. Audiom's own controls (the embed cluster) replace
+ * it. Those are toggled with showMapControls, not by putting Esri's widget back.
+ */
 export function hideNativeZoom (view: MountedMapView): void {
   const ui = view.ui
   if (ui) {
