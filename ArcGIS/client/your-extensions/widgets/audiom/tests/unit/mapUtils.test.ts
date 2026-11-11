@@ -2,9 +2,11 @@ import {
   combineFilterExpressions,
   combineTimeFilters,
   getSourcesFromConfig,
+  getMapImageryLayers,
   audiomConfigToEmbedConfig,
   isAudiomConfigValid
 } from '../../src/utils/mapUtils'
+import { makeFakeJimuMapView, makeFakeLayer } from '../helpers/fakeJimuMapView'
 import { FilterType } from '../../src/setting/enums'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { toMutableConfig } from '../../src/setting/configs'
@@ -170,6 +172,36 @@ describe('audiomConfigToEmbedConfig', () => {
     const cfg = makeConfig({ visualBaseLayers: [] })
     const embed = audiomConfigToEmbedConfig(cfg, undefined)
     expect(embed).toBeDefined()
+  })
+})
+
+describe('getMapImageryLayers', () => {
+  it('returns imagery service urls and skips layers without one', () => {
+    const map = makeFakeJimuMapView({
+      baseLayers: [
+        makeFakeLayer({ type: 'imagery', title: 'World Imagery', url: ' https://example.com/World/ImageServer ' })
+      ],
+      layers: [
+        makeFakeLayer({ type: 'imagery', title: '  ', url: 'https://example.com/NamedById/ImageServer' }),
+        makeFakeLayer({ type: 'imagery', title: 'Missing URL' }),
+        makeFakeLayer({ type: 'tile', title: 'Streets', url: 'https://example.com/Streets' })
+      ]
+    }).view.map as unknown as __esri.Map
+    ;(map.allLayers.toArray()[1] as { id?: string }).id = 'ndvi-id'
+
+    expect(getMapImageryLayers(map)).toEqual([
+      {
+        url: 'https://example.com/World/ImageServer',
+        name: 'World Imagery',
+        visible: true
+      },
+      {
+        url: 'https://example.com/NamedById/ImageServer',
+        name: 'ndvi-id',
+        visible: true
+      }
+    ])
+    expect(getMapImageryLayers(undefined)).toEqual([])
   })
 })
 

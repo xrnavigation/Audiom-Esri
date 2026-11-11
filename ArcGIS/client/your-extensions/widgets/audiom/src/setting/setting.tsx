@@ -399,6 +399,7 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
         })}
         <VisualBaseLayerList
           layers={mutableConfig.visualBaseLayers || []}
+          mapId={effectiveMapId}
           onChange={(layers) => onPropertyChange(AudiomConfigKey.VisualBaseLayers, layers)}
         />
         <SettingRow flow={FlowType.Wrap}>

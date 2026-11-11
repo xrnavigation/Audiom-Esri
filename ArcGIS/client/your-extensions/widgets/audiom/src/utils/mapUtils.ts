@@ -264,6 +264,54 @@ export function getSourceLayerPairsFromEsriMap(
   return pairs;
 }
 
+function getImageryLayers(map: __esri.Map): __esri.Collection<__esri.Layer> {
+  return map.allLayers.filter(layer => layer.type === LayerType.IMAGERY);
+}
+
+/** Imagery layer that can be imported as an image server base layer. */
+export interface MapImageryLayer {
+  /** ImageServer URL. Layers without one are omitted. */
+  url: string;
+  /** Layer title, or id when the title is blank. */
+  name?: string;
+  visible: boolean;
+}
+
+/**
+ * Imagery layers on the map, including basemap and operational layers.
+ * Prefers each layer's title and falls back to its id. Layers without a
+ * service URL cannot become image server base layers and are omitted.
+ */
+export function getMapImageryLayers(map: __esri.Map | null | undefined): MapImageryLayer[] {
+  if (!map?.allLayers) {
+    return [];
+  }
+
+  const layers: MapImageryLayer[] = [];
+  getImageryLayers(map).forEach(layer => {
+    const url = imageryServiceUrl(layer);
+    if (!url) {
+      return;
+    }
+    const name = layer.title?.trim() || layer.id?.trim() || undefined;
+    layers.push({
+      url,
+      name,
+      visible: layer.visible !== false
+    });
+  });
+  return layers;
+}
+
+function imageryServiceUrl(layer: __esri.Layer): string | undefined {
+  const url = (layer as __esri.Layer & { url?: string }).url;
+  if (typeof url !== 'string') {
+    return undefined;
+  }
+  const trimmed = url.trim();
+  return trimmed || undefined;
+}
+
 /**
  * Removes rules file URLs from source configs for diff comparison.
  * Rules files should not trigger a map change detection.
