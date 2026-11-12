@@ -23,6 +23,9 @@ interface VisualBaseLayerListProps {
   onChange: (layers: IVisualBaseLayerConfig[]) => void
   /** Map widget id whose Imagery layers can be imported. */
   mapId?: string
+
+  // Whether to show the "Import Base Layers" button. If true, the button is hidden.
+  useExistingMap?: boolean
 }
 
 /** Compare service URLs without trailing-slash or case differences. */
@@ -46,7 +49,7 @@ function toImageServerBaseLayer(layer: MapImageryLayer): IVisualBaseLayerConfig 
 }
 
 const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
-  const { layers, onChange, mapId } = props
+  const { layers, onChange, mapId, useExistingMap = true } = props
   const [isOpen, setIsOpen] = useState(layers.length > 0)
   const [expandedLayers, setExpandedLayers] = useState<Record<number, boolean>>(() => {
     const initial: Record<number, boolean> = {}
@@ -174,15 +177,15 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
             {BUTTON_ADD}
           </Button>
 
-          <Button
-            type={ButtonType.Primary}
-            style={{ width: '100%', marginBottom: 12 }}
-            onClick={handleListBaseLayers}
-          >
-            {BUTTON_IMPORT}
-          </Button>
-
-
+          {!useExistingMap ? (
+            <Button
+              type={ButtonType.Primary}
+              style={{ width: '100%', marginBottom: 12 }}
+              onClick={handleListBaseLayers}
+            >
+              {BUTTON_IMPORT}
+            </Button>
+          ) : null}
         </SettingRow>
       </Collapse>
     </div>
