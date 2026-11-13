@@ -1,0 +1,5 @@
+{
+  "id": "audiom-history-protocol",
+  "kind": "internal",
+  "reason": "Add authored Audiom-wide change notes and validation so component changes, including direct commits, remain accounted in the shared product history."
+}
