@@ -53,12 +53,31 @@ jobs:
       # Build every version independently; one failure shouldn't cancel the rest.
       fail-fast: false
       matrix:
-        # Bundled mode compiles the Front-End program. 1.18 is React 18
-        # (Enterprise 12.0). 1.20 is React 19 (Enterprise 12.1). Older
-        # versions stay on the embed zips already published under
-        # docs/builder-versions until this graph is proven there.
+        # =====================================================================
+        # Add or remove an entry to build for that release, setting
+        # `node-version` to the recommended Node.js major from Esri's table:
+        # https://developers.arcgis.com/experience-builder/guide/release-versions/
+        # The docs folder `docs/builder-versions/<exb-version>/audiom` is derived
+        # from `exb-version`.
+        # =====================================================================
         include:
+        # Node 16 is EOL; Esri still lists it as the 1.13 recommended major.
+        # Pin 16.20.x here only if ubuntu-latest + Node 16 fails npm ci.
+        - exb-version: '1.12'
+          node-version: '16'
+        - exb-version: '1.13'
+          node-version: '16'
+        - exb-version: '1.14'
+          node-version: '18'
+        - exb-version: '1.15'
+          node-version: '20'
+        - exb-version: '1.16'
+          node-version: '20'
+        - exb-version: '1.17'
+          node-version: '22'
         - exb-version: '1.18'
+          node-version: '22'
+        - exb-version: '1.19'
           node-version: '22'
         - exb-version: '1.20'
           node-version: '24'
