@@ -233,8 +233,12 @@ function aliasAudiomRuntimeToSource (config) {
 }
 
 module.exports = function (webpackConfigs) {
-  if (Array.isArray(webpackConfigs)) {
-    webpackConfigs.forEach(aliasAudiomRuntimeToSource)
-  }
+  // 1.16+ passes the array from getWidgetsWebpackConfigs. 1.12–1.15 pass
+  // the single object from getWidgetsWebpackConfig. Leaving that object
+  // untouched is why those builds cannot resolve the Front-End entry.
+  const configs = Array.isArray(webpackConfigs) ? webpackConfigs : [webpackConfigs]
+  configs.forEach((config) => {
+    if (config && typeof config === 'object') aliasAudiomRuntimeToSource(config)
+  })
   return webpackConfigs
 }
