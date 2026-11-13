@@ -142,6 +142,12 @@ jobs:
         NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: npm ci
 
+    # The downloaded client has no node_modules. build:for-download runs
+    # cross-env from the client devDependencies, so install those first.
+    - name: Install Experience Builder client dependencies
+      working-directory: ArcGIS/client
+      run: npm ci
+
     # Developer Edition 1.18+ emits the downloadable widget, including lazy
     # import() chunks, with build:for-download. Older releases keep build:prod.
     # build:for-download writes dist-download. Older build:prod writes dist
