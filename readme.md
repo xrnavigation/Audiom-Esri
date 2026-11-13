@@ -146,7 +146,7 @@ Place `Audiom-Front-End` next to this repo, or set `AUDIOM_FRONTEND_ROOT` to tha
 
 Restart the Experience Builder client after the overlay is copied. `webpack --watch` loads this file once at startup and will keep compiling the widget without the Front-End entry until it is restarted.
 
-CI checks out Front-End at the SHA in `.github/workflows/build-audiom-widget.yaml`. The `AUDIOM_FRONTEND_TOKEN` secret must be able to read `Coughlan-Lab/Audiom-Front-End` and `@xrnavigation` packages.
+CI checks out the Front-End branch named by `AUDIOM_FRONTEND_REF` in `.github/workflows/build-audiom-widget.yaml`. The `AUDIOM_FRONTEND_TOKEN` secret must be able to read `Coughlan-Lab/Audiom-Front-End` and `@xrnavigation` packages.
 
 ## Publishing Widgets
 

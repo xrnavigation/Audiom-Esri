@@ -33,9 +33,9 @@ env:
   # Front-End checkout inside this workspace. The widget require cannot walk
   # outside $GITHUB_WORKSPACE, so the overlay aliases a module id to this path.
   AUDIOM_FRONTEND_ROOT: ${{ github.workspace }}/Audiom-Front-End
-  # feature/1977-use-map-viewer. Bump the SHA on purpose. A Front-End push
-  # does not rebuild the widget.
-  AUDIOM_FRONTEND_SHA: 9e8782e438dd31c8a1b99435bcb37b3670cbe3ac
+  # Front-End branch compiled into the widget. Checkout uses the branch tip,
+  # not a pinned SHA. A Front-End push does not itself rebuild the widget.
+  AUDIOM_FRONTEND_REF: feature/1977-use-map-viewer
   # Absolute path to the workflow helper scripts, anchored to the repo root so
   # every step calls the same location regardless of its working directory.
   SCRIPTS_DIR: ${{ github.workspace }}/.github/scripts
@@ -79,7 +79,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: Coughlan-Lab/Audiom-Front-End
-        ref: ${{ env.AUDIOM_FRONTEND_SHA }}
+        ref: ${{ env.AUDIOM_FRONTEND_REF }}
         path: Audiom-Front-End
         token: ${{ secrets.AUDIOM_FRONTEND_TOKEN }}
 
