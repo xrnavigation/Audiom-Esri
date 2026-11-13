@@ -26,6 +26,7 @@ export const DEFAULT_CONFIG = {
   showVisualMap: true,
   showHeading: false,
   showMapControls: true,
+  showMapLabels: true,
   zoom: 10,
   heading: 3,
   useExistingMap: true,
@@ -148,6 +149,8 @@ export interface IAudiomConfig {
   showHeading?: boolean
   /** Bundled mode. Zoom, compass, fullscreen, and center controls. */
   showMapControls?: boolean
+  /** Bundled mode. Room-name text drawn over the map. Absent means shown. */
+  showMapLabels?: boolean
   soundpackUrl?: string
   visualBaseLayers?: IVisualBaseLayerConfig[]
   visualStyle?: VisualStyle

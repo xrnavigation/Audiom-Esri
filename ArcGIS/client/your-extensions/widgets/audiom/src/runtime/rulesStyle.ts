@@ -223,18 +223,12 @@ export async function applyConfiguredRules (
     }
     const matched = outputs.filter((output) => output != null).length
     layer.rulesRef = rulesUrl
-    if (!matched) {
-      // eslint-disable-next-line no-console
-      console.error('Audiom rules matched no features', layer.title || layer.id, rulesUrl)
-      return
-    }
+    if (!matched) return
     layer.features = features.flatMap((feature, index) => {
       const output = outputs[index]
       if (!output) return []
       return [{ ...feature, attributes: mergeAttributes(feature.attributes, output) }]
     })
-    // eslint-disable-next-line no-console
-    console.error('Audiom rules applied', layer.title || layer.id, matched, 'of', features.length, rulesUrl)
   })
   await Promise.all(pending)
 }

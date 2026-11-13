@@ -30,7 +30,7 @@ export interface MapViewEvent {
 }
 
 export interface MapHitGraphic {
-  attributes?: Record<string, unknown> & { audiomAvatar?: boolean }
+  attributes?: Record<string, unknown> & { audiomAvatar?: boolean, audiomLabel?: boolean }
   layer?: {
     title?: string
     displayField?: string
@@ -350,8 +350,12 @@ const LAYER_NAME_FIELDS = ['name', 'Name', 'NAME', 'title', 'Title', 'TITLE', 'l
  * snapshot label: the layer display field, then name, title, and label.
  * An object id is not a name.
  */
+function isAudiomChrome (graphic: { attributes?: { audiomAvatar?: boolean, audiomLabel?: boolean } } | null | undefined): boolean {
+  return Boolean(graphic?.attributes?.audiomAvatar || graphic?.attributes?.audiomLabel)
+}
+
 export function hitFeatureName (graphic: MapHitGraphic | null | undefined): string | null {
-  if (!graphic || graphic.attributes?.audiomAvatar) return null
+  if (!graphic || isAudiomChrome(graphic)) return null
   const attributes = graphic.attributes || {}
   const displayField = graphic.layer?.displayField
   const fields = displayField ? [displayField, ...LAYER_NAME_FIELDS] : LAYER_NAME_FIELDS
@@ -382,7 +386,7 @@ export function hitFeatureNames (hit: MapViewHit | null | undefined): string[] {
 export function hitFeatureData (hit: MapViewHit | null | undefined): { name: string | null, attributes: Record<string, unknown> | null } {
   for (const result of hit?.results || []) {
     const graphic = result.graphic
-    if (!graphic || graphic.attributes?.audiomAvatar) continue
+    if (!graphic || isAudiomChrome(graphic)) continue
     return { name: graphicName(graphic), attributes: graphic.attributes ?? null }
   }
   return { name: null, attributes: null }
@@ -395,7 +399,7 @@ export function hitFeatureData (hit: MapViewHit | null | undefined): { name: str
  * A host heatmap is already a rendered surface and is included.
  */
 export function graphicIsRendered (graphic: MapHitGraphic | null | undefined): boolean {
-  if (!graphic || graphic.attributes?.audiomAvatar) return false
+  if (!graphic || isAudiomChrome(graphic)) return false
   const layer = graphic.layer
   if (!layer) return false
   if (layer.__audiomOriginalRenderer !== undefined) return true
@@ -495,7 +499,7 @@ export async function roomUnderHit (
 ): Promise<{ name: string | null, attributes: Record<string, unknown> | null } | null> {
   const graphics = (hit?.results || [])
     .map((result) => result.graphic)
-    .filter((graphic): graphic is MapHitGraphic => Boolean(graphic) && !graphic.attributes?.audiomAvatar)
+    .filter((graphic): graphic is MapHitGraphic => Boolean(graphic) && !isAudiomChrome(graphic))
   const quick = graphics.find((graphic) => isRoomUse(useTypeOf(graphic.attributes)))
   if (quick) return featureDetails(quick)
   for (const graphic of graphics.slice(0, 6)) {

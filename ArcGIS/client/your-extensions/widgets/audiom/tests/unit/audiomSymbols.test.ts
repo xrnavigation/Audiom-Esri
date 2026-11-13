@@ -1,4 +1,4 @@
-import { applyAudiomSymbols, colorWithOpacity, heatmapField, restoreAudiomSymbols, styleKey, symbolFor, patternTileUrl, VectorStyleMode } from '../../src/runtime/audiomSymbols'
+import { applyAudiomLabels, applyAudiomSymbols, colorWithOpacity, heatmapField, labelExpression, labelFieldsOf, LABEL_MIN_SCALE, restoreAudiomLabels, restoreAudiomSymbols, styleKey, symbolFor, patternTileUrl, VectorStyleMode } from '../../src/runtime/audiomSymbols'
 
 class FakeSymbol {
   properties: unknown
@@ -344,5 +344,90 @@ describe('audiom symbols', () => {
     }
     expect(applyAudiomSymbols(layer, modules, layer.features)).toBe(false)
     expect(layer.renderer).toBe(host)
+  })
+})
+
+describe('audiom labels', () => {
+  const units = {
+    geometryType: 'polygon',
+    fields: [{ name: 'NAME' }, { name: 'USE_TYPE' }, { name: 'OBJECTID' }],
+    displayField: 'NAME',
+    labelingInfo: [{ kind: 'host' }],
+    labelsVisible: false
+  }
+
+  it('prefers the room name fields the embed prints, not the object id', () => {
+    expect(labelFieldsOf(units)).toEqual(['NAME', 'USE_TYPE'])
+    expect(labelFieldsOf({
+      fields: [{ name: 'name' }, { name: 'ruleName' }, { name: 'directionSymbol' }]
+    })).toEqual(['name', 'ruleName'])
+  })
+
+  it('skips empty, unlabeled, direction arrows, and Level polygons', () => {
+    const expression = labelExpression(['NAME', 'USE_TYPE'], {
+      directionField: 'directionSymbol',
+      levelUseField: 'USE_TYPE'
+    })
+    expect(expression).toContain('unlabeled')
+    const values = expression.slice(expression.indexOf('var values'))
+    expect(values.indexOf('$feature["NAME"]')).toBeLessThan(values.indexOf('$feature["USE_TYPE"]'))
+    expect(expression).toContain('$feature["directionSymbol"]')
+    expect(expression).toContain('== "level"')
+  })
+
+  it('labels an indoor room layer and restores the host labeling', () => {
+    const layer = { ...units }
+    expect(applyAudiomLabels(layer, VectorStyleMode.Colors, true)).toBe(true)
+    expect(layer.labelsVisible).toBe(true)
+    const info = (layer.labelingInfo as unknown as Array<{
+      minScale: number
+      labelPlacement: string
+      symbol: { color: string, haloColor: string }
+      labelExpressionInfo: { expression: string }
+    }>)[0]
+    expect(info.minScale).toBe(LABEL_MIN_SCALE)
+    expect(info.labelPlacement).toBe('always-horizontal')
+    expect(info.symbol).toMatchObject({ color: '#1f2933', haloColor: '#ffffff' })
+    expect(info.labelExpressionInfo.expression).toContain('$feature["NAME"]')
+    expect(restoreAudiomLabels(layer)).toBe(true)
+    expect(layer.labelingInfo).toEqual([{ kind: 'host' }])
+    expect(layer.labelsVisible).toBe(false)
+    expect((layer as { __audiomLabelState?: unknown }).__audiomLabelState).toBeUndefined()
+  })
+
+  it('hides the floor catalog and a turned-off label toggle', () => {
+    const levels = {
+      geometryType: 'polygon',
+      fields: [{ name: 'NAME' }],
+      labelingInfo: [{ kind: 'host-level' }],
+      labelsVisible: true
+    }
+    expect(applyAudiomLabels(levels, VectorStyleMode.Colors, true, { floorCatalog: true })).toBe(true)
+    expect(levels.labelsVisible).toBe(false)
+    expect(levels.labelingInfo).toEqual([])
+    expect(restoreAudiomLabels(levels)).toBe(true)
+    expect(levels.labelingInfo).toEqual([{ kind: 'host-level' }])
+
+    const rooms = { ...units, labelsVisible: true }
+    expect(applyAudiomLabels(rooms, VectorStyleMode.Colors, false)).toBe(true)
+    expect(rooms.labelsVisible).toBe(false)
+    expect(rooms.labelingInfo).toEqual([])
+  })
+
+  it('uses a light halo when the vector style is hidden', () => {
+    const layer: {
+      geometryType: string
+      fields: Array<{ name: string }>
+      displayField: string
+      labelingInfo?: unknown
+      labelsVisible?: boolean
+    } = {
+      ...units,
+      labelingInfo: undefined,
+      labelsVisible: undefined
+    }
+    expect(applyAudiomLabels(layer, VectorStyleMode.Hidden, true)).toBe(true)
+    const info = (layer.labelingInfo as Array<{ symbol: { color: string, haloColor: string } }>)[0]
+    expect(info.symbol).toMatchObject({ color: '#ffffff', haloColor: '#000000' })
   })
 })

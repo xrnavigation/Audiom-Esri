@@ -510,6 +510,7 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false, showWhen: () => isSettingVisible(AudiomConfigKey.ShowVisualMap, runtimeLocation) },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
     { key: AudiomConfigKey.ShowMapControls, label: 'Show map controls', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showMapControls, showCopyButton: false, showWhen: () => isSettingVisible(AudiomConfigKey.ShowMapControls, runtimeLocation) },
+    { key: AudiomConfigKey.ShowMapLabels, label: 'Show map labels', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showMapLabels, showCopyButton: false, showWhen: () => isSettingVisible(AudiomConfigKey.ShowMapLabels, runtimeLocation) },
     { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 1, max: 6, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
     { key: AudiomConfigKey.VisualStyle, label: 'Visual Style', type: FieldType.Enum, enumOptions: [{ label: 'Default', value: '' }, { label: 'Geology', value: 'geology' }], showCopyButton: false, showWhen: () => isSettingVisible(AudiomConfigKey.VisualStyle, runtimeLocation) }
   ]

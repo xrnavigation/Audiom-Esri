@@ -47,4 +47,10 @@ describe('runtime location field visibility', () => {
     expect(isSettingVisible(AudiomConfigKey.ShowMapControls, RuntimeLocation.Standalone)).toBe(false)
     expect(isSettingVisible(AudiomConfigKey.ShowMapControls, RuntimeLocation.Legacy)).toBe(false)
   })
+
+  it('shows map labels only on the bundled Esri map', () => {
+    expect(isSettingVisible(AudiomConfigKey.ShowMapLabels, RuntimeLocation.Bundled)).toBe(true)
+    expect(isSettingVisible(AudiomConfigKey.ShowMapLabels, RuntimeLocation.Standalone)).toBe(false)
+    expect(isSettingVisible(AudiomConfigKey.ShowMapLabels, RuntimeLocation.Legacy)).toBe(false)
+  })
 })

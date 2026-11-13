@@ -141,6 +141,26 @@ function paintStyleMode (
   return mode && PAINT_STYLE_MODES.has(mode) ? mode : VectorStyleMode.Colors
 }
 
+/**
+ * Object labels default on, matching MapStateStore. The display-options
+ * toggle writes the injected map state. A missing store still shows names.
+ */
+function paintShowLabels (program: { world?: object } | null): boolean {
+  const world = program?.world as {
+    mapState?: { showObjectLabels?: boolean }
+    rootStore?: { mapState?: { showObjectLabels?: boolean } }
+  } | undefined
+  const mapState = world?.rootStore?.mapState || world?.mapState
+  return mapState?.showObjectLabels !== false
+}
+
+/** The floor the legend selected. Null until a building level exists. */
+function paintLabelLevel (program: { world?: object } | null): number | null {
+  const world = program?.world as { avatar?: { buildingLevel?: number | null } } | undefined
+  const level = world?.avatar?.buildingLevel
+  return typeof level === 'number' && Number.isFinite(level) ? level : null
+}
+
 function numericFieldType (type: string | undefined): boolean {
   const key = (type || '').toLowerCase()
   return key.includes('integer') || key.includes('double') || key.includes('single') ||
@@ -470,7 +490,8 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     })),
     bundledMapItemId,
     viewpointReady,
-    navigationExtent
+    navigationExtent,
+    sanitizedConfig.showMapLabels !== false
   )
   bundledHandleRef.current = bundledHandle
   const embedOverlay = useRef<HTMLDivElement>(null)
@@ -1669,7 +1690,8 @@ function useBundledRuntime (
   mapTypes?: readonly SnapshotMapTypeHint[],
   mapItemId?: string,
   viewpointReady = true,
-  navigationExtent?: { current: { itemId: string, extent: [number, number, number, number] } | null }
+  navigationExtent?: { current: { itemId: string, extent: [number, number, number, number] } | null },
+  showMapLabels = true
 ): BundledRuntimeHandle | null {
   const [handle, setHandle] = useState<BundledRuntimeHandle | null>(null)
   const [reported, setReported] = useState<ReportedAvatar | null>(null)
@@ -1684,6 +1706,10 @@ function useBundledRuntime (
   // layer, which is the long pause after the dropdown changes.
   const mapTypesRef = useRef(mapTypes)
   mapTypesRef.current = mapTypes
+  // Settings can hide the room-name overlay without re-querying the map.
+  // Absent config means shown, matching the settings default.
+  const showMapLabelsRef = useRef(showMapLabels)
+  showMapLabelsRef.current = showMapLabels
   // A rules file change must re-query so the new outputs replace the stamps.
   const rulesKey = (mapTypes || []).map((item) => item.rulesFileUrl || '').join('|')
   // A Source Configuration eye change must re-query. Hiding Units in settings
@@ -1827,8 +1853,10 @@ function useBundledRuntime (
     if (!handle?.program || !map) return
     let cancelled = false
     let layerHandle: { remove?: () => void } | undefined
-    const drawnView = (surface?.view || jimuMapView?.view) as { extent?: ViewExtent } | undefined
-    const view = { map }
+    const drawnView = (surface?.view || jimuMapView?.view) as { extent?: ViewExtent, map?: unknown, graphics?: unknown } | undefined
+    // view is the MapView, so room names can be drawn in view.graphics
+    // above every layer. map alone is the fallback for the layer walk.
+    const view = { map, view: drawnView }
     const paintChoice = async (snapshot: MapSnapshot) => {
       const program = handle.program as {
         world?: {
@@ -1861,13 +1889,18 @@ function useBundledRuntime (
       // The first statistic is ramp 0. A property-key index paints another ramp.
       const catalogIndex = chosen ? published.indexOf(chosen) : -1
       const paletteIndex = catalogIndex >= 0 ? catalogIndex : 0
+      // showMapLabels is the settings switch. Object labels is the in-map
+      // menu. Either one off hides the overlay. Do not fold the switch into
+      // the style mode: that left the names drawn.
       await paintAudiomStyles(
         view,
         snapshot,
         mode,
         chosen,
         paletteIndex,
-        snapshot.sources.length === 1 ? snapshot.sources[0].mapType : undefined
+        snapshot.sources.length === 1 ? snapshot.sources[0].mapType : undefined,
+        showMapLabelsRef.current && paintShowLabels(program),
+        paintLabelLevel(program)
       )
     }
     const apply = async () => {
@@ -1901,10 +1934,6 @@ function useBundledRuntime (
         : await geographicExtentOf(drawnView)
       if (cancelled) return
       if (extent) (snapshot as MapSnapshot & { extent?: [number, number, number, number] }).extent = extent
-      const listed = snapshot.records.filter((record) => record.navigable).length
-      const names = snapshot.sources.map((source) => source.displayName).join(', ')
-      // eslint-disable-next-line no-console
-      console.error('Audiom feature snapshot', snapshot.sources.length, 'layers', listed, 'features', names)
       const program = handle.program as {
         applySnapshot?: (snapshot: MapSnapshot) => Promise<unknown>
       } | null
@@ -1955,6 +1984,14 @@ function useBundledRuntime (
       window.removeEventListener(EMBED_PAINT_EVENT, onPaint)
     }
   }, [handle, jimuMapView, surface, instanceId, rulesKey, visibilityKey])
+  // The snapshot effect must not depend on this switch. Toggling it only
+  // redraws the names already loaded.
+  const sawMapLabels = useRef(showMapLabels)
+  useEffect(() => {
+    if (sawMapLabels.current === showMapLabels) return
+    sawMapLabels.current = showMapLabels
+    window.dispatchEvent(new Event(EMBED_PAINT_EVENT))
+  }, [showMapLabels])
   // Map Type is audio and the legend, not a new query. Retag the snapshot
   // already loaded and publish that. Querying the service again is the
   // long pause after the dropdown changes.
@@ -1992,7 +2029,9 @@ function useBundledRuntime (
         paintStyleMode(program),
         program?.world?.statistics?.field,
         undefined,
-        retagged.sources.length === 1 ? retagged.sources[0].mapType : undefined
+        retagged.sources.length === 1 ? retagged.sources[0].mapType : undefined,
+        showMapLabelsRef.current && paintShowLabels(program),
+        paintLabelLevel(program)
       )
       : Promise.resolve()
     const publish = program?.applySnapshot

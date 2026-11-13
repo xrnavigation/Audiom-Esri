@@ -22,6 +22,8 @@ export enum AudiomConfigKey {
   ShowHeading = 'showHeading',
   /** Bundled map: zoom, compass, fullscreen, and center-on-indicator. */
   ShowMapControls = 'showMapControls',
+  /** Bundled map: room-name text drawn over the Esri map. */
+  ShowMapLabels = 'showMapLabels',
   SoundpackUrl = 'soundpackUrl',
   VisualBaseLayers = 'visualBaseLayers',
   VisualStyle = 'visualStyle',

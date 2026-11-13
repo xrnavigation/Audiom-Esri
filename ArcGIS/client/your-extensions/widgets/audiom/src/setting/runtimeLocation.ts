@@ -75,7 +75,8 @@ export function visibleSettingKeys (location: RuntimeLocation): AudiomConfigKey[
     AudiomConfigKey.MapItemId,
     ...MAP_SETTING_KEYS,
     AudiomConfigKey.AssetBaseUrl,
-    AudiomConfigKey.ShowMapControls
+    AudiomConfigKey.ShowMapControls,
+    AudiomConfigKey.ShowMapLabels
   ]
 }
 

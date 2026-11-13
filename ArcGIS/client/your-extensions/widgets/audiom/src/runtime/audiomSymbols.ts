@@ -1,7 +1,9 @@
 ﻿/**
  * Paint Audiom's rule outputs onto the Esri layers that are already on the map.
  * Colors, widths, opacity, dashes, and patterns come from feature attributes.
- * This file does not evaluate rules and does not draw a second map.
+ * Room names are Esri labeling on those same layers, the text the embedded
+ * MapLibre map draws with buildLabelLayers. This file does not evaluate rules
+ * and does not draw a second map.
  *
  * Pattern bitmaps are the canonical tiles in patternTiles.ts, kept in step
  * with Audiom-Front-End/src/runtime/patternTiles.ts.
@@ -26,6 +28,26 @@ export interface SymbolLayer {
   renderer?: { type?: string, kind?: string, symbol?: unknown }
   /** Host renderer captured the first time Audiom paints this layer. */
   __audiomOriginalRenderer?: unknown
+}
+
+/** Esri field list. A Collection has forEach; tests pass an array. */
+export type LabelFieldList = ArrayLike<{ name?: string }> & {
+  forEach?: (fn: (field: { name?: string }) => void) => void
+}
+
+export interface LabelLayer {
+  geometryType?: string
+  fields?: LabelFieldList
+  displayField?: string
+  labelingInfo?: unknown
+  labelsVisible?: boolean
+  /** Floor catalog. The rules file excludes Level, so it must not be labeled. */
+  floorCatalog?: boolean
+  /** Host labeling captured the first time Audiom touches this layer. */
+  __audiomLabelState?: {
+    labelingInfo: unknown
+    labelsVisible: boolean | undefined
+  }
 }
 
 export interface SymbolModules {
@@ -570,6 +592,210 @@ export function restoreAudiomSymbols (layer: SymbolLayer | null | undefined): bo
   if (!layer || layer.__audiomOriginalRenderer === undefined) return false
   layer.renderer = layer.__audiomOriginalRenderer as SymbolLayer['renderer']
   delete layer.__audiomOriginalRenderer
+  return true
+}
+
+/**
+ * Web Mercator scale at zoom 9. The embed's default labelMinZoom is 9, so
+ * room names stay off a world view and on once the building is in frame.
+ */
+export const LABEL_MIN_SCALE = 1155581
+
+/**
+ * Same coalesce as the embed's detailed label, plus the service spellings
+ * rules read (`NAME`) and the use type rules copy into `ruleName`.
+ */
+const LABEL_FIELDS = [
+  'name', 'Name', 'NAME', 'NAME_LONG', 'NAME_SHORT',
+  'Label', 'LABEL', 'label',
+  'title', 'Title', 'TITLE',
+  'ruleName',
+  'USE_TYPE', 'use_type',
+  'ruleType'
+]
+
+function eachLabelField (
+  fields: LabelFieldList | undefined,
+  visit: (field: { name?: string }) => void
+): void {
+  if (!fields) return
+  if (typeof fields.forEach === 'function') {
+    fields.forEach(visit)
+    return
+  }
+  const list = fields as ArrayLike<{ name?: string }>
+  for (let index = 0; index < list.length; index += 1) visit(list[index])
+}
+
+function fieldNames (fields: LabelFieldList | undefined): Map<string, string> {
+  const names = new Map<string, string>()
+  eachLabelField(fields, (field) => {
+    if (field?.name) names.set(field.name.toLowerCase(), field.name)
+  })
+  return names
+}
+
+/** Schema fields the embed would print, in that preference order. */
+export function labelFieldsOf (layer: LabelLayer | null | undefined): string[] {
+  const known = fieldNames(layer?.fields)
+  const ordered: string[] = []
+  const add = (name: string | undefined) => {
+    if (!name) return
+    const actual = known.get(name.toLowerCase())
+    if (!actual || ordered.some((item) => item.toLowerCase() === actual.toLowerCase())) return
+    ordered.push(actual)
+  }
+  for (const field of LABEL_FIELDS) add(field)
+  const display = layer?.displayField
+  if (display && !/^(objectid|fid|oid|globalid)$/i.test(display)) add(display)
+  return ordered
+}
+
+function arcadeField (name: string): string {
+  return `$feature[${JSON.stringify(name)}]`
+}
+
+/**
+ * Empty and "unlabeled" draw nothing. A direction arrow is not a caption.
+ * A Level use type is the floor catalog the rules file excludes.
+ */
+export function labelExpression (
+  fields: readonly string[],
+  extras?: { directionField?: string, levelUseField?: string }
+): string {
+  const guards: string[] = []
+  if (extras?.directionField) {
+    guards.push(`if (!IsEmpty(${arcadeField(extras.directionField)})) return "";`)
+  }
+  if (extras?.levelUseField) {
+    guards.push(`if (Lower(clean(${arcadeField(extras.levelUseField)})) == "level") return "";`)
+  }
+  const reads = fields.map((field) => `clean(${arcadeField(field)})`).join(', ')
+  return [
+    'function clean(value) {',
+    '  if (IsEmpty(value)) return "";',
+    '  var text = Trim(Text(value));',
+    '  if (text == "" || Lower(text) == "unlabeled") return "";',
+    '  return text;',
+    '}',
+    ...guards,
+    `var values = [${reads}];`,
+    'for (var i in values) {',
+    '  if (values[i] != "") return values[i];',
+    '}',
+    'return "";'
+  ].join('\n')
+}
+
+/** Polygon names sit in the room. Points sit on the point. Lines follow the line. */
+export function labelPlacement (geometryType: string | undefined): string {
+  const key = (geometryType || '').toLowerCase()
+  if (key.includes('point')) return 'center-center'
+  if (key.includes('line') || key.includes('polyline')) return 'center-along'
+  return 'always-horizontal'
+}
+
+function audiomLabelClass (
+  layer: LabelLayer,
+  fields: readonly string[],
+  mode: VectorStyleMode
+): Record<string, unknown> {
+  const known = fieldNames(layer.fields)
+  const hidden = mode === VectorStyleMode.None || mode === VectorStyleMode.Hidden
+  return {
+    labelExpressionInfo: {
+      expression: labelExpression(fields, {
+        directionField: known.get('directionsymbol'),
+        levelUseField: known.get('use_type')
+      })
+    },
+    labelPlacement: labelPlacement(layer.geometryType),
+    minScale: LABEL_MIN_SCALE,
+    deconflictionStrategy: 'static',
+    repeatLabel: false,
+    allowOverrun: true,
+    symbol: {
+      type: 'text',
+      color: hidden ? '#ffffff' : '#1f2933',
+      haloColor: hidden ? '#000000' : '#ffffff',
+      haloSize: hidden ? 2 : 1.5,
+      horizontalAlignment: 'center',
+      verticalAlignment: 'middle',
+      font: { size: 12, family: 'Arial', weight: 'bold' }
+    }
+  }
+}
+
+function rememberLabels (layer: LabelLayer): void {
+  if (layer.__audiomLabelState) return
+  layer.__audiomLabelState = {
+    labelingInfo: layer.labelingInfo,
+    labelsVisible: layer.labelsVisible
+  }
+}
+
+export interface LabelHint {
+  /** Stamped on the query copy, not the live Esri layer. */
+  floorCatalog?: boolean
+  fields?: LabelFieldList
+  displayField?: string
+}
+
+/**
+ * Turn on the text the embed draws over each room. A floor catalog is hidden:
+ * its name is "Level 1", and the rules file excludes that polygon. Host
+ * labeling is saved so unmount can put the web map back.
+ */
+export function applyAudiomLabels (
+  layer: LabelLayer | null | undefined,
+  mode: VectorStyleMode = VectorStyleMode.Colors,
+  showLabels = true,
+  hint?: LabelHint
+): boolean {
+  if (!layer) return false
+  if (hint?.floorCatalog || layer.floorCatalog || !showLabels) {
+    rememberLabels(layer)
+    try {
+      // Empty the class as well as the flag. A web map site label stays
+      // on screen when only labelsVisible is cleared.
+      layer.labelingInfo = []
+      layer.labelsVisible = false
+      return true
+    } catch {
+      return false
+    }
+  }
+  const fromLayer = labelFieldsOf(layer)
+  const described: LabelLayer = fromLayer.length
+    ? layer
+    : {
+        geometryType: layer.geometryType,
+        fields: hint?.fields || layer.fields,
+        displayField: hint?.displayField || layer.displayField
+      }
+  const fields = fromLayer.length ? fromLayer : labelFieldsOf(described)
+  if (!fields.length) return false
+  rememberLabels(layer)
+  try {
+    layer.labelingInfo = [audiomLabelClass(described, fields, mode)]
+    layer.labelsVisible = true
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Put the host labeling back. No-op when Audiom never labeled the layer. */
+export function restoreAudiomLabels (layer: LabelLayer | null | undefined): boolean {
+  const saved = layer?.__audiomLabelState
+  if (!layer || !saved) return false
+  try {
+    layer.labelingInfo = saved.labelingInfo
+    layer.labelsVisible = saved.labelsVisible
+  } catch {
+    return false
+  }
+  delete layer.__audiomLabelState
   return true
 }
 
