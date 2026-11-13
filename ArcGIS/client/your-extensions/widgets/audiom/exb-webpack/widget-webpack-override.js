@@ -137,6 +137,19 @@ function aliasAudiomRuntimeToSource (config) {
         resource.request = exbEntry
       }
     ),
+    // embedLabelPlacement imports the sibling checkout by a relative path.
+    // CI checks Front-End out inside the workspace, so that walk leaves
+    // GITHUB_WORKSPACE and webpack reports a missing browser alias.
+    new webpack.NormalModuleReplacementPlugin(
+      /Audiom-Front-End[\\/]/,
+      (resource) => {
+        const normalized = String(resource.request).replace(/\\/g, '/')
+        const marker = 'Audiom-Front-End/'
+        const index = normalized.lastIndexOf(marker)
+        if (index === -1) return
+        resource.request = path.join(frontEnd, normalized.slice(index + marker.length))
+      }
+    ),
     new webpack.NormalModuleReplacementPlugin(
       /^(?:.*[\\/])?react[\\/]jsx(-dev)?-runtime(\.js)?$/,
       (resource) => {
