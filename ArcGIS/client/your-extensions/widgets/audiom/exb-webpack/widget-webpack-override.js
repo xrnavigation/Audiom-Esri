@@ -254,21 +254,30 @@ function aliasAudiomRuntimeToSource (config) {
 }
 
 function hostCssUse (rules, modules) {
-  let found = null
+  const chains = []
   rules.forEach((rule) => {
-    if (found || !rule || !Array.isArray(rule.use)) return
+    if (!rule || !Array.isArray(rule.use)) return
     if (!rule.use.some((item) => loaderName(item).indexOf('sass-loader') !== -1)) return
-    found = rule.use.filter((item) => {
-      const name = loaderName(item)
-      return name.indexOf('sass-loader') === -1 && name.indexOf('resolve-url-loader') === -1
-    }).map((item) => {
-      if (typeof item === 'string' || loaderName(item).indexOf('css-loader') === -1) return item
-      const hostModules = item.options && item.options.modules
-      const nextModules = modules && hostModules && typeof hostModules === 'object'
-        ? Object.assign({}, hostModules, { auto: false })
-        : modules
-      return Object.assign({}, item, {
-        options: Object.assign({}, item.options, { url: false, modules: nextModules })
+    chains.push(rule.use)
+  })
+  const preferred = chains.find((use) => use.some((item) => loaderName(item).indexOf('style-loader') !== -1)) || chains[0]
+  const found = preferred && preferred.filter((item) => {
+    const name = loaderName(item)
+    return name.indexOf('sass-loader') === -1 && name.indexOf('resolve-url-loader') === -1
+  }).map((item) => {
+    // Theme rules extract CSS with a plugin the widget config does not
+    // register. Inject widget styles instead.
+    if (loaderName(item).indexOf('mini-css-extract-plugin') !== -1) return 'style-loader'
+    if (typeof item === 'string' || loaderName(item).indexOf('css-loader') === -1) return item
+    const hostModules = item.options && item.options.modules
+    const nextModules = modules && hostModules && typeof hostModules === 'object'
+      ? Object.assign({}, hostModules, { auto: false })
+      : modules
+    return Object.assign({}, item, {
+      options: Object.assign({}, item.options, {
+        url: false,
+        modules: nextModules,
+        importLoaders: 0
       })
     })
   })
