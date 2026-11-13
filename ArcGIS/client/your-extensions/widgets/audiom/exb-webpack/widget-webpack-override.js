@@ -209,6 +209,12 @@ function aliasAudiomRuntimeToSource (config) {
       return original(file)
     }
   })
+  // 1.12 and 1.13 run every .css file through sass-loader. That Sass build
+  // treats modern CSS (rgb()/hsl() with alpha, min(), round()) as Sass
+  // functions and fails. Later Experience Builder releases ship a Sass that
+  // leaves those calls alone. Skip Sass for Front-End CSS and keep the
+  // host css-loader, so CSS-module class names stay the same.
+  rules.forEach(skipSassForFrontEndCss)
   config.module.rules = [{
     test: /Audiom-Front-End[\\/]src[\\/].+\.css$/,
     exclude: /\.module\.css$/,
@@ -230,6 +236,31 @@ function aliasAudiomRuntimeToSource (config) {
       }
     }
   ])
+}
+
+function loaderName (item) {
+  if (typeof item === 'string') return item
+  if (item && typeof item.loader === 'string') return item.loader
+  return ''
+}
+
+function skipSassForFrontEndCss (rule) {
+  if (!rule || typeof rule !== 'object') return
+  if (Array.isArray(rule.oneOf)) rule.oneOf.forEach(skipSassForFrontEndCss)
+  if (Array.isArray(rule.rules)) rule.rules.forEach(skipSassForFrontEndCss)
+  if (!Array.isArray(rule.use)) return
+  if (!rule.use.some((item) => loaderName(item).indexOf('sass-loader') !== -1)) return
+  const originalUse = rule.use.slice()
+  rule.use = (info) => {
+    const resource = String((info && (info.resource || info.realResource)) || '').replace(/\\/g, '/').split('?')[0]
+    if (resource.indexOf('Audiom-Front-End/') === -1 || !resource.endsWith('.css')) {
+      return originalUse
+    }
+    return originalUse.filter((item) => {
+      const name = loaderName(item)
+      return name.indexOf('sass-loader') === -1 && name.indexOf('resolve-url-loader') === -1
+    })
+  }
 }
 
 module.exports = function (webpackConfigs) {
