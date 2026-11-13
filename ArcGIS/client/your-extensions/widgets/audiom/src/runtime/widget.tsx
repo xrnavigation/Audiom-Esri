@@ -39,8 +39,9 @@ import {
 } from './esriMapSurface'
 import type { ReportedAvatar } from './reportedAvatar'
 import { ownedMapDataSourceId, publishOwnedMapView } from './publishMapView'
+import { viewpointReadyForItem } from './mapViewpoint'
 
-const { useState, useEffect, useRef } = React
+const { useState, useEffect, useRef, useCallback } = React
 
 /** Audiom feature name + "statistic: value" at a point, read from the world. */
 function audiomPopupLines (world: unknown, longitude: number, latitude: number): string[] {
@@ -380,6 +381,8 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
 
   const runtimeLocation = runtimeLocationOf(sanitizedConfig)
   const bundledMapItemIdRef = useRef('')
+  const bundledHandleRef = useRef<BundledRuntimeHandle | null>(null)
+  const navigationExtent = useRef<{ itemId: string, extent: [number, number, number, number] } | null>(null)
   // Adding a map writes the data source into the builder store before the
   // widget props update. Refresh only when that connected item changes.
   useEffect(() => {
@@ -396,7 +399,27 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   // Follow the connection so adding or removing a source updates immediately.
   const bundledMapItemId = selectedMapItemId(props, sanitizedConfig.mapItemId)
   bundledMapItemIdRef.current = bundledMapItemId
+  if (navigationExtent.current && navigationExtent.current.itemId !== bundledMapItemId) {
+    navigationExtent.current = null
+  }
   void mapSourceTick
+  // Empty viewpointItemId means the selected item's center is not read yet.
+  // A saved config has no marker; its center belongs to the saved item.
+  const viewpointReady = viewpointReadyForItem(
+    bundledMapItemId,
+    sanitizedConfig.viewpointItemId,
+    sanitizedConfig.mapItemId
+  )
+  const onViewSettled = useCallback((view: { extent?: ViewExtent }) => {
+    const itemId = bundledMapItemIdRef.current
+    void geographicExtentOf(view).then((extent) => {
+      if (!itemId || !extent) return
+      if (extent[0] === extent[2] || extent[1] === extent[3]) return
+      if (bundledMapItemIdRef.current !== itemId) return
+      navigationExtent.current = { itemId, extent }
+      bundledHandleRef.current?.program?.setNavigationExtent?.(extent)
+    })
+  }, [])
   // Bundled mode draws EsriMapSurface. It has no JimuMapView. Building the
   // iframe URL here calls the embed extractor on every indicator move and
   // logs "No map view available". The iframe is the only caller.
@@ -445,8 +468,11 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
         DEFAULT_ASSET_BASE_URL
       ])
     })),
-    bundledMapItemId
+    bundledMapItemId,
+    viewpointReady,
+    navigationExtent
   )
+  bundledHandleRef.current = bundledHandle
   const embedOverlay = useRef<HTMLDivElement>(null)
   const followGeneration = useRef(0)
   const headerHeight = useHeaderHeight(embedOverlay)
@@ -560,9 +586,11 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
             mapItemId={bundledMapItemId}
             portalUrl={portalUrlForItem(props, bundledMapItemId)}
             scene={scene}
+            viewpointReady={viewpointReady}
             longitude={sanitizedConfig.centerLongitude}
             latitude={sanitizedConfig.centerLatitude}
             zoom={sanitizedConfig.zoom}
+            onViewSettled={onViewSettled}
             headerHeight={headerHeight}
             avatar={avatar}
             onMove={(direction) => {
@@ -654,6 +682,33 @@ function useHeaderHeight (overlay: { current: HTMLDivElement | null }): number {
 }
 
 
+/** Tell the caller once the view's own viewpoint has been applied. */
+function publishWhenViewSettled (
+  view: MountedMapSurface['view'],
+  notify: () => void
+): () => void {
+  let removed = false
+  let watch: { remove?: () => void } | undefined
+  const finish = () => {
+    if (removed) return
+    if (view.stationary === false && view.watch) {
+      watch = view.watch('stationary', (value) => {
+        if (!value || removed) return
+        watch?.remove?.()
+        notify()
+      })
+      return
+    }
+    notify()
+  }
+  if (view.when) void view.when().then(finish).catch(() => undefined)
+  else finish()
+  return () => {
+    removed = true
+    watch?.remove?.()
+  }
+}
+
 /** True when settings hold a place, not the unset 0,0 default. */
 function hasMapCenter (longitude?: number, latitude?: number): boolean {
   if (longitude == null || latitude == null) return false
@@ -669,6 +724,9 @@ function EsriMapSurface (props: {
   longitude?: number
   latitude?: number
   zoom?: number
+  /** False while the saved center belongs to a different item. */
+  viewpointReady?: boolean
+  onViewSettled?: (view: MountedMapSurface['view']) => void
   headerHeight?: number
   avatar?: ReportedAvatar | null
   onMove?: (direction: string) => void
@@ -698,14 +756,22 @@ function EsriMapSurface (props: {
   const [surfaceReady, setSurfaceReady] = useState(false)
   const [popupScreen, setPopupScreen] = useState<{ x: number, y: number } | null>(null)
   const avatar = props.avatar
+  const onViewSettledRef = useRef(props.onViewSettled)
+  onViewSettledRef.current = props.onViewSettled
   // The compass is the configured center until Audiom reports a position.
   // Waiting on that report is what left the map with no navigation icon.
+  // While a new item's viewpoint is unread, that center is the previous map.
+  const showSavedCenter = props.viewpointReady !== false
   const placed = avatar ?? (
-    props.longitude != null && props.latitude != null
+    showSavedCenter && props.longitude != null && props.latitude != null
       ? { longitude: props.longitude, latitude: props.latitude, heading: 0 }
       : null
   )
-  const centerReady = !props.mapItemId || hasMapCenter(props.longitude, props.latitude)
+  // A new item whose viewpoint is unread must mount now, but not at the
+  // previous item's camera. Omitting center lets the web map's own
+  // viewpoint set the center and the bounding box.
+  const deferCamera = Boolean(props.mapItemId) && props.viewpointReady === false
+  const centerReady = deferCamera || !props.mapItemId || hasMapCenter(props.longitude, props.latitude)
   // Freeze the first real center for this item. A later pan writes a new
   // center into settings; using that as the mount point would rebuild the
   // view. A different item is a different place, so its center is new.
@@ -714,12 +780,14 @@ function EsriMapSurface (props: {
     mountCenter.current = null
   }
   if (!mountCenter.current && centerReady) {
-    mountCenter.current = {
-      itemId: props.mapItemId,
-      longitude: props.longitude,
-      latitude: props.latitude,
-      zoom: props.zoom
-    }
+    mountCenter.current = deferCamera
+      ? { itemId: props.mapItemId }
+      : {
+        itemId: props.mapItemId,
+        longitude: props.longitude,
+        latitude: props.latitude,
+        zoom: props.zoom
+      }
   }
   useEffect(() => {
     const node = container.current
@@ -730,6 +798,7 @@ function EsriMapSurface (props: {
     if (!centerReady) return
     let cancelled = false
     let surface: MountedMapSurface | null = null
+    let stopSettled = () => undefined
     // Center and zoom updates must not rebuild the view. WebMap.load starts
     // in the constructor, and destroying the view aborts that item request.
     const current = mountedSurface.current
@@ -788,11 +857,16 @@ function EsriMapSurface (props: {
       mountedSurface.current = mounted
       setSurfaceReady(true)
       onSurface?.(mounted)
+      stopSettled = publishWhenViewSettled(mounted.view, () => {
+        if (cancelled || mountedSurface.current !== mounted) return
+        onViewSettledRef.current?.(mounted.view)
+      })
     }).catch(() => {
       setSurfaceReady(false)
       onSurface?.(null)
     })
     return () => {
+      stopSettled()
       cancelled = true
       if (mountedSurface.current === surface) mountedSurface.current = null
       setSurfaceReady(false)
@@ -811,15 +885,46 @@ function EsriMapSurface (props: {
     const node = container.current as { __audiomSurface?: MountedMapSurface } | null
     const view = node?.__audiomSurface?.view
     if (!view?.goTo || !surfaceReady || !avatar) return
+    // The previous item's indicator must not pull the new map back to it.
+    if (props.mapItemId && props.viewpointReady === false) return
     if (!Number.isFinite(avatar.longitude) || !Number.isFinite(avatar.latitude)) return
     if (avatar.longitude === 0 && avatar.latitude === 0) return
     void view.goTo({ center: [avatar.longitude, avatar.latitude] }).catch((): void => undefined)
-  }, [avatar, surfaceReady])
+  }, [avatar, surfaceReady, props.mapItemId, props.viewpointReady])
   const appliedZoom = useRef<number | undefined>(undefined)
+  const zoomItem = useRef(props.mapItemId)
+  if (zoomItem.current !== props.mapItemId) {
+    zoomItem.current = props.mapItemId
+    appliedZoom.current = undefined
+  }
+  // Once per item, after its viewpoint is read. A later pan writes a new
+  // center into settings; following that would pull the view off the indicator.
+  const appliedViewpoint = useRef('')
+  if (appliedViewpoint.current && appliedViewpoint.current !== props.mapItemId) {
+    appliedViewpoint.current = ''
+  }
+  useEffect(() => {
+    if (!props.mapItemId || props.viewpointReady === false) return
+    if (appliedViewpoint.current === props.mapItemId) return
+    if (!hasMapCenter(props.longitude, props.latitude)) return
+    const node = container.current as { __audiomSurface?: MountedMapSurface } | null
+    const view = node?.__audiomSurface?.view
+    if (!view?.goTo || !surfaceReady) return
+    appliedViewpoint.current = props.mapItemId
+    appliedZoom.current = props.zoom
+    const target: { center: [number, number], zoom?: number } = {
+      center: [props.longitude as number, props.latitude as number]
+    }
+    if (typeof props.zoom === 'number' && Number.isFinite(props.zoom)) target.zoom = props.zoom
+    void view.goTo(target).then(() => {
+      onViewSettledRef.current?.(view)
+    }).catch((): void => undefined)
+  }, [props.mapItemId, props.viewpointReady, props.longitude, props.latitude, props.zoom, surfaceReady])
   useEffect(() => {
     const node = container.current as { __audiomSurface?: MountedMapSurface } | null
     const view = node?.__audiomSurface?.view
     if (!view?.goTo || !surfaceReady) return
+    if (props.mapItemId && props.viewpointReady === false) return
     if (typeof props.zoom !== 'number' || !Number.isFinite(props.zoom)) return
     // The first value is the zoom the view was mounted at. Applying it
     // again is what snaps a live-view zoom back out. Only a later settings
@@ -831,7 +936,7 @@ function EsriMapSurface (props: {
     if (appliedZoom.current === props.zoom) return
     appliedZoom.current = props.zoom
     void view.goTo({ zoom: props.zoom }).catch((): void => undefined)
-  }, [props.zoom, surfaceReady])
+  }, [props.zoom, props.mapItemId, props.viewpointReady, surfaceReady])
   useEffect(() => {
     const node = container.current as { __audiomSurface?: MountedMapSurface } | null
     if (!node?.__audiomSurface) return
@@ -1562,7 +1667,9 @@ function useBundledRuntime (
   soundpackUrl?: string,
   soundpackFallbackUrl?: string,
   mapTypes?: readonly SnapshotMapTypeHint[],
-  mapItemId?: string
+  mapItemId?: string,
+  viewpointReady = true,
+  navigationExtent?: { current: { itemId: string, extent: [number, number, number, number] } | null }
 ): BundledRuntimeHandle | null {
   const [handle, setHandle] = useState<BundledRuntimeHandle | null>(null)
   const [reported, setReported] = useState<ReportedAvatar | null>(null)
@@ -1597,7 +1704,9 @@ function useBundledRuntime (
   // then a point in the ocean. Restart once, when that center arrives.
   // A pan must not restart it: the origin is the center the session was
   // born with, not the latest settings write.
-  const originKey = sessionOriginKey(longitude, latitude)
+  // An unread viewpoint still holds the previous item's center. Starting
+  // the session there reports that point, and the new map follows it.
+  const originKey = viewpointReady ? sessionOriginKey(longitude, latitude) : ''
   // The center the session was born at. A later settings write that is
   // still this point is a pan echo. A different finite point is the user
   // overwriting Center, and the indicator has to move there.
@@ -1614,7 +1723,7 @@ function useBundledRuntime (
     }
   }
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !originKey) {
       setHandle(null)
       setReported(null)
       onAvatar(null)
@@ -1622,7 +1731,6 @@ function useBundledRuntime (
     }
     // Wait for the map center. A session born at 0,0 reports the ocean
     // for the rest of its life, and the map then follows that point.
-    if (!originKey) return
     bornCenter.current = {
       longitude: longitudeRef.current,
       latitude: latitudeRef.current
@@ -1664,6 +1772,14 @@ function useBundledRuntime (
       void next.runtime.dispose()
     }
   }, [enabled, instanceId, mapItemId, originKey, jimuMapView, onStatus, onAvatar, soundpackUrl, soundpackFallbackUrl])
+  // The view can settle before the session exists. Apply that extent once
+  // the program is there, so the new map's bounding box is not the old one.
+  useEffect(() => {
+    const settled = navigationExtent?.current
+    if (!handle?.program?.setNavigationExtent || !settled || !mapItemId) return
+    if (settled.itemId !== mapItemId) return
+    handle.program.setNavigationExtent(settled.extent)
+  }, [handle, mapItemId, navigationExtent])
   // Step size is not a session restart. The start effect reads it once;
   // a later settings write has to reach the live avatar or the next
   // arrow key still uses the distance from when the map loaded.
@@ -1777,8 +1893,12 @@ function useBundledRuntime (
       // repaint, or a Map Type change, has it without querying again.
       loadedSnapshot.current = snapshot
       // The navigation wall is the whole drawn map, not the bbox of the
-      // features that loaded. Publish the view extent so the world fences to it.
-      const extent = await geographicExtentOf(drawnView)
+      // features that loaded. A settled view extent from the new item wins
+      // over a read taken before that item's viewpoint was applied.
+      const settled = navigationExtent?.current
+      const extent = settled && settled.itemId === mapItemId
+        ? settled.extent
+        : await geographicExtentOf(drawnView)
       if (cancelled) return
       if (extent) (snapshot as MapSnapshot & { extent?: [number, number, number, number] }).extent = extent
       const listed = snapshot.records.filter((record) => record.navigable).length
@@ -1796,6 +1916,12 @@ function useBundledRuntime (
       if (program?.applySnapshot) await program.applySnapshot(snapshot)
       else await handle.runtime.replaceSources(snapshot, 1)
       if (cancelled) return
+      // A viewpoint that settled while the query was running replaces the
+      // extent captured at the start of that query.
+      const latestExtent = navigationExtent?.current
+      if (latestExtent && latestExtent.itemId === mapItemId) {
+        handle.program?.setNavigationExtent?.(latestExtent.extent)
+      }
       // Publish can replace the placeholder field with the legend's statistic.
       // Paint that field too. A failed paint keeps the renderer just applied.
       await paintChoice(snapshot)

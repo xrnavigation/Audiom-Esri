@@ -74,7 +74,7 @@
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/4",
             "enabled": false,
             "mapType": "indoor",
-            "rulesFileUrl": "https://gist.githubusercontent.com/ScionOfDesign/3a44abca25615bf994d8af057958e287/raw/32575d376511449faa87cbd09f9a3f943825414c/esri-building.json",
+            "rulesFileUrl": "/rules/esri-indoor.json",
             "filters": []
           },
           {
@@ -83,7 +83,7 @@
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/3",
             "enabled": false,
             "mapType": "indoor",
-            "rulesFileUrl": "https://gist.githubusercontent.com/ScionOfDesign/3a44abca25615bf994d8af057958e287/raw/32575d376511449faa87cbd09f9a3f943825414c/esri-building.json",
+            "rulesFileUrl": "/rules/esri-indoor.json",
             "filters": []
           },
           {
@@ -92,7 +92,7 @@
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/2",
             "enabled": true,
             "mapType": "indoor",
-            "rulesFileUrl": "https://gist.githubusercontent.com/ScionOfDesign/3a44abca25615bf994d8af057958e287/raw/32575d376511449faa87cbd09f9a3f943825414c/esri-building.json",
+            "rulesFileUrl": "/rules/esri-indoor.json",
             "filters": []
           },
           {
@@ -101,7 +101,7 @@
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/1",
             "enabled": true,
             "mapType": "indoor",
-            "rulesFileUrl": "https://gist.githubusercontent.com/ScionOfDesign/3a44abca25615bf994d8af057958e287/raw/32575d376511449faa87cbd09f9a3f943825414c/esri-building.json",
+            "rulesFileUrl": "/rules/esri-indoor.json",
             "filters": []
           },
           {
@@ -110,7 +110,7 @@
             "sourceUrl": "https://services7.arcgis.com/HDgMIJDCbHtnomY9/ArcGIS/rest/services/ArcGIS_Indoors_Sample_Data_WFL1/FeatureServer/0",
             "enabled": false,
             "mapType": "indoor",
-            "rulesFileUrl": "https://gist.githubusercontent.com/ScionOfDesign/3a44abca25615bf994d8af057958e287/raw/32575d376511449faa87cbd09f9a3f943825414c/esri-building.json",
+            "rulesFileUrl": "/rules/esri-indoor.json",
             "filters": []
           }
         ],
@@ -126,7 +126,18 @@
           "dataSourceId": "dataSource_1",
           "mainDataSourceId": "dataSource_1"
         }
-      ]
+      ],
+      "style": {
+        "borderRadius": {
+          "number": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "unit": "px"
+        }
+      }
     }
   },
   "widgetsManifest": {},
@@ -137,7 +148,7 @@
   "attributes": {
     "portalUrl": "https://xrnavigation.maps.arcgis.com"
   },
-  "timestamp": 1794288848336,
+  "timestamp": 1794436657876,
   "sharedThemeVariables": null,
   "mainLocale": "en",
   "dataSources": {

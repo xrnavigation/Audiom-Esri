@@ -305,6 +305,7 @@ describe('Audiom setting panel', () => {
     )
     expect(saved?.centerLatitude).toBe(39.8)
     expect(saved?.zoom).toBe(5)
+    expect(saved?.viewpointItemId).toBe('item-99')
     expect(saved?.sourceConfigs?.[0]?.name).toBe('Counties')
     unmount()
     state.appStateInBuilder = previous
@@ -334,6 +335,61 @@ describe('Audiom setting panel', () => {
     )
     expect(saved?.centerLatitude).toBe(39.8)
     expect(saved?.zoom).toBe(5)
+    expect(saved?.viewpointItemId).toBe('item-99')
     unmount()
+  })
+
+  it('does not apply a slower viewpoint read after the selected item changes', async () => {
+    let resolveRead: ((value: unknown) => void) | undefined
+    readBundledMapViewpoint.mockImplementation(() => new Promise((resolve) => {
+      resolveRead = resolve
+    }))
+    const store = getAppStore() as unknown as { getState: () => unknown }
+    const state = store.getState() as {
+      appStateInBuilder?: { appConfig?: { dataSources?: Record<string, unknown> } }
+    }
+    const previous = state.appStateInBuilder
+    state.appStateInBuilder = {
+      appConfig: {
+        dataSources: {
+          dataSource_2: { itemId: 'item-99', portalUrl: 'https://data.example.com' }
+        }
+      }
+    }
+    const onSettingChange = jest.fn()
+    const Setting = wrapWidgetSetting(_Setting, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-1',
+        centerLongitude: -77.45,
+        centerLatitude: 38.77,
+        zoom: 12
+      }) as any,
+      onSettingChange,
+      useDataSources: [{ dataSourceId: 'dataSource_1', mainDataSourceId: 'dataSource_1' }]
+    } as any)
+    const { getByTestId, unmount } = render(<Setting widgetId="audiom-set-viewpoint-race" />)
+    await React.act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    getByTestId('map-source-selector').click()
+    const switched = onSettingChange.mock.calls.map(([arg]) => arg.config).find(
+      (config) => config?.mapItemId === 'item-99'
+    )
+    expect(switched?.viewpointItemId).toBe('')
+    onSettingChange.mockClear()
+    resolveRead?.({
+      centerLongitude: -77.45,
+      centerLatitude: 38.77,
+      zoom: 12
+    })
+    await React.act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(onSettingChange.mock.calls.some(
+      ([arg]) => arg.config?.centerLongitude === -77.45 && arg.config?.mapItemId === 'item-1'
+    )).toBe(false)
+    unmount()
+    state.appStateInBuilder = previous
   })
 })

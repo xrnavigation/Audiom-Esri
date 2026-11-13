@@ -203,13 +203,25 @@ export async function mountEsriMap (options: MapSurfaceOptions): Promise<Mounted
   const map = options.existingMap || (portalItem
     ? new MapCtor({ portalItem })
     : new MapCtor({ basemap: 'streets-vector' }))
-  const view = new ViewCtor({
+  // Omitting center and zoom lets a WebMap use its own initial viewpoint.
+  // Passing the previous item's camera here is what kept the old center
+  // and bounding box after Select data.
+  const viewOptions: {
+    container: HTMLElement
+    map: unknown
+    center?: [number, number]
+    zoom?: number
+    popupEnabled: boolean
+  } = {
     container: options.container,
     map,
-    center: [options.longitude ?? 0, options.latitude ?? 0],
-    zoom: options.zoom ?? 2,
     popupEnabled: false
-  })
+  }
+  if (options.longitude != null && options.latitude != null) {
+    viewOptions.center = [options.longitude, options.latitude]
+  }
+  if (options.zoom != null) viewOptions.zoom = options.zoom
+  const view = new ViewCtor(viewOptions)
   // WebMap.load starts in the constructor. Destroying the view before it
   // settles aborts the item request. Wait here so a replaced mount does not
   // leave that rejection unhandled.

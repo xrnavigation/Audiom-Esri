@@ -248,6 +248,72 @@ describe('Audiom runtime widget', () => {
     unmount()
     expect(created.length).toBe(1)
     expect((created[0].map as { properties: { portalItem?: { id: string } } }).properties.portalItem?.id).toBe('item-1')
+    expect((created[0] as { center?: [number, number] }).center).toEqual([-77.45, 38.77])
+    setMapModuleLoader(null)
+  })
+
+  it('does not mount a newly selected map at the previous center, then moves to the new viewpoint', async () => {
+    const created: Array<{ center?: [number, number], zoom?: number }> = []
+    const goTo = jest.fn(() => Promise.resolve())
+    setMapModuleLoader(async (modules) => {
+      if (modules[0] === 'esri/layers/GraphicsLayer') {
+        return [class GraphicsLayer {
+          constructor (public properties: unknown) {}
+          removeAll () {}
+          add () {}
+        }]
+      }
+      return [
+        class Map { constructor (public properties: unknown) {} },
+        class MapView {
+          goTo = goTo
+          constructor (properties: { container: HTMLElement, center?: [number, number], zoom?: number }) {
+            created.push(properties)
+            properties.container.dataset.mapMounted = 'true'
+          }
+          destroy () {}
+        }
+      ]
+    })
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-2',
+        viewpointItemId: '',
+        centerLongitude: -77.45,
+        centerLatitude: 38.77,
+        zoom: 12
+      }) as any
+    })
+    const view = render(<Widget widgetId="audiom-switch-map" />)
+    await React.act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(created).toHaveLength(1)
+    expect(created[0].center).toBeUndefined()
+    expect(created[0].zoom).toBeUndefined()
+    expect(goTo).not.toHaveBeenCalled()
+
+    view.rerender(<Widget
+      widgetId="audiom-switch-map"
+      config={makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-2',
+        viewpointItemId: 'item-2',
+        centerLongitude: -120.5,
+        centerLatitude: 45.2,
+        zoom: 8
+      }) as any}
+    />)
+    await React.act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(created).toHaveLength(1)
+    expect(goTo).toHaveBeenCalledWith(expect.objectContaining({
+      center: [-120.5, 45.2],
+      zoom: 8
+    }))
+    view.unmount()
     setMapModuleLoader(null)
   })
 

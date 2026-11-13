@@ -28,7 +28,7 @@ import {
   RuntimeLocation,
   runtimeLocationOf
 } from './runtimeLocation'
-import { portalUrlForItem, portalUrlForSource, readBundledMapViewpoint } from './bundledMapViewpoint'
+import { portalUrlForItem, readBundledMapViewpoint } from './bundledMapViewpoint'
 
 const { useEffect, useCallback, useState, useRef } = React
 
@@ -123,6 +123,13 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     })
   }, [bundled, props])
 
+  // A selection can change before the item id is readable. Until that id
+  // arrives, do not re-read the previous item's viewpoint.
+  const selectionPending = useRef(false)
+  // Incremented when the selected item changes so a slower read of the
+  // previous item cannot write its center back.
+  const viewpointGeneration = useRef(0)
+  const appliedMapItemId = useRef('')
   // The selector can connect a source before its item id is readable.
   // Watch the builder store so the saved id updates as soon as that item
   // appears, and clears as soon as the source is removed.
@@ -134,15 +141,32 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
       const dataSourceId = selected?.dataSourceId || selected?.mainDataSourceId || ''
       const itemId = itemIdForSource(dataSourceId)
       const extraSource = sources.length > 1
-      if (!extraSource && (latestConfigRef.current?.mapItemId || '') === itemId) return
+      const currentItem = latestConfigRef.current?.mapItemId || ''
+      const marker = latestConfigRef.current?.viewpointItemId
       // The selector connects the source before its item id is written.
       // Writing an empty id here would replace a viewpoint write in flight.
       if (!itemId && dataSourceId) return
+      const itemChanged = currentItem !== itemId
+      // An absent marker is an older save, not a switch. Only a marker for
+      // a different item means the stored center is stale.
+      const markerStale = marker != null && marker !== '' && marker !== itemId
+      if (!extraSource && !itemChanged && !markerStale) return
+      if (itemChanged) {
+        viewpointGeneration.current += 1
+        appliedMapItemId.current = ''
+        selectionPending.current = false
+      }
+      let next = latestConfigRef.current
+      if (itemChanged) next = setConfigValue(next, AudiomConfigKey.MapItemId, itemId)
+      if (markerStale || (itemChanged && marker !== '')) {
+        next = setConfigValue(next, AudiomConfigKey.ViewpointItemId, '')
+      }
+      if (next === latestConfigRef.current && !extraSource) return
       props.onSettingChange({
         id: props.id,
         useDataSources: selected ? [selected] : [],
         useDataSourcesEnabled: true,
-        config: setConfigValue(latestConfigRef.current, AudiomConfigKey.MapItemId, itemId)
+        config: next
       })
     }
     syncItemId()
@@ -193,7 +217,12 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     // write, and closing over the config from before that write drops it.
     const current = latestConfigRef.current
     let next = current
-    if (itemId) next = setConfigValue(next, AudiomConfigKey.MapItemId, itemId)
+    if (itemId) {
+      next = setConfigValue(next, AudiomConfigKey.MapItemId, itemId)
+      // Same numbers as the previous map still have to mark this item
+      // ready, or the canvas keeps the old camera and bounding box.
+      next = setConfigValue(next, AudiomConfigKey.ViewpointItemId, itemId)
+    }
     if (typeof vp.centerLatitude === 'number' && Number.isFinite(vp.centerLatitude)) {
       next = setConfigValue(next, AudiomConfigKey.CenterLatitude, vp.centerLatitude)
     }
@@ -229,13 +258,20 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
   // onSettingChange. Once per item, so a later field edit is not overwritten.
   const bundledMapItemId = bundled ? (config?.mapItemId || '') : ''
   const bundledPortalUrl = bundled ? portalUrlForItem(bundledMapItemId) : undefined
-  const appliedMapItemId = useRef('')
   useEffect(() => {
-    if (!bundledMapItemId || appliedMapItemId.current === bundledMapItemId) return undefined
+    if (!bundledMapItemId || selectionPending.current) return undefined
+    // The marker is the signal the canvas waits on. A missing marker on a
+    // saved config is not a switch; read once so the canvas learns the
+    // center belongs to this item.
+    if (config?.viewpointItemId === bundledMapItemId) {
+      appliedMapItemId.current = bundledMapItemId
+      return undefined
+    }
+    const generation = viewpointGeneration.current
     let cancelled = false
     logger.debug('bundled map item changed, reading viewpoint', bundledMapItemId, bundledPortalUrl)
     readBundledMapViewpoint(bundledMapItemId, bundledPortalUrl).then((viewpoint) => {
-      if (cancelled || appliedMapItemId.current === bundledMapItemId) return
+      if (cancelled || generation !== viewpointGeneration.current) return
       if (!viewpoint) {
         logger.warn('no viewpoint resolved for bundled item', bundledMapItemId)
         return
@@ -248,7 +284,7 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     return () => {
       cancelled = true
     }
-  }, [bundledMapItemId, bundledPortalUrl])
+  }, [bundledMapItemId, bundledPortalUrl, config?.viewpointItemId])
 
   useEffect(() => {
     // Use default value when useExistingMap is undefined
@@ -351,9 +387,21 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     const kept = selected ? [selected] : []
     const dataSourceId = selected?.dataSourceId || selected?.mainDataSourceId || ''
     const itemId = itemIdForSource(dataSourceId)
-    const portalUrl = portalUrlForSource(dataSourceId) || portalUrlForItem(itemId)
-    // A different map must be read again. The same item must not.
-    if (itemId && itemId !== latestConfigRef.current?.mapItemId) appliedMapItemId.current = ''
+    const currentItem = latestConfigRef.current?.mapItemId || ''
+    const changed = !itemId || itemId !== currentItem
+    // Do not start a viewpoint read here. That promise had no cancellation,
+    // so a slower read of map A could finish after map B was selected and
+    // write A's center back. The effect below reads, and its cleanup drops
+    // a read whose item is no longer current.
+    if (!itemId) selectionPending.current = true
+    else selectionPending.current = false
+    if (changed) {
+      viewpointGeneration.current += 1
+      appliedMapItemId.current = ''
+    }
+    let next = latestConfigRef.current
+    if (itemId) next = setConfigValue(next, AudiomConfigKey.MapItemId, itemId)
+    if (changed) next = setConfigValue(next, AudiomConfigKey.ViewpointItemId, '')
     props.onSettingChange({
       id: props.id,
       useDataSources: kept,
@@ -361,21 +409,7 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
       // this off makes Experience Builder show a locked "Connect to data"
       // switch and hide the selector.
       useDataSourcesEnabled: true,
-      config: setConfigValue(latestConfigRef.current, AudiomConfigKey.MapItemId, itemId)
-    })
-    // The item id can land in the store after this change. The store
-    // subscription reads it then. Do not mark the item applied until the
-    // viewpoint write itself is issued.
-    if (!itemId) return
-    void readBundledMapViewpoint(itemId, portalUrl).then((viewpoint) => {
-      if (!viewpoint) {
-        logger.warn('no viewpoint resolved for selected item', itemId)
-        return
-      }
-      appliedMapItemId.current = itemId
-      applyViewpointRef.current(viewpoint, itemId)
-    }).catch((error) => {
-      logger.error('failed to read selected viewpoint', error)
+      config: next
     })
   }
 

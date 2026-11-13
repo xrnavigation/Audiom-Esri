@@ -162,6 +162,12 @@ export interface IAudiomConfig {
   existingMapId?: string
   /** Portal item id of the web map or web scene Bundled mode draws itself. */
   mapItemId?: string
+  /**
+   * Item id whose center and zoom are stored here. Empty means a new
+   * selection has not been read yet. Absent on older saves: that center
+   * belongs to mapItemId.
+   */
+  viewpointItemId?: string
   /** Absent on configs saved before integrated modes. Those load as legacy. */
   runtimeLocation?: RuntimeLocation
   /** Bundled mode only. Ignored, not deleted, in the other modes. */

@@ -50,6 +50,12 @@ export interface AudiomProgram {
    */
   setMoveDistance?(meters: number): void
   /**
+   * Fence navigation to the drawn map. The feature bbox is only a page.
+   * A map switch publishes the new view extent here instead of rebuilding
+   * the session.
+   */
+  setNavigationExtent?(extent: [number, number, number, number]): void
+  /**
    * Speak the lines the map tooltip already shows: name, then statistic.
    * Null means the hit test found no painted plot.
    * Optional so a stub program that only drops the avatar still type-checks.

@@ -36,6 +36,11 @@ export enum AudiomConfigKey {
   ExistingMapId = 'existingMapId',
   /** Portal item selected as Bundled mode's own map. Not a Map widget. */
   MapItemId = 'mapItemId',
+  /**
+   * Item the saved center and zoom were read from. Empty while a new
+   * selection's viewpoint is still loading. Not a settings field.
+   */
+  ViewpointItemId = 'viewpointItemId',
   RuntimeLocation = 'runtimeLocation',
   AssetBaseUrl = 'assetBaseUrl'
 }
