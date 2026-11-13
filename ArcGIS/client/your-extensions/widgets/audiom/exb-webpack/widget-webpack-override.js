@@ -211,11 +211,12 @@ function aliasAudiomRuntimeToSource (config) {
   })
   // 1.12 and 1.13 run every .css file through sass-loader. That Sass build
   // treats modern CSS (rgb()/hsl() with alpha, min(), round()) as Sass
-  // functions and fails. Later Experience Builder releases ship a Sass that
-  // leaves those calls alone. Skip Sass for Front-End CSS and keep the
-  // host css-loader, so CSS-module class names stay the same.
-  rules.forEach(skipSassForFrontEndCss)
-  config.module.rules = [{
+  // functions and fails. Later releases ship a Sass that leaves those calls
+  // alone, so only the old client gets a static css-loader rule. A function
+  // for rule.use breaks CSS modules: webpack then requires an ident.
+  const oldSass = experienceBuilderMinor() != null && experienceBuilderMinor() <= 13
+  if (oldSass) rules.forEach(excludeFrontEndCssFromSass)
+  const frontEndCssRules = [{
     test: /Audiom-Front-End[\\/]src[\\/].+\.css$/,
     exclude: /\.module\.css$/,
     use: [
@@ -228,7 +229,21 @@ function aliasAudiomRuntimeToSource (config) {
         }
       }
     ]
-  }].concat(rules, [
+  }]
+  if (oldSass) {
+    frontEndCssRules.push(
+      {
+        test: /Audiom-Front-End[\\/].+\.module\.css$/,
+        use: hostCssUse(rules, true)
+      },
+      {
+        test: /Audiom-Front-End[\\/]node_modules[\\/].+\.css$/,
+        exclude: /\.module\.css$/,
+        use: hostCssUse(rules, false)
+      }
+    )
+  }
+  config.module.rules = frontEndCssRules.concat(rules, [
     {
       test: /[\\/]dotpad[\\/]DotPadSDK-3\.0\.2\.js$/,
       parser: {
@@ -238,28 +253,64 @@ function aliasAudiomRuntimeToSource (config) {
   ])
 }
 
+function hostCssUse (rules, modules) {
+  let found = null
+  rules.forEach((rule) => {
+    if (found || !rule || !Array.isArray(rule.use)) return
+    if (!rule.use.some((item) => loaderName(item).indexOf('sass-loader') !== -1)) return
+    found = rule.use.filter((item) => {
+      const name = loaderName(item)
+      return name.indexOf('sass-loader') === -1 && name.indexOf('resolve-url-loader') === -1
+    }).map((item) => {
+      if (typeof item === 'string' || loaderName(item).indexOf('css-loader') === -1) return item
+      const hostModules = item.options && item.options.modules
+      const nextModules = modules && hostModules && typeof hostModules === 'object'
+        ? Object.assign({}, hostModules, { auto: false })
+        : modules
+      return Object.assign({}, item, {
+        options: Object.assign({}, item.options, { url: false, modules: nextModules })
+      })
+    })
+  })
+  if (found && found.length) return found
+  return [
+    'style-loader',
+    { loader: 'css-loader', options: { url: false, modules: modules } }
+  ]
+}
+
 function loaderName (item) {
   if (typeof item === 'string') return item
   if (item && typeof item.loader === 'string') return item.loader
   return ''
 }
 
-function skipSassForFrontEndCss (rule) {
+function experienceBuilderMinor () {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'))
+    const match = String(pkg.version || '').match(/^1\.(\d+)/)
+    return match ? Number(match[1]) : null
+  } catch (err) {
+    return null
+  }
+}
+
+function excludeFrontEndCssFromSass (rule) {
   if (!rule || typeof rule !== 'object') return
-  if (Array.isArray(rule.oneOf)) rule.oneOf.forEach(skipSassForFrontEndCss)
-  if (Array.isArray(rule.rules)) rule.rules.forEach(skipSassForFrontEndCss)
+  if (Array.isArray(rule.oneOf)) rule.oneOf.forEach(excludeFrontEndCssFromSass)
+  if (Array.isArray(rule.rules)) rule.rules.forEach(excludeFrontEndCssFromSass)
   if (!Array.isArray(rule.use)) return
   if (!rule.use.some((item) => loaderName(item).indexOf('sass-loader') !== -1)) return
-  const originalUse = rule.use.slice()
-  rule.use = (info) => {
-    const resource = String((info && (info.resource || info.realResource)) || '').replace(/\\/g, '/').split('?')[0]
-    if (resource.indexOf('Audiom-Front-End/') === -1 || !resource.endsWith('.css')) {
-      return originalUse
+  const original = rule.test
+  rule.test = (file) => {
+    const normalized = String(file).replace(/\\/g, '/').split('?')[0]
+    if (normalized.indexOf('Audiom-Front-End/') !== -1 && normalized.endsWith('.css')) return false
+    if (typeof original === 'function') return original(file)
+    if (original instanceof RegExp) return original.test(file)
+    if (Array.isArray(original)) {
+      return original.some((item) => item instanceof RegExp && item.test(file))
     }
-    return originalUse.filter((item) => {
-      const name = loaderName(item)
-      return name.indexOf('sass-loader') === -1 && name.indexOf('resolve-url-loader') === -1
-    })
+    return true
   }
 }
 
