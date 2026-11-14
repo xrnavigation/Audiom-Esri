@@ -18,3 +18,5 @@ ArcGIS/server/*
 ArcGIS/server/public/signin-info.json
 __pycache__
 /docs/_site
+/tmp/
+ArcGIS/server/public/apps/e2e-live/

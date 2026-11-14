@@ -3,12 +3,28 @@ import {
   combineTimeFilters,
   getSourcesFromConfig,
   audiomConfigToEmbedConfig,
-  isAudiomConfigValid
+  isAudiomConfigValid,
+  withoutFloorFilter
 } from '../../src/utils/mapUtils'
 import { FilterType } from '../../src/setting/enums'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { toMutableConfig } from '../../src/setting/configs'
 import { makeConfig, makeImmutableConfig, makeSource, makeFilter } from '../helpers/configFactories'
+
+describe('withoutFloorFilter', () => {
+  const level1 = '{BAE9BBC5-D74F-4B7A-9904-9763AE70CCF2}'
+
+  it('omits the map floor field and keeps every other where', () => {
+    expect(withoutFloorFilter(`LEVEL_ID = '${level1}'`)).toBe(`LEVEL_ID = '${level1}'`)
+    expect(withoutFloorFilter(`FLOOR_CODE = 'A'`, ['FLOOR_CODE'])).toBeUndefined()
+    expect(withoutFloorFilter(
+      `((LEVEL_ID = '${level1}') AND (LEVEL_ID IN ('${level1}')))`,
+      ['LEVEL_ID']
+    )).toBeUndefined()
+    expect(withoutFloorFilter(`(STATUS = 1) AND (FLOOR_CODE = 'A')`, ['FLOOR_CODE'])).toBe('(STATUS = 1)')
+    expect(withoutFloorFilter('STATUS = 1', ['FLOOR_CODE'])).toBe('STATUS = 1')
+  })
+})
 
 describe('combineFilterExpressions', () => {
   it('returns undefined when no where filters present', () => {

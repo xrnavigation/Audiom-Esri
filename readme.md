@@ -138,6 +138,16 @@ volumes:
   - ./ArcGIS/server/public:/ArcGIS/server/public
 ```
 
+## Bundled widget build
+
+Bundled mode compiles the Audiom Front-End program into the widget. Experience Builder does not load the widget `webpack.config.js`. After every extract, `utils/setup_arcgis.py` copies `client/your-extensions/widgets/audiom/exb-webpack/` onto `client/webpack/`. Edit the overlay there, not the extracted copy.
+
+Place `Audiom-Front-End` next to this repo, or set `AUDIOM_FRONTEND_ROOT` to that checkout, and run `npm ci` in it. The overlay reads `node_modules` from that checkout and compiles `src/runtime/exbEntry.ts`. Locally it compiles the sibling `Audiom-Runtime` checkout when that exists, otherwise the vendored copy in `client/your-extensions/shared/audiom-runtime`. Do not install the public `@xrnavigation/audiom-runtime` SDK for this. That package is a different API and the same name.
+
+Restart the Experience Builder client after the overlay is copied. `webpack --watch` loads this file once at startup and will keep compiling the widget without the Front-End entry until it is restarted.
+
+CI checks out the Front-End branch named by `AUDIOM_FRONTEND_REF` in `.github/workflows/build-audiom-widget.yaml`. The `AUDIOM_FRONTEND_TOKEN` secret must be able to read `Coughlan-Lab/Audiom-Front-End` and `@xrnavigation` packages.
+
 ## Publishing Widgets
 
 ### Building Widgets for Distribution

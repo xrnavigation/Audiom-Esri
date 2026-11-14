@@ -130,7 +130,9 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
  * - When `useExistingMap` is off, always use the config sources.
  */
 function resolveSources(config: IAudiomConfig, jmv: JimuMapView | undefined): AudiomSource[] {
-  if (!config.useExistingMap) {
+  // Bundled mode has no Jimu map widget. Looking one up on every indicator
+  // move logs "No map view available" and never returns sources.
+  if (!config.useExistingMap || !jmv?.view) {
     return getSourcesFromConfig(config);
   }
 
@@ -236,9 +238,21 @@ export function getSourceLayerPairsFromEsriMap(
   logger.debug(`map.layers: ${map.layers.length}, map.allLayers: ${map.allLayers.length}, filtered: ${operationalLayers.length}`);
 
   const pairs: Array<{ source: AudiomSource, layer: __esri.Layer }> = [];
+  const operational: __esri.Layer[] = [];
   operationalLayers.forEach((layer) => {
+    operational.push(layer);
     processLayer(layer).forEach(source => pairs.push({ source, layer }));
   });
+  // The map's floor picker must not become the embed where, or only one
+  // floor loads. The field comes from the layers, not a fixed schema.
+  const floorFields = floorFieldsFromLayers(operational);
+  if (floorFields.length) {
+    pairs.forEach(({ source }) => {
+      if (!source.where) return;
+      const kept = withoutFloorFilter(toEsriSql(source.where), floorFields);
+      source.where = kept ? raw(kept) : undefined;
+    });
+  }
 
   // Merge rules and mapType from config if provided
   if (config) {
@@ -290,10 +304,34 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     return null;
   }
 
-  const view = jimuMapView.view;
+  return mapConfigFromView(jimuMapView.view);
+}
+
+/** Center, zoom, title, and operational layers of a drawn Esri view. */
+export function mapConfigFromView(view: {
+  center?: { latitude?: number, longitude?: number }
+  zoom?: number
+  map?: __esri.Map
+} | null | undefined): {
+  title?: string;
+  centerLatitude?: number;
+  centerLongitude?: number;
+  zoom?: number;
+  sourceConfigs?: Array<{
+    name?: string;
+    source?: string;
+    sourceUrl?: string;
+    mapType?: MapType;
+    rulesFileUrl?: string;
+    filters?: IFilterConfig[];
+    enabled?: boolean;
+  }>;
+} | null {
+  if (!view?.map || !view.center) return null
   const center = view.center;
   const zoom = view.zoom;
-  
+  if (center.latitude == null || center.longitude == null || zoom == null) return null
+
   // Extract title from the map's portal item if available
   const mapTitle = getMapTitle(view.map);
   
@@ -312,7 +350,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
   // Get sources from map (without config, so no rules merged) — paired with
   // their originating layer so we can read visibility/timeExtent without a
   // second pass over allLayers.
-  const sourceLayerPairs = getSourceLayerPairsFromEsriMap(jimuMapView);
+  const sourceLayerPairs = getSourceLayerPairsFromEsriMap({ view } as JimuMapView);
 
   sourceLayerPairs.forEach(({ source, layer }) => {
     const filters: IFilterConfig[] = []
@@ -321,7 +359,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
       filters.push({ expression: expr, mapExpression: expr, filterType: FilterType.Where, mapFilterType: FilterType.Where, locked: true, fromMap: true })
     }
     // Extract timeExtent from the layer if available (FeatureLayer, etc.)
-    const layerTimeExtent = (layer as any)?.timeExtent
+    const layerTimeExtent = layer && hasTimeExtent(layer) ? layer.timeExtent : undefined
     if (layerTimeExtent) {
       const timeExpr = formatTimeExtent(layerTimeExtent)
       if (timeExpr) {
@@ -379,6 +417,154 @@ function processLayer(layer: __esri.Layer): AudiomSource[] {
   }
 }
 
+const FLOOR_SQL_WORDS = new Set(['AND', 'OR', 'NOT', 'IN', 'IS', 'NULL', 'LIKE', 'BETWEEN', 'TRUE', 'FALSE'])
+
+function unwrapParens (expression: string): string {
+  let text = expression.trim()
+  while (text.startsWith('(') && text.endsWith(')') && wrapsWhole(text)) {
+    text = text.slice(1, -1).trim()
+  }
+  return text
+}
+
+function wrapsWhole (text: string): boolean {
+  let depth = 0
+  let quote = false
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i]
+    if (ch === "'") {
+      if (quote && text[i + 1] === "'") {
+        i += 1
+        continue
+      }
+      quote = !quote
+      continue
+    }
+    if (quote) continue
+    if (ch === '(') depth += 1
+    else if (ch === ')') {
+      depth -= 1
+      if (depth === 0 && i !== text.length - 1) return false
+    }
+  }
+  return depth === 0
+}
+
+function splitTopLevelAnd (expression: string): string[] {
+  const text = unwrapParens(expression)
+  const parts: string[] = []
+  let depth = 0
+  let quote = false
+  let start = 0
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i]
+    if (ch === "'") {
+      if (quote && text[i + 1] === "'") {
+        i += 1
+        continue
+      }
+      quote = !quote
+      continue
+    }
+    if (quote) continue
+    if (ch === '(') depth += 1
+    else if (ch === ')') depth -= 1
+    else if (depth === 0 && text.slice(i, i + 5).toUpperCase() === ' AND ') {
+      parts.push(text.slice(start, i).trim())
+      i += 4
+      start = i + 1
+    }
+  }
+  const tail = text.slice(start).trim()
+  if (tail) parts.push(tail)
+  return parts
+}
+
+function isFloorClause (clause: string, floorFields: readonly string[]): boolean {
+  const wanted = new Set(floorFields.map((field) => field.toUpperCase()))
+  if (!wanted.size) return false
+  const unquoted = clause.replace(/'(?:''|[^'])*'/g, ' ')
+  const names = unquoted.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []
+  const fields = names.filter((name) => !FLOOR_SQL_WORDS.has(name.toUpperCase()))
+  return fields.length > 0 && fields.every((name) => wanted.has(name.toUpperCase()))
+}
+
+function selectorField (clause: string): string | undefined {
+  const text = unwrapParens(clause)
+  const match = text.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*(?:=|IN)\s*/i)
+  return match?.[1]
+}
+
+/**
+ * Fields the map itself uses to pick a floor: floorInfo, or an equality/IN
+ * clause whose field is on more than one layer. A one-layer where such as
+ * CITY = 'Sumner' is not a floor filter.
+ */
+export function floorFieldsFromLayers (layers: Array<{
+  id?: string
+  title?: string
+  definitionExpression?: string | null
+  floorInfo?: { field?: string } | null
+  fields?: Array<{ name?: string }>
+}>): string[] {
+  const fields: string[] = []
+  const seen = new Set<string>()
+  const add = (field?: string) => {
+    if (!field || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(field)) return
+    const key = field.toUpperCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    fields.push(field)
+  }
+  const selectors: string[] = []
+  for (const layer of layers) {
+    add(layer.floorInfo?.field)
+    for (const clause of splitTopLevelAnd(layer.definitionExpression || '')) {
+      const field = selectorField(clause)
+      if (field) selectors.push(field)
+    }
+  }
+  for (const field of selectors) {
+    const holders = layers.filter((layer) =>
+      layer.fields?.some((item) => item.name?.toUpperCase() === field.toUpperCase())
+    )
+    if (holders.length >= 2) add(field)
+  }
+  return fields
+}
+
+/**
+ * Drop the map's floor-picker clause so the embed can load every floor.
+ * Other filters stay. Without a floor field list, the expression is unchanged.
+ */
+export function withoutFloorFilter (
+  expression: string | null | undefined,
+  floorFields: readonly string[] = []
+): string | undefined {
+  if (!expression?.trim()) return undefined
+  if (!floorFields.length) return expression
+  const clauses = splitTopLevelAnd(expression)
+  if (!clauses.some((clause) => isFloorClause(clause, floorFields))) return expression
+  const kept = clauses.filter((clause) => !isFloorClause(clause, floorFields))
+  if (!kept.length) return undefined
+  return kept.map((clause) => `(${unwrapParens(clause)})`).join(' AND ')
+}
+
+function expressionWhere (expression: string | null | undefined) {
+  return expression?.trim() ? raw(expression) : undefined
+}
+
+interface LayerTimeExtent {
+  start?: Date
+  end?: Date
+}
+
+function hasTimeExtent (
+  layer: __esri.Layer
+): layer is __esri.Layer & { timeExtent?: LayerTimeExtent | null } {
+  return 'timeExtent' in layer
+}
+
 function processFeatureLayer(layer: FeatureLayer | null): AudiomSource | null {
   if (!layer || !layer.url) {
     return null;
@@ -389,7 +575,7 @@ function processFeatureLayer(layer: FeatureLayer | null): AudiomSource | null {
     source: layer.id,
     url: `${layer.url}/${layer.layerId}`,
     mapType: MapType.Indoor,
-    where: layer.definitionExpression ? raw(layer.definitionExpression) : undefined
+    where: expressionWhere(layer.definitionExpression)
   });
 
   logger.debug(`Found FeatureLayer: ${layer.title} - ${layer.url}`);
@@ -441,7 +627,7 @@ function processMapImageLayer(layer: MapImageLayer | null): AudiomSource[] {
       source: `${layer.id}_${sublayer.id}`,
       url: sublayer.url,
       mapType: MapType.Indoor,
-      where: (sublayer as any).definitionExpression ? raw((sublayer as any).definitionExpression) : undefined
+      where: expressionWhere(sublayer.definitionExpression)
     });
 
     sources.push(source);

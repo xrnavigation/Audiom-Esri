@@ -7,7 +7,7 @@
  * suite exercises the wiring around `props.onSettingChange` and the map
  * sync lifecycle, which is the riskiest area.
  */
-import { React } from 'jimu-core'
+import { React, getAppStore } from 'jimu-core'
 
 jest.mock('jimu-arcgis', () => ({
   __esModule: true,
@@ -26,6 +26,23 @@ jest.mock('jimu-arcgis', () => ({
 jest.mock('jimu-ui/advanced/setting-components', () => {
   const { createSettingComponentsStubs } = require('../helpers/stubComponents')
   return createSettingComponentsStubs()
+})
+
+jest.mock('jimu-ui/advanced/data-source-selector', () => {
+  const React = require('react')
+  return {
+    __esModule: true,
+    DataSourceSelector: (props: Record<string, unknown>): React.ReactElement =>
+      React.createElement('div', {
+        'data-testid': 'map-source-selector',
+        'data-must-use': String(Boolean(props.mustUseDataSource)),
+        'data-enabled': String(Boolean(props.useDataSourcesEnabled)),
+        onClick: () => {
+          const onChange = props.onChange as ((sources: unknown[]) => void) | undefined
+          onChange?.([{ dataSourceId: 'dataSource_2', mainDataSourceId: 'dataSource_2' }])
+        }
+      })
+  }
 })
 
 /**
@@ -78,14 +95,27 @@ jest.mock('../../src/utils/mapSyncManager', () => ({
   getMapSyncManager: () => fakeManager
 }))
 
+const readBundledMapViewpoint = jest.fn(() => Promise.resolve(null))
+
+jest.mock('../../src/setting/bundledMapViewpoint', () => ({
+  __esModule: true,
+  canvasMapViewpoint: () => null,
+  portalUrlForItem: () => 'https://data.example.com',
+  portalUrlForSource: () => 'https://data.example.com',
+  readBundledMapViewpoint: (...args: unknown[]) => readBundledMapViewpoint(...args as [])
+}))
+
 import { widgetSettingRender, wrapWidgetSetting } from 'jimu-for-test'
 import _Setting from '../../src/setting/setting'
 import { makeImmutableConfig } from '../helpers/configFactories'
+import { RuntimeLocation } from '../../src/setting/runtimeLocation'
 
 const render = widgetSettingRender()
 
 describe('Audiom setting panel', () => {
   beforeEach(() => {
+    readBundledMapViewpoint.mockReset()
+    readBundledMapViewpoint.mockResolvedValue(null)
     Object.values(fakeManager).forEach(v => {
       if (typeof v === 'function' && (v as any).mockClear) (v as any).mockClear()
     })
@@ -165,5 +195,270 @@ describe('Audiom setting panel', () => {
       ([arg]) => (arg.config as any)?.existingMapId === 'fresh-map'
     )
     expect(setExistingMapIdCall).toBeDefined()
+  })
+
+  it('hides Map widget controls and shows the web map source in bundled mode', () => {
+    const Setting = wrapWidgetSetting(_Setting, {
+      config: makeImmutableConfig({ runtimeLocation: RuntimeLocation.Bundled }) as any,
+      onSettingChange: jest.fn(),
+      useMapWidgetIds: ['external-map']
+    } as any)
+    const { queryByText, getByText } = render(<Setting widgetId="audiom-set-bundled" />)
+    expect(queryByText('Use Existing Map Widget')).toBeNull()
+    expect(queryByText('Select Map Widget')).toBeNull()
+    expect(getByText('A web map or web scene.')).not.toBeNull()
+  })
+
+  it('keeps the bundled map selector visible without a Connect to data toggle', () => {
+    const onSettingChange = jest.fn()
+    const Setting = wrapWidgetSetting(_Setting, {
+      config: makeImmutableConfig({ runtimeLocation: RuntimeLocation.Bundled }) as any,
+      onSettingChange,
+      useDataSourcesEnabled: false
+    } as any)
+    const { getByTestId } = render(<Setting widgetId="audiom-set-bundled-source" />)
+    const selector = getByTestId('map-source-selector')
+    expect(selector.getAttribute('data-must-use')).toBe('true')
+    expect(selector.getAttribute('data-enabled')).toBe('true')
+    expect(onSettingChange).toHaveBeenCalledWith(expect.objectContaining({
+      useDataSourcesEnabled: true
+    }))
+  })
+
+  it('saves the selected web map item id so the canvas can leave the empty state', () => {
+    const store = getAppStore() as unknown as { getState: () => unknown }
+    const state = store.getState() as {
+      appConfig?: { dataSources?: Record<string, unknown> }
+      appStateInBuilder?: { appConfig?: { dataSources?: Record<string, unknown> } }
+    }
+    const previous = state.appStateInBuilder
+    state.appStateInBuilder = {
+      appConfig: {
+        dataSources: {
+          dataSource_2: { itemId: 'item-99', portalUrl: 'https://data.example.com' }
+        }
+      }
+    }
+    const onSettingChange = jest.fn()
+    const Setting = wrapWidgetSetting(_Setting, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: ''
+      }) as any,
+      onSettingChange,
+      useDataSources: [{ dataSourceId: 'dataSource_2', mainDataSourceId: 'dataSource_2' }]
+    } as any)
+    const { getByTestId, unmount } = render(<Setting widgetId="audiom-set-bundled-item" />)
+    getByTestId('map-source-selector').click()
+    const saved = onSettingChange.mock.calls.find(
+      ([arg]) => (arg.config as { mapItemId?: string })?.mapItemId === 'item-99'
+    )
+    expect(saved).toBeDefined()
+    unmount()
+    state.appStateInBuilder = previous
+  })
+
+  it('writes center, zoom, and sources from the selected item, not a canvas event', async () => {
+    readBundledMapViewpoint.mockResolvedValue({
+      title: 'Counties',
+      centerLongitude: -98.5,
+      centerLatitude: 39.8,
+      zoom: 5,
+      sourceConfigs: [{
+        name: 'Counties',
+        source: 'https://services.example.com/counties',
+        sourceUrl: 'https://services.example.com/counties',
+        enabled: true,
+        locked: true
+      }]
+    } as any)
+    const onSettingChange = jest.fn()
+    const Setting = wrapWidgetSetting(_Setting, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-99',
+        centerLongitude: 0,
+        centerLatitude: 0,
+        zoom: 2,
+        sourceConfigs: []
+      }) as any,
+      onSettingChange,
+      useDataSources: [{ dataSourceId: 'dataSource_2', mainDataSourceId: 'dataSource_2' }]
+    } as any)
+    const store = getAppStore() as unknown as { getState: () => unknown }
+    const state = store.getState() as {
+      appStateInBuilder?: { appConfig?: { dataSources?: Record<string, unknown> } }
+    }
+    const previous = state.appStateInBuilder
+    state.appStateInBuilder = {
+      appConfig: {
+        dataSources: {
+          dataSource_2: { itemId: 'item-99', portalUrl: 'https://data.example.com' }
+        }
+      }
+    }
+    const { unmount } = render(<Setting widgetId="audiom-set-bundled-sync" />)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(readBundledMapViewpoint).toHaveBeenCalledWith('item-99', 'https://data.example.com')
+    const saved = onSettingChange.mock.calls.map(([arg]) => arg.config).find(
+      (config) => config?.centerLongitude === -98.5
+    )
+    expect(saved?.centerLatitude).toBe(39.8)
+    expect(saved?.zoom).toBe(5)
+    expect(saved?.viewpointItemId).toBe('item-99')
+    expect(saved?.sourceConfigs?.[0]?.name).toBe('Counties')
+    unmount()
+    state.appStateInBuilder = previous
+  })
+
+  it('writes latitude, longitude, and zoom when a bundled map source is set', async () => {
+    readBundledMapViewpoint.mockResolvedValue({
+      centerLongitude: -98.5,
+      centerLatitude: 39.8,
+      zoom: 5
+    } as any)
+    const onSettingChange = jest.fn()
+    const Setting = wrapWidgetSetting(_Setting, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-99',
+        centerLongitude: 0,
+        centerLatitude: 0,
+        zoom: 10
+      }) as any,
+      onSettingChange
+    } as any)
+    const { unmount } = render(<Setting widgetId="audiom-set-bundled-viewpoint" />)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const saved = onSettingChange.mock.calls.map(([arg]) => arg.config).find(
+      (config) => config?.centerLongitude === -98.5
+    )
+    expect(saved?.centerLatitude).toBe(39.8)
+    expect(saved?.zoom).toBe(5)
+    expect(saved?.viewpointItemId).toBe('item-99')
+    unmount()
+  })
+
+  it('does not apply a slower viewpoint read after the selected item changes', async () => {
+    let resolveRead: ((value: unknown) => void) | undefined
+    readBundledMapViewpoint.mockImplementation(() => new Promise((resolve) => {
+      resolveRead = resolve
+    }))
+    const store = getAppStore() as unknown as { getState: () => unknown }
+    const state = store.getState() as {
+      appStateInBuilder?: { appConfig?: { dataSources?: Record<string, unknown> } }
+    }
+    const previous = state.appStateInBuilder
+    state.appStateInBuilder = {
+      appConfig: {
+        dataSources: {
+          dataSource_2: { itemId: 'item-99', portalUrl: 'https://data.example.com' }
+        }
+      }
+    }
+    const onSettingChange = jest.fn()
+    const Setting = wrapWidgetSetting(_Setting, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-1',
+        centerLongitude: -77.45,
+        centerLatitude: 38.77,
+        zoom: 12
+      }) as any,
+      onSettingChange,
+      useDataSources: [{ dataSourceId: 'dataSource_1', mainDataSourceId: 'dataSource_1' }]
+    } as any)
+    const { getByTestId, unmount } = render(<Setting widgetId="audiom-set-viewpoint-race" />)
+    await React.act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    getByTestId('map-source-selector').click()
+    const switched = onSettingChange.mock.calls.map(([arg]) => arg.config).find(
+      (config) => config?.mapItemId === 'item-99'
+    )
+    expect(switched?.viewpointItemId).toBe('')
+    onSettingChange.mockClear()
+    resolveRead?.({
+      centerLongitude: -77.45,
+      centerLatitude: 38.77,
+      zoom: 12
+    })
+    await React.act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(onSettingChange.mock.calls.some(
+      ([arg]) => arg.config?.centerLongitude === -77.45 && arg.config?.mapItemId === 'item-1'
+    )).toBe(false)
+    unmount()
+    state.appStateInBuilder = previous
+  })
+
+  it('clears the previous map layers when another web map is selected', async () => {
+    readBundledMapViewpoint.mockResolvedValue({
+      title: 'Next map',
+      centerLongitude: -77.1,
+      centerLatitude: 38.8,
+      zoom: 11,
+      sourceConfigs: [{
+        name: 'New Places',
+        source: 'new-layer',
+        sourceUrl: 'https://services.example.com/new/FeatureServer/0',
+        enabled: true
+      }]
+    } as any)
+    const store = getAppStore() as unknown as { getState: () => unknown }
+    const state = store.getState() as {
+      appStateInBuilder?: { appConfig?: { dataSources?: Record<string, unknown> } }
+    }
+    const previous = state.appStateInBuilder
+    state.appStateInBuilder = {
+      appConfig: {
+        dataSources: {
+          dataSource_1: { itemId: 'item-1', portalUrl: 'https://data.example.com' },
+          dataSource_2: { itemId: 'item-99', portalUrl: 'https://data.example.com' }
+        }
+      }
+    }
+    const onSettingChange = jest.fn()
+    const Setting = wrapWidgetSetting(_Setting, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-1',
+        viewpointItemId: 'item-1',
+        sourceConfigs: [{
+          name: 'Old Places',
+          source: 'old-layer',
+          sourceUrl: 'https://services.example.com/old/FeatureServer/0',
+          enabled: true
+        }]
+      }) as any,
+      onSettingChange,
+      useDataSources: [{ dataSourceId: 'dataSource_1', mainDataSourceId: 'dataSource_1' }]
+    } as any)
+    const { getByTestId, unmount } = render(<Setting widgetId="audiom-set-source-reset" />)
+    getByTestId('map-source-selector').click()
+    const cleared = onSettingChange.mock.calls.map(([arg]) => arg.config).find(
+      (config) => config?.mapItemId === 'item-99'
+    )
+    expect(cleared?.sourceConfigs).toEqual([])
+    unmount()
+    // The builder applies that write, then the viewpoint read fills the list.
+    // Remounting with it is that apply. The old layer must not come back.
+    onSettingChange.mockClear()
+    const Applied = wrapWidgetSetting(_Setting, {
+      config: cleared,
+      onSettingChange,
+      useDataSources: [{ dataSourceId: 'dataSource_2', mainDataSourceId: 'dataSource_2' }]
+    } as any)
+    const applied = render(<Applied widgetId="audiom-set-source-reset-applied" />)
+    await React.act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    const replaced = onSettingChange.mock.calls.map(([arg]) => arg.config).find(
+      (config) => config?.sourceConfigs?.some((source: { name?: string }) => source.name === 'New Places')
+    )
+    expect(replaced?.sourceConfigs?.map((source: { name?: string }) => source.name)).toEqual(['New Places'])
+    applied.unmount()
+    state.appStateInBuilder = previous
   })
 })

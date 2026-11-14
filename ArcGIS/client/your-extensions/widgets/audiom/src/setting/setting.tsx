@@ -1,7 +1,8 @@
-import { ImmutableObject, React } from 'jimu-core'
+import { DataSourceManager, DataSourceTypes, getAppStore, Immutable, ImmutableObject, React, type IMDataSourceJson, type UseDataSource } from 'jimu-core'
 import type { AllWidgetSettingProps } from 'jimu-for-builder'
 import { JimuMapViewComponent, type JimuMapView } from 'jimu-arcgis'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
+import { DataSourceSelector } from 'jimu-ui/advanced/data-source-selector'
 import { NumericInput, Switch, Button, ButtonGroup, Collapse, Tooltip, Label } from 'jimu-ui'
 import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 
@@ -13,17 +14,30 @@ import VisualBaseLayerList from './components/VisualBaseLayerList'
 import { useMapSyncState } from './hooks/useMapSyncState'
 import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/mapUtils'
 import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
-import { mergeSourcesPreservingUnlocked } from '../utils/sourceConfigUtils'
+import { mergeSourcesPreservingUnlocked, serializeLockedForDiff } from '../utils/sourceConfigUtils'
 import { createLogger } from '../utils/logger'
 import { DEFAULT_CONFIG, FieldConfig, IAudiomConfig, ISourceConfig, setConfigValue, toMutableConfig } from './configs'
 import { ButtonType, FieldType, FlowType, Colors } from './enums'
 import { Padding } from './enums'
 import { AudiomConfigKey, LockableFieldName } from './configKeys'
 import { validateUrl, VALIDATION } from './validation/validation'
+import {
+  isEmbedRuntime,
+  isIntegratedRuntime,
+  isSettingVisible,
+  RuntimeLocation,
+  runtimeLocationOf
+} from './runtimeLocation'
+import { portalUrlForItem, readBundledMapViewpoint } from './bundledMapViewpoint'
 
 const { useEffect, useCallback, useState, useRef } = React
 
 const logger = createLogger('Setting')
+
+const MAP_SOURCE_TYPES = Immutable.from([
+  DataSourceTypes.WebMap,
+  DataSourceTypes.WebScene
+])
 
 const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) => {
   const { config } = props
@@ -36,7 +50,7 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
   const [mapSettingsOpen, setMapSettingsOpen] = useState(true)
   // Bumps each time JimuMapViewComponent reports the active JimuMapView is
   // ready (or that the map id changed). Used to (re)trigger the
-  // attach-to-map effect below — replaces the old setInterval-based polling.
+  // attach-to-map effect below â€” replaces the old setInterval-based polling.
   const [mapViewReadyTick, setMapViewReadyTick] = useState(0)
 
   // Helper to update config
@@ -65,8 +79,9 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     // Merge sources, preserving enabled/locked state for manually unlocked items
     const mergedSources = mergeSourcesPreservingUnlocked(currentSources, mapSources)
     
-    const currentSourcesJson = JSON.stringify(currentSources)
-    const mergedSourcesJson = JSON.stringify(mergedSources)
+    // Compare locked sources only. A full JSON compare treats a missing list
+    // and an empty list as different and writes forever.
+    const sourcesChanged = serializeLockedForDiff(currentSources) !== serializeLockedForDiff(mergedSources)
     
     // Track the map values for display/sync purposes
     updateMapValues(newMapConfig)
@@ -77,7 +92,7 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
       fieldNeedsUpdate(LockableFieldName.CenterLongitude, newMapConfig.centerLongitude) ||
       fieldNeedsUpdate(LockableFieldName.Zoom, newMapConfig.zoom) ||
       fieldNeedsUpdate(LockableFieldName.Title, newMapConfig.title) ||
-      currentSourcesJson !== mergedSourcesJson
+      sourcesChanged
 
     if (needsUpdate) {
       // Sync source configs
@@ -92,12 +107,85 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     }
   }, [config, updateConfig, updateMapValues, fieldNeedsUpdate, syncLockedFieldsToConfig])
 
-  // Get the effective map ID - prefer useMapWidgetIds from props, fall back to config
-  const effectiveMapId = props.useMapWidgetIds?.[0] || config?.existingMapId || ''
+  const runtimeLocation = runtimeLocationOf(toMutableConfig(config))
+  const bundled = runtimeLocation === RuntimeLocation.Bundled
+  // Bundled draws its own web map or web scene. It never binds a Map widget.
+  const effectiveMapId = bundled ? '' : (props.useMapWidgetIds?.[0] || config?.existingMapId || '')
+
+  // Bundled mode always shows the map selector. A previous save may have
+  // turned the data connection off, which hides the selector behind a
+  // "Connect to data" switch that this panel does not handle.
+  useEffect(() => {
+    if (!bundled || props.useDataSourcesEnabled) return
+    props.onSettingChange({
+      id: props.id,
+      useDataSourcesEnabled: true
+    })
+  }, [bundled, props])
+
+  // A selection can change before the item id is readable. Until that id
+  // arrives, do not re-read the previous item's viewpoint.
+  const selectionPending = useRef(false)
+  // Incremented when the selected item changes so a slower read of the
+  // previous item cannot write its center back.
+  const viewpointGeneration = useRef(0)
+  const appliedMapItemId = useRef('')
+  // The selector can connect a source before its item id is readable.
+  // Watch the builder store so the saved id updates as soon as that item
+  // appears, and clears as soon as the source is removed.
+  useEffect(() => {
+    if (!bundled) return undefined
+    const syncItemId = () => {
+      const sources = props.useDataSources ? Array.from(props.useDataSources) : []
+      const selected = sources[sources.length - 1]
+      const dataSourceId = selected?.dataSourceId || selected?.mainDataSourceId || ''
+      const itemId = itemIdForSource(dataSourceId)
+      const extraSource = sources.length > 1
+      const currentItem = latestConfigRef.current?.mapItemId || ''
+      const marker = latestConfigRef.current?.viewpointItemId
+      // The selector connects the source before its item id is written.
+      // Writing an empty id here would replace a viewpoint write in flight.
+      if (!itemId && dataSourceId) return
+      const itemChanged = currentItem !== itemId
+      // An absent marker is an older save, not a switch. Only a marker for
+      // a different item means the stored center is stale.
+      const markerStale = marker != null && marker !== '' && marker !== itemId
+      if (!extraSource && !itemChanged && !markerStale) return
+      if (itemChanged) {
+        viewpointGeneration.current += 1
+        appliedMapItemId.current = ''
+        selectionPending.current = false
+      }
+      let next = latestConfigRef.current
+      if (itemChanged) {
+        next = setConfigValue(next, AudiomConfigKey.MapItemId, itemId)
+        // The previous item's layers are not this map's Data Sources.
+        // Leaving them filters the new snapshot down to nothing, or lists
+        // the old service after the view has already changed.
+        next = setConfigValue(next, AudiomConfigKey.SourceConfigs, [])
+      }
+      if (markerStale || (itemChanged && marker !== '')) {
+        next = setConfigValue(next, AudiomConfigKey.ViewpointItemId, '')
+      }
+      if (next === latestConfigRef.current && !extraSource) return
+      props.onSettingChange({
+        id: props.id,
+        useDataSources: selected ? [selected] : [],
+        useDataSourcesEnabled: true,
+        config: next
+      })
+    }
+    syncItemId()
+    const store = getAppStore() as {
+      subscribe?: (listener: () => void) => (() => void) | void
+    }
+    return store.subscribe?.(syncItemId)
+  }, [bundled, props, config])
 
   // Auto-sync existingMapId from props.useMapWidgetIds when it changes
   // This handles the case when the widget is first added and useMapWidgetIds gets populated
   useEffect(() => {
+    if (bundled) return
     const mapIdFromProps = props.useMapWidgetIds?.[0]
     if (mapIdFromProps && config?.existingMapId !== mapIdFromProps) {
       logger.debug('Auto-syncing existingMapId from useMapWidgetIds:', mapIdFromProps)
@@ -106,7 +194,7 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
         config: setConfigValue(config, AudiomConfigKey.ExistingMapId, mapIdFromProps)
       })
     }
-  }, [props.useMapWidgetIds, config?.existingMapId, props, config])
+  }, [bundled, props.useMapWidgetIds, config?.existingMapId, props, config])
 
   // Initialize MapSyncManager: do the initial sync once when useExistingMap is
   // first enabled for a given map, but only subscribe to ongoing layer/zoom
@@ -118,17 +206,96 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
   //
   // applyConfigFromMap depends on `config`, which changes on every edit. We
   // intentionally do NOT want this effect to re-run (re-attach, re-do initial
-  // sync, etc.) every time the user changes a setting — only when the map id
+  // sync, etc.) every time the user changes a setting â€” only when the map id
   // or useExistingMap toggles. We pin the latest callback into a ref and read
   // it from inside the effect / from the change listener; this is the
   // "useEvent" / "useLatest" pattern (see RFC: react-events).
   const applyConfigFromMapRef = useRef(applyConfigFromMap)
   applyConfigFromMapRef.current = applyConfigFromMap
+  const latestConfigRef = useRef(config)
+  latestConfigRef.current = config
+
+  // Write the item's center and zoom straight into config. The lock-gated
+  // applyConfigFromMap path can suppress the write; these fields must always
+  // follow the selected bundled map.
+  const applyViewpointToSettings = useCallback((vp: MapSyncConfig, itemId?: string) => {
+    // Read the latest config. This callback can resolve after a map-item
+    // write, and closing over the config from before that write drops it.
+    const current = latestConfigRef.current
+    let next = current
+    if (itemId) {
+      next = setConfigValue(next, AudiomConfigKey.MapItemId, itemId)
+      // Same numbers as the previous map still have to mark this item
+      // ready, or the canvas keeps the old camera and bounding box.
+      next = setConfigValue(next, AudiomConfigKey.ViewpointItemId, itemId)
+    }
+    if (typeof vp.centerLatitude === 'number' && Number.isFinite(vp.centerLatitude)) {
+      next = setConfigValue(next, AudiomConfigKey.CenterLatitude, vp.centerLatitude)
+    }
+    if (typeof vp.centerLongitude === 'number' && Number.isFinite(vp.centerLongitude)) {
+      next = setConfigValue(next, AudiomConfigKey.CenterLongitude, vp.centerLongitude)
+    }
+    if (typeof vp.zoom === 'number' && Number.isFinite(vp.zoom)) {
+      next = setConfigValue(next, AudiomConfigKey.Zoom, vp.zoom)
+    }
+    if (vp.title) {
+      next = setConfigValue(next, AudiomConfigKey.Title, vp.title)
+    }
+    if (vp.sourceConfigs && vp.sourceConfigs.length > 0) {
+      const merged = mergeSourcesPreservingUnlocked(toMutableConfig(current).sourceConfigs || [], vp.sourceConfigs)
+      next = setConfigValue(next, AudiomConfigKey.SourceConfigs, merged)
+    }
+    if (next === current) {
+      logger.debug('viewpoint matched current config, no write needed')
+      return
+    }
+    logger.debug('writing viewpoint to Map Settings', {
+      title: vp.title, lat: vp.centerLatitude, lng: vp.centerLongitude,
+      zoom: vp.zoom, sources: vp.sourceConfigs?.length || 0
+    })
+    props.onSettingChange({ id: props.id, config: next })
+  }, [props])
+  const applyViewpointRef = useRef(applyViewpointToSettings)
+  applyViewpointRef.current = applyViewpointToSettings
+
+  // Bundled mode has no Map widget. The canvas and this panel are different
+  // windows, so the canvas must not write these fields. Load the selected
+  // item here, on its own portal, and write center and zoom through
+  // onSettingChange. Once per item, so a later field edit is not overwritten.
+  const bundledMapItemId = bundled ? (config?.mapItemId || '') : ''
+  const bundledPortalUrl = bundled ? portalUrlForItem(bundledMapItemId) : undefined
+  useEffect(() => {
+    if (!bundledMapItemId || selectionPending.current) return undefined
+    // The marker is the signal the canvas waits on. A missing marker on a
+    // saved config is not a switch; read once so the canvas learns the
+    // center belongs to this item.
+    if (config?.viewpointItemId === bundledMapItemId) {
+      appliedMapItemId.current = bundledMapItemId
+      return undefined
+    }
+    const generation = viewpointGeneration.current
+    let cancelled = false
+    logger.debug('bundled map item changed, reading viewpoint', bundledMapItemId, bundledPortalUrl)
+    readBundledMapViewpoint(bundledMapItemId, bundledPortalUrl).then((viewpoint) => {
+      if (cancelled || generation !== viewpointGeneration.current) return
+      if (!viewpoint) {
+        logger.warn('no viewpoint resolved for bundled item', bundledMapItemId)
+        return
+      }
+      appliedMapItemId.current = bundledMapItemId
+      applyViewpointRef.current(viewpoint, bundledMapItemId)
+    }).catch((error) => {
+      logger.error('failed to read bundled viewpoint', error)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [bundledMapItemId, bundledPortalUrl, config?.viewpointItemId])
 
   useEffect(() => {
     // Use default value when useExistingMap is undefined
     const useExistingMap = config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap
-    
+
     if (!useExistingMap || !effectiveMapId) {
       mapSyncManager.detach()
       mapSyncManager.resetInitialSync()
@@ -147,7 +314,7 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
 
     // Try to attach. If the JimuMapView isn't registered yet (it hasn't been
     // created by the map widget) the JimuMapViewComponent rendered below
-    // will fire onActiveViewChange once it is — that bumps mapViewReadyTick
+    // will fire onActiveViewChange once it is â€” that bumps mapViewReadyTick
     // and re-runs this effect.
     const attached = mapSyncManager.attach(effectiveMapId, mutableConfig)
     if (attached) {
@@ -167,8 +334,8 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
       mapSyncManager.removeChangeListener(applyConfigFromMapRef.current)
     }
   // exhaustive-deps disabled intentionally: `config` is read inside the effect
-  // (via applyConfigFromMapRef.current → applyConfigFromMap closure) but we do
-  // not want a re-run on every config change — only on map id / toggle change.
+  // (via applyConfigFromMapRef.current â†’ applyConfigFromMap closure) but we do
+  // not want a re-run on every config change â€” only on map id / toggle change.
   // mapViewReadyTick is included so the effect retries once the underlying
   // JimuMapView becomes available.
   // See the useRef + ref-pinning pattern above.
@@ -196,6 +363,71 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     })
   }
 
+  const itemIdForSource = (dataSourceId: string): string => {
+    if (!dataSourceId) return ''
+    // The selector writes the item into app config, then creates the data
+    // source, before this change fires. Read that JSON. Do not construct a
+    // source here: a source with no JSON throws on .portalUrl.
+    const fromConfig = dataSourceJson(dataSourceId)?.itemId
+    if (fromConfig) return fromConfig
+    try {
+      const created = DataSourceManager.getInstance()?.getDataSource(dataSourceId)
+      return created?.getDataSourceJson()?.itemId || ''
+    } catch {
+      return ''
+    }
+  }
+
+  const dataSourceJson = (dataSourceId: string): IMDataSourceJson | null | undefined => {
+    const state = getAppStore().getState() as {
+      appConfig?: { dataSources?: Record<string, IMDataSourceJson | null | undefined> }
+      appStateInBuilder?: { appConfig?: { dataSources?: Record<string, IMDataSourceJson | null | undefined> } }
+    }
+    return state.appStateInBuilder?.appConfig?.dataSources?.[dataSourceId]
+      || state.appConfig?.dataSources?.[dataSourceId]
+  }
+
+  const onMapSourceChange = (nextUseDataSources: UseDataSource[]) => {
+    // One map only. A new selection replaces the current source.
+    const selected = nextUseDataSources?.[nextUseDataSources.length - 1]
+    const kept = selected ? [selected] : []
+    const dataSourceId = selected?.dataSourceId || selected?.mainDataSourceId || ''
+    const itemId = itemIdForSource(dataSourceId)
+    const currentItem = latestConfigRef.current?.mapItemId || ''
+    const previous = props.useDataSources ? Array.from(props.useDataSources) : []
+    const previousSource = previous[previous.length - 1]
+    const previousSourceId = previousSource?.dataSourceId || previousSource?.mainDataSourceId || ''
+    const changed = !itemId || itemId !== currentItem
+    const sourceChanged = dataSourceId !== previousSourceId
+    // Do not start a viewpoint read here. That promise had no cancellation,
+    // so a slower read of map A could finish after map B was selected and
+    // write A's center back. The effect below reads, and its cleanup drops
+    // a read whose item is no longer current.
+    if (!itemId) selectionPending.current = true
+    else selectionPending.current = false
+    if (changed) {
+      viewpointGeneration.current += 1
+      appliedMapItemId.current = ''
+    }
+    let next = latestConfigRef.current
+    if (itemId) next = setConfigValue(next, AudiomConfigKey.MapItemId, itemId)
+    if (changed) next = setConfigValue(next, AudiomConfigKey.ViewpointItemId, '')
+    // Drop the previous map's layers now. The viewpoint read writes this
+    // map's own list when it returns; until then the old list must not stay.
+    if (sourceChanged || (Boolean(itemId) && itemId !== currentItem)) {
+      next = setConfigValue(next, AudiomConfigKey.SourceConfigs, [])
+    }
+    props.onSettingChange({
+      id: props.id,
+      useDataSources: kept,
+      // Keep the connection on so the map selector stays visible. Turning
+      // this off makes Experience Builder show a locked "Connect to data"
+      // switch and hide the selector.
+      useDataSourcesEnabled: true,
+      config: next
+    })
+  }
+
   const onPropertyChange = (property: string, value: unknown) => {
     props.onSettingChange({
       id: props.id,
@@ -213,7 +445,7 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
   const onPreviewInAudiom = () => {
     // For preview, we use URL mode sources (not existing map sources since we don't have JimuMapView in settings)
     const previewConfig: IAudiomConfig = { ...mutableConfig, useExistingMap: false }
-    const embedConfig = audiomConfigToEmbedConfig(previewConfig)
+    const embedConfig = audiomConfigToEmbedConfig(previewConfig, undefined)
 
     const previewUrl = embedConfig.toUrl(previewConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
     window.open(previewUrl, '_blank', 'noopener,noreferrer')
@@ -261,10 +493,13 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     return `${currentStepSize} ${currentUnit}`
   }
 
-  // Connection fields - set once
+  const integrated = isIntegratedRuntime(runtimeLocation)
+
+  // Connection fields - set once. Visibility follows the runtime location.
   const connectionFields: FieldConfig[] = [
     { key: AudiomConfigKey.ApiKey, label: 'API Key', type: FieldType.Password, placeholder: 'Enter API key' },
-    { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl, validateOnAccept: (val) => validateUrl(String(val)) },
+    { key: AudiomConfigKey.BaseUrl, label: 'Audiom Server Base URL', type: FieldType.Text, placeholder: 'Enter Audiom server URL', defaultValue: DEFAULT_CONFIG.baseUrl, validateOnAccept: (val) => validateUrl(String(val)), showWhen: () => isSettingVisible(AudiomConfigKey.BaseUrl, runtimeLocation) },
+    { key: AudiomConfigKey.AssetBaseUrl, label: 'Asset Base URL', type: FieldType.Text, placeholder: 'https://audiom.net', defaultValue: DEFAULT_CONFIG.assetBaseUrl, validateOnAccept: (val) => validateUrl(String(val)), showWhen: () => isSettingVisible(AudiomConfigKey.AssetBaseUrl, runtimeLocation) },
     { key: AudiomConfigKey.SoundpackUrl, label: 'Soundpack URL', type: FieldType.Text, placeholder: 'Enter soundpack name or URL' }
   ]
 
@@ -283,14 +518,16 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     { key: AudiomConfigKey.Zoom, label: 'Zoom Level', type: FieldType.Number, min: VALIDATION.ZOOM_MIN, max: VALIDATION.ZOOM_MAX, defaultValue: DEFAULT_CONFIG.zoom, lockable: true, lockableFieldName: LockableFieldName.Zoom }
   ]
 
-  // Display fields - appearance & behavior
+  // Display fields - appearance and behavior
   const displayFields: FieldConfig[] = [
     { key: AudiomConfigKey.Title, label: 'Title', type: FieldType.Text, placeholder: 'Enter widget title', lockable: true, lockableFieldName: LockableFieldName.Title },
     { key: AudiomConfigKey.StepSize, label: 'Step Size', type: FieldType.Custom, showCopyButton: false, renderCustom: renderStepSizeUnitSelector },
-    { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false },
+    { key: AudiomConfigKey.ShowVisualMap, label: 'Show Visual Map', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showVisualMap, showCopyButton: false, showWhen: () => isSettingVisible(AudiomConfigKey.ShowVisualMap, runtimeLocation) },
     { key: AudiomConfigKey.ShowHeading, label: 'Show Heading', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showHeading, showCopyButton: false },
-    { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 0, max: 360, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
-    { key: AudiomConfigKey.VisualStyle, label: 'Visual Style', type: FieldType.Enum, enumOptions: [{ label: 'Default', value: '' }, { label: 'Geology', value: 'geology' }], showCopyButton: false }
+    { key: AudiomConfigKey.ShowMapControls, label: 'Show map controls', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showMapControls, showCopyButton: false, showWhen: () => isSettingVisible(AudiomConfigKey.ShowMapControls, runtimeLocation) },
+    { key: AudiomConfigKey.ShowMapLabels, label: 'Show map labels', type: FieldType.Switch, defaultValue: DEFAULT_CONFIG.showMapLabels, showCopyButton: false, showWhen: () => isSettingVisible(AudiomConfigKey.ShowMapLabels, runtimeLocation) },
+    { key: AudiomConfigKey.Heading, label: 'Heading Size', type: FieldType.Number, min: 1, max: 6, defaultValue: DEFAULT_CONFIG.heading, showCopyButton: false },
+    { key: AudiomConfigKey.VisualStyle, label: 'Visual Style', type: FieldType.Enum, enumOptions: [{ label: 'Default', value: '' }, { label: 'Geology', value: 'geology' }], showCopyButton: false, showWhen: () => isSettingVisible(AudiomConfigKey.VisualStyle, runtimeLocation) }
   ]
 
   const useExistingMap = config?.useExistingMap ?? DEFAULT_CONFIG.useExistingMap
@@ -331,13 +568,17 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     )
   }
 
+  const visibleConnectionFields = connectionFields.filter((field) => field.showWhen?.(mutableConfig) !== false)
+  const visibleDisplayFields = displayFields.filter((field) => {
+    if (field.showWhen && !field.showWhen(mutableConfig)) return false
+    if (field.key === AudiomConfigKey.Heading) {
+      return config?.showHeading ?? DEFAULT_CONFIG.showHeading
+    }
+    return true
+  })
+
   return (
     <div className="widget-setting-demo">
-      {/*
-        Invisible bridge: subscribes to the selected map widget so we get a
-        callback the moment the JimuMapView becomes available. Drives the
-        attach-to-map effect via mapViewReadyTick (replaces setInterval).
-      */}
       {effectiveMapId ? (
         <JimuMapViewComponent
           useMapWidgetId={effectiveMapId}
@@ -345,75 +586,119 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
         />
       ) : null}
       <SettingSection title="Connection">
-        {connectionFields.map((field) => renderField(field, false))}
+        <SettingRow flow={FlowType.Wrap}>
+          <Label>Runtime location</Label>
+          <ButtonGroup>
+            {([
+              [RuntimeLocation.Standalone, 'Standalone embed'],
+              [RuntimeLocation.Bundled, 'Bundled']
+            ] as const).map(([value, label]) => (
+              <Button
+                key={value}
+                active={value === RuntimeLocation.Standalone
+                  ? isEmbedRuntime(runtimeLocation)
+                  : runtimeLocation === value}
+                aria-pressed={value === RuntimeLocation.Standalone
+                  ? isEmbedRuntime(runtimeLocation)
+                  : runtimeLocation === value}
+                onClick={() => onPropertyChange(AudiomConfigKey.RuntimeLocation, value)}
+              >
+                {label}
+              </Button>
+            ))}
+          </ButtonGroup>
+        </SettingRow>
+        {visibleConnectionFields.map((field) => renderField(field, false))}
       </SettingSection>
 
       <SettingSection title="Map Configuration">
-        <SettingRow flow={FlowType.Wrap}>
-          <CopyableLabel label="Use Existing Map Widget" copyValue={String(useExistingMap)} showCopyButton={false} />
-          <Switch
-            checked={useExistingMap}
-            onChange={(e) => onPropertyChange('useExistingMap', e.target.checked)}
-          />
-        </SettingRow>
-
-        {useExistingMap ? (
+        {bundled ? (
           <SettingRow flow={FlowType.Wrap}>
-            <CopyableLabel label="Select Map Widget" copyValue={config?.existingMapId || ''} showCopyButton={false} />
-            <MapWidgetSelector useMapWidgetIds={props.useMapWidgetIds} onSelect={onMapWidgetSelected} />
+            <CopyableLabel label="Source" copyValue={config?.mapItemId || ''} showCopyButton={false} />
+            <div>A web map or web scene.</div>
+            <DataSourceSelector
+              types={MAP_SOURCE_TYPES}
+              widgetId={props.id}
+              useDataSources={props.useDataSources}
+              useDataSourcesEnabled
+              mustUseDataSource
+              hideDataView
+              disableDataView
+              buttonLabel="Set"
+              onChange={(nextUseDataSources) => {
+                onMapSourceChange(nextUseDataSources || [])
+              }}
+            />
           </SettingRow>
+        ) : (
+          <>
+            <SettingRow flow={FlowType.Wrap}>
+              <CopyableLabel label="Use Existing Map Widget" copyValue={String(useExistingMap)} showCopyButton={false} />
+              <Switch
+                checked={useExistingMap}
+                onChange={(e) => onPropertyChange('useExistingMap', e.target.checked)}
+              />
+            </SettingRow>
+            {useExistingMap ? (
+              <SettingRow flow={FlowType.Wrap}>
+                <CopyableLabel label="Select Map Widget" copyValue={config?.existingMapId || ''} showCopyButton={false} />
+                <MapWidgetSelector useMapWidgetIds={props.useMapWidgetIds} onSelect={onMapWidgetSelected} />
+              </SettingRow>
+            ) : null}
+          </>
+        )}
+        {isSettingVisible(AudiomConfigKey.Zoom, runtimeLocation) ? (
+          <>
+            <CollapsibleHeader
+              label="Map Settings"
+              isOpen={mapSettingsOpen}
+              onToggle={() => setMapSettingsOpen(!mapSettingsOpen)}
+            />
+            <Collapse isOpen={mapSettingsOpen}>
+              <div style={{ paddingLeft: Padding.SectionContent }}>
+                {mapSettingsFields.map((field) => renderField(field, false))}
+              </div>
+            </Collapse>
+          </>
         ) : null}
-
-        <CollapsibleHeader
-          label="Map Settings"
-          isOpen={mapSettingsOpen}
-          onToggle={() => setMapSettingsOpen(!mapSettingsOpen)}
-        />
-        <Collapse isOpen={mapSettingsOpen}>
-          <div style={{ paddingLeft: Padding.SectionContent }}>
-            {mapSettingsFields.map((field) => renderField(field, false))}
-          </div>
-        </Collapse>
-
         <SourceConfigList
           apiKey={config?.apiKey ?? ''}
           baseUrl={config?.baseUrl || DEFAULT_CONFIG.baseUrl}
           sourceConfigs={mutableConfig.sourceConfigs || []}
           onChange={onSourceConfigsChange}
-          readOnly={useExistingMap}
+          readOnly={integrated || useExistingMap}
         />
       </SettingSection>
 
       <SettingSection title="Display">
-        {displayFields.map((field) => {
-          // Only show Heading Size if Show Heading is true
-          if (field.key === AudiomConfigKey.Heading) {
-            const showHeading = config?.showHeading ?? DEFAULT_CONFIG.showHeading
-            if (!showHeading) return null
-          }
-          return renderField(field, false)
-        })}
-        <VisualBaseLayerList
-          layers={mutableConfig.visualBaseLayers || []}
-          onChange={(layers) => onPropertyChange(AudiomConfigKey.VisualBaseLayers, layers)}
-        />
-        <SettingRow flow={FlowType.Wrap}>
-          <Button
-            type={ButtonType.Primary}
-            style={{ width: '100%' }}
-            onClick={onPreviewInAudiom}
-            disabled={!isAudiomConfigValid(mutableConfig)}
-          >
-            Preview in Audiom
-          </Button>
-        </SettingRow>
-        <SettingRow flow={FlowType.Wrap}>
-          <Label style={{ width: '100%', color: Colors.TextMuted, fontSize: '12px' }}>
-            {(!isAudiomConfigValid(mutableConfig))
-              ? 'API Key is required to preview in Audiom.'
-              : 'Opens the current configuration in a new tab.'}
-          </Label>
-        </SettingRow>
+        {visibleDisplayFields.map((field) => renderField(field, false))}
+        {isSettingVisible(AudiomConfigKey.VisualBaseLayers, runtimeLocation) ? (
+          <VisualBaseLayerList
+            layers={mutableConfig.visualBaseLayers || []}
+            onChange={(layers) => onPropertyChange(AudiomConfigKey.VisualBaseLayers, layers)}
+          />
+        ) : null}
+        {isEmbedRuntime(runtimeLocation) ? (
+          <>
+            <SettingRow flow={FlowType.Wrap}>
+              <Button
+                type={ButtonType.Primary}
+                style={{ width: '100%' }}
+                onClick={onPreviewInAudiom}
+                disabled={!isAudiomConfigValid(mutableConfig)}
+              >
+                Preview in Audiom
+              </Button>
+            </SettingRow>
+            <SettingRow flow={FlowType.Wrap}>
+              <Label style={{ width: '100%', color: Colors.TextMuted, fontSize: '12px' }}>
+                {(!isAudiomConfigValid(mutableConfig))
+                  ? 'API Key is required to preview in Audiom.'
+                  : 'Opens the current configuration in a new tab.'}
+              </Label>
+            </SettingRow>
+          </>
+        ) : null}
       </SettingSection>
     </div>
   )

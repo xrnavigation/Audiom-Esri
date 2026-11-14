@@ -137,6 +137,9 @@ export function useMapSyncState(
   ): boolean => {
     if (!isFieldLocked(fieldName)) return false
     const currentValue = getFieldValue(fieldName)
+    if (typeof currentValue === 'number' && typeof mapValue === 'number') {
+      return Math.abs(currentValue - mapValue) >= 0.000001
+    }
     return currentValue !== mapValue
   }, [isFieldLocked, getFieldValue])
 

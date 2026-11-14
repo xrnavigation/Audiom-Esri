@@ -2,7 +2,7 @@
   "name": "audiom",
   "label": "Audiom",
   "type": "widget",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "exbVersion": "1.14",
   "dependency": [
     "jimu-arcgis"
@@ -11,7 +11,9 @@
   "description": "Integrate Audion's fully-accessible audio maps into your ArcGIS Experience Builder applications.",
   "copyright": "",
   "license": "© 2026 XR Navigation. All rights reserved.",
-  "properties": {},
+  "properties": {
+    "canCreateMapView": true
+  },
   "translatedLocales": [
     "en"
   ],

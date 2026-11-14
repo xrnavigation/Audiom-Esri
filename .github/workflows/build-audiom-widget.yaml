@@ -10,7 +10,11 @@ on:
     branches: [main, master]
     paths:
     - 'ArcGIS/client/your-extensions/widgets/audiom/**'
-    - 'workflows/build-audiom-widget.yaml'
+    - 'ArcGIS/client/your-extensions/shared/audiom-runtime/**'
+    - '.github/workflows/build-audiom-widget.yaml'
+    - 'utils/setup_arcgis.py'
+    - '.github/scripts/verify-build-output.sh'
+    - '.github/scripts/tests/test-scripts.sh'
   workflow_dispatch:
 
 
@@ -26,6 +30,12 @@ permissions:
 env:
   AUDIOM_ORIGINAL_URL: 'https://audiom-staging.herokuapp.com'
   AUDIOM_REPLACEMENT_URL: 'https://audiom.net'
+  # Front-End checkout inside this workspace. The widget require cannot walk
+  # outside $GITHUB_WORKSPACE, so the overlay aliases a module id to this path.
+  AUDIOM_FRONTEND_ROOT: ${{ github.workspace }}/Audiom-Front-End
+  # Front-End branch compiled into the widget. Checkout uses the branch tip,
+  # not a pinned SHA. A Front-End push does not itself rebuild the widget.
+  AUDIOM_FRONTEND_REF: feature/1977-use-map-viewer
   # Absolute path to the workflow helper scripts, anchored to the repo root so
   # every step calls the same location regardless of its working directory.
   SCRIPTS_DIR: ${{ github.workspace }}/.github/scripts
@@ -75,6 +85,43 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Require Front-End checkout token
+      env:
+        AUDIOM_FRONTEND_TOKEN: ${{ secrets.AUDIOM_FRONTEND_TOKEN }}
+      run: |
+        if [ -z "$AUDIOM_FRONTEND_TOKEN" ]; then
+          echo "::error::Set AUDIOM_FRONTEND_TOKEN. It must read Coughlan-Lab/Audiom-Front-End and packages in @xrnavigation."
+          exit 1
+        fi
+
+    - name: Checkout Audiom Front-End
+      uses: actions/checkout@v4
+      with:
+        repository: Coughlan-Lab/Audiom-Front-End
+        ref: ${{ env.AUDIOM_FRONTEND_REF }}
+        path: Audiom-Front-End
+        token: ${{ secrets.AUDIOM_FRONTEND_TOKEN }}
+
+    # Front-End's only file: dependency is ../Audiom-Runtime. The vendored
+    # contract in this repo is that package. Webpack compiles its src.
+    - name: Link vendored runtime for Front-End install
+      run: |
+        rm -rf Audiom-Runtime
+        cp -a ArcGIS/client/your-extensions/shared/audiom-runtime Audiom-Runtime
+        test -f Audiom-Runtime/package.json
+        test -f Audiom-Runtime/src/factory.ts
+
+    - name: Set up Node.js 22 for Front-End install
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Install Audiom Front-End dependencies
+      working-directory: Audiom-Front-End
+      env:
+        NPM_TOKEN: ${{ secrets.AUDIOM_FRONTEND_TOKEN }}
+      run: npm ci
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -106,32 +153,56 @@ jobs:
     - name: Rewrite Audiom base URL for production
       run: python "$SCRIPTS_DIR/rewrite-url.py" "ArcGIS/client/your-extensions" --require-match
 
-    # Install dependencies for both the client and the server.
-    - name: Install client dependencies
+    # Experience Builder installs a widget lockfile during extension bootstrap.
+    # Authenticate the @xrnavigation scope with this repository's own token.
+    - name: Install widget dependencies
+      working-directory: ArcGIS/client/your-extensions/widgets/audiom
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: npm ci
+
+    # The downloaded client has no node_modules. build:for-download runs
+    # cross-env from the client devDependencies, so install those first.
+    - name: Install Experience Builder client dependencies
       working-directory: ArcGIS/client
       run: npm ci
 
-    - name: Install server dependencies
-      working-directory: ArcGIS/server
-      run: npm ci
-
-    # Produce the production build of the widget.
-    - name: Build Audiom widget (production)
+    # Developer Edition 1.18+ emits the downloadable widget, including lazy
+    # import() chunks, with build:for-download. Older releases keep build:prod.
+    # build:for-download writes dist-download. Older build:prod writes dist
+    # or dist-prod. Lazy chunks live beside the widget folder.
+    - name: Build Audiom widget
       working-directory: ArcGIS/client
-      run: npm run build:prod
+      run: |
+        if npm run | grep -q 'build:for-download'; then
+          npm run build:for-download
+        else
+          npm run build:prod
+        fi
 
-    # ExB 1.13 writes to dist-prod; 1.18+ write to dist.
     - name: Locate widget build output
       id: widget-out
       run: |
         OUT="$(bash "$SCRIPTS_DIR/resolve-widget-output.sh" "ArcGIS/client")"
         echo "Found widget output at $OUT"
         echo "path=$OUT" >> "$GITHUB_OUTPUT"
+        CHUNKS="$(dirname "$OUT")/../chunks"
+        if [ -d "$CHUNKS" ]; then
+          mkdir -p "$OUT/chunks"
+          cp -R "$CHUNKS/." "$OUT/chunks/"
+        fi
 
     # Verify files are non-empty, the manifest is stamped, and the original
-    # (staging) URL did not leak into the production bundle.
+    # (staging) URL did not leak into the production bundle. The size gate runs
+    # only when the runtime package has emitted its tree-shaking report.
     - name: Verify build output
-      run: bash "$SCRIPTS_DIR/verify-build-output.sh" "${{ steps.widget-out.outputs.path }}" "${{ matrix.exb-version }}" "$AUDIOM_ORIGINAL_URL"
+      run: |
+        REPORT="ArcGIS/client/your-extensions/widgets/audiom/treeshake-report.json"
+        if [ -s "$REPORT" ]; then
+          bash "$SCRIPTS_DIR/verify-build-output.sh" "${{ steps.widget-out.outputs.path }}" "${{ matrix.exb-version }}" "$AUDIOM_ORIGINAL_URL" "$REPORT"
+        else
+          bash "$SCRIPTS_DIR/verify-build-output.sh" "${{ steps.widget-out.outputs.path }}" "${{ matrix.exb-version }}" "$AUDIOM_ORIGINAL_URL"
+        fi
 
     # Upload each version's build as an artifact; fail if there are no files.
     - name: Upload built widget artifact
