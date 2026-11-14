@@ -15,7 +15,7 @@ const { useState, useCallback } = React
 // UI Text Constants
 const HEADING_TEXT = 'Visual Base Layers'
 const BUTTON_ADD = 'Add Base Layer'
-const BUTTON_IMPORT = 'Import Base Layers'
+const BUTTON_IMPORT = 'Import Base Layers From Map'
 const EMPTY_STATE = 'No visual base layers configured.'
 
 interface VisualBaseLayerListProps {
@@ -24,7 +24,10 @@ interface VisualBaseLayerListProps {
   /** Map widget id whose Imagery layers can be imported. */
   mapId?: string
 
-  // Whether to show the "Import Base Layers" button. If true, the button is hidden.
+  /**
+   * When true, the widget reads the live map, so Add and Import are hidden.
+   * Missing means the existing map is in use.
+   */
   useExistingMap?: boolean
 }
 
@@ -168,16 +171,15 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
             />
           ))
         )}
-        <SettingRow flow={FlowType.Wrap}>
-          <Button
-            type={ButtonType.Primary}
-            style={{ width: '100%', marginBottom: 12 }}
-            onClick={handleAdd}
-          >
-            {BUTTON_ADD}
-          </Button>
-
-          {!useExistingMap ? (
+        {!useExistingMap ? (
+          <SettingRow flow={FlowType.Wrap}>
+            <Button
+              type={ButtonType.Primary}
+              style={{ width: '100%', marginBottom: 12 }}
+              onClick={handleAdd}
+            >
+              {BUTTON_ADD}
+            </Button>
             <Button
               type={ButtonType.Primary}
               style={{ width: '100%', marginBottom: 12 }}
@@ -185,8 +187,8 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
             >
               {BUTTON_IMPORT}
             </Button>
-          ) : null}
-        </SettingRow>
+          </SettingRow>
+        ) : null}
       </Collapse>
     </div>
   )
