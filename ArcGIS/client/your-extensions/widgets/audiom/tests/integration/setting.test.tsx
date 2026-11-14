@@ -392,4 +392,73 @@ describe('Audiom setting panel', () => {
     unmount()
     state.appStateInBuilder = previous
   })
+
+  it('clears the previous map layers when another web map is selected', async () => {
+    readBundledMapViewpoint.mockResolvedValue({
+      title: 'Next map',
+      centerLongitude: -77.1,
+      centerLatitude: 38.8,
+      zoom: 11,
+      sourceConfigs: [{
+        name: 'New Places',
+        source: 'new-layer',
+        sourceUrl: 'https://services.example.com/new/FeatureServer/0',
+        enabled: true
+      }]
+    } as any)
+    const store = getAppStore() as unknown as { getState: () => unknown }
+    const state = store.getState() as {
+      appStateInBuilder?: { appConfig?: { dataSources?: Record<string, unknown> } }
+    }
+    const previous = state.appStateInBuilder
+    state.appStateInBuilder = {
+      appConfig: {
+        dataSources: {
+          dataSource_1: { itemId: 'item-1', portalUrl: 'https://data.example.com' },
+          dataSource_2: { itemId: 'item-99', portalUrl: 'https://data.example.com' }
+        }
+      }
+    }
+    const onSettingChange = jest.fn()
+    const Setting = wrapWidgetSetting(_Setting, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-1',
+        viewpointItemId: 'item-1',
+        sourceConfigs: [{
+          name: 'Old Places',
+          source: 'old-layer',
+          sourceUrl: 'https://services.example.com/old/FeatureServer/0',
+          enabled: true
+        }]
+      }) as any,
+      onSettingChange,
+      useDataSources: [{ dataSourceId: 'dataSource_1', mainDataSourceId: 'dataSource_1' }]
+    } as any)
+    const { getByTestId, unmount } = render(<Setting widgetId="audiom-set-source-reset" />)
+    getByTestId('map-source-selector').click()
+    const cleared = onSettingChange.mock.calls.map(([arg]) => arg.config).find(
+      (config) => config?.mapItemId === 'item-99'
+    )
+    expect(cleared?.sourceConfigs).toEqual([])
+    unmount()
+    // The builder applies that write, then the viewpoint read fills the list.
+    // Remounting with it is that apply. The old layer must not come back.
+    onSettingChange.mockClear()
+    const Applied = wrapWidgetSetting(_Setting, {
+      config: cleared,
+      onSettingChange,
+      useDataSources: [{ dataSourceId: 'dataSource_2', mainDataSourceId: 'dataSource_2' }]
+    } as any)
+    const applied = render(<Applied widgetId="audiom-set-source-reset-applied" />)
+    await React.act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    const replaced = onSettingChange.mock.calls.map(([arg]) => arg.config).find(
+      (config) => config?.sourceConfigs?.some((source: { name?: string }) => source.name === 'New Places')
+    )
+    expect(replaced?.sourceConfigs?.map((source: { name?: string }) => source.name)).toEqual(['New Places'])
+    applied.unmount()
+    state.appStateInBuilder = previous
+  })
 })

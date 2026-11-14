@@ -1228,6 +1228,152 @@ describe('map snapshot', () => {
     }
   })
 
+  it('keeps a census State filter instead of reloading national tract tiles', async () => {
+    const where = "State = 'Hawaii'"
+    const counted: string[] = []
+    const tracts = {
+      id: 'tracts',
+      title: 'Tract',
+      type: 'feature',
+      visible: true,
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      fields: [{ name: 'State' }, { name: 'OBJECTID' }, { name: 'B03002_001E' }],
+      definitionExpression: where,
+      createQuery () {
+        return { where: this.definitionExpression || undefined }
+      },
+      queryFeatureCount (query: { where?: string }) {
+        counted.push(query.where || '')
+        return Promise.resolve(351)
+      },
+      queryFeatures (query: { where?: string, outStatistics?: unknown }) {
+        expect(query.where).toBe(where)
+        expect(this.definitionExpression).toBe(where)
+        if (query.outStatistics) return Promise.resolve({ features: [] })
+        return Promise.resolve({
+          features: [{
+            attributes: { OBJECTID: 1, State: 'Hawaii', name: 'Tract 1', B03002_001E: 1200 },
+            geometry: { rings: [[[-157.9, 21.3], [-157.8, 21.3], [-157.8, 21.4], [-157.9, 21.3]]] }
+          }]
+        })
+      }
+    }
+    const snapshot = await snapshotFeaturesFromMapView({
+      map: { allLayers: { forEach (fn) { fn(tracts) } } }
+    }, 'map-1', [
+      { id: 'tracts', title: 'Tract', enabled: true, mapType: 'heatmap' }
+    ])
+    expect(tracts.definitionExpression).toBe(where)
+    expect(counted).toEqual([where])
+    expect(snapshot.records[0]?.attributes.name).toBe('Tract 1')
+  })
+
+  it('pages a filtered heatmap past the service page so later tracts are not empty', async () => {
+    const where = "State = 'Hawaii'"
+    const starts: Array<number | undefined> = []
+    const ring = (offset: number) => [[[-157.9 + offset, 21.3], [-157.8 + offset, 21.3], [-157.8 + offset, 21.4], [-157.9 + offset, 21.3]]]
+    const tracts = {
+      id: 'tracts',
+      title: 'Tract',
+      type: 'feature',
+      visible: true,
+      geometryType: 'polygon',
+      objectIdField: 'OBJECTID',
+      fields: [{ name: 'State' }, { name: 'OBJECTID' }, { name: 'NAME' }],
+      definitionExpression: where,
+      createQuery () {
+        return { where: this.definitionExpression || undefined }
+      },
+      queryFeatureCount () {
+        return Promise.resolve(2)
+      },
+      queryFeatures (query: { start?: number, geometry?: unknown, outStatistics?: unknown }) {
+        if (query.outStatistics) return Promise.resolve({ features: [] })
+        starts.push(query.start)
+        expect(query.geometry).toBeNull()
+        if (!query.start) {
+          return Promise.resolve({
+            exceededTransferLimit: true,
+            features: [{
+              attributes: { OBJECTID: 1, State: 'Hawaii', NAME: 'Tract 1' },
+              geometry: { rings: ring(0) }
+            }]
+          })
+        }
+        return Promise.resolve({
+          features: [{
+            attributes: { OBJECTID: 2, State: 'Hawaii', NAME: 'Tract 2' },
+            geometry: { rings: ring(0.2) }
+          }]
+        })
+      }
+    }
+    const snapshot = await snapshotFeaturesFromMapView({
+      view: { extent: { xmin: -158, ymin: 21, xmax: -157, ymax: 22 } },
+      map: { allLayers: { forEach (fn) { fn(tracts) } } }
+    }, 'map-1', [
+      { id: 'tracts', title: 'Tract', enabled: true, mapType: 'heatmap' }
+    ])
+    expect(starts).toEqual([0, 1])
+    expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Tract 1', 'Tract 2'])
+  })
+
+  it('keeps the Hawaii filter when the source omits Map Type and defaults to indoor', async () => {
+    const where = "State = 'Hawaii'"
+    const tracts = {
+      id: 'tracts',
+      title: 'Tract',
+      type: 'feature',
+      visible: true,
+      geometryType: 'polygon',
+      fields: [{ name: 'State' }, { name: 'OBJECTID' }],
+      definitionExpression: where,
+      createQuery () {
+        return { where: this.definitionExpression || undefined }
+      },
+      queryFeatures (query: { where?: string }) {
+        expect(query.where).toBe(where)
+        expect(this.definitionExpression).toBe(where)
+        return Promise.resolve({ features: [] })
+      }
+    }
+    await snapshotFeaturesFromMapView({
+      map: { allLayers: { forEach (fn) { fn(tracts) } } }
+    }, 'map-1', [
+      { id: 'tracts', title: 'Tract', enabled: true, mapType: 'indoor' }
+    ])
+    expect(tracts.definitionExpression).toBe(where)
+  })
+
+  it('does not treat a State filter shared by Tract and County as a floor', async () => {
+    const where = "State = 'Hawaii'"
+    const layer = (id: string, title: string) => ({
+      id,
+      title,
+      type: 'feature',
+      visible: true,
+      geometryType: 'polygon',
+      fields: [{ name: 'State' }, { name: 'OBJECTID' }],
+      definitionExpression: where,
+      createQuery () {
+        return { where: this.definitionExpression || undefined }
+      },
+      queryFeatures (query: { where?: string }) {
+        expect(query.where).toBe(where)
+        expect(this.definitionExpression).toBe(where)
+        return Promise.resolve({ features: [] })
+      }
+    })
+    const tract = layer('tracts', 'Tract')
+    const county = layer('counties', 'County')
+    await snapshotFeaturesFromMapView({
+      map: { allLayers: { forEach (fn) { fn(tract); fn(county) } } }
+    }, 'map-1')
+    expect(tract.definitionExpression).toBe(where)
+    expect(county.definitionExpression).toBe(where)
+  })
+
   it('starts the bundled runtime against that snapshot', async () => {
     const statuses: string[] = []
     const handle = startBundledRuntime('widget-1', {

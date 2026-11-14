@@ -131,6 +131,10 @@ const FEATURE_LIMIT = 200
 /** Indoor units are the rooms. The first service page is one floor, and every other room says Empty Space. */
 const INDOOR_PAGE = 1000
 const INDOOR_FEATURE_CAP = 5000
+/** A filtered heatmap this size is the map, not a national extract. Page it
+ * whole. The first service page is 50 tracts, and every other painted tract
+ * then says Empty Space. */
+const HEATMAP_FEATURE_CAP = 2000
 const LAYER_LOAD_TIMEOUT = 'Audiom layer load timed out'
 
 function withTimeout<T> (pending: Promise<T>, ms: number): Promise<T> {
@@ -205,7 +209,9 @@ export function snapshotFromMapView (
     if ((!supported || hidden) && !hint) return
     // Out of scale stays navigable. A closed eye does not.
     const navigable = hint ? hint.enabled !== false : supported && (bound || outOfScale)
-    const cap = isFloorLayer(layer, floorFields) ? INDOOR_FEATURE_CAP : FEATURE_LIMIT
+    const cap = isFloorLayer(layer, floorFields)
+      ? INDOOR_FEATURE_CAP
+      : Math.min(HEATMAP_FEATURE_CAP, Math.max(features.length, FEATURE_LIMIT))
     for (const feature of features.slice(0, cap)) {
       const record = featureRecord(dataSourceId, sourceId, layer, feature, navigable)
       if (record) records.push(record)
@@ -392,7 +398,8 @@ export async function snapshotFeaturesFromMapView (
       copy,
       viewExtent ?? jimuMapView?.view?.extent,
       indicator,
-      floorFields
+      floorFields,
+      mapTypes
     ))
   }
   await Promise.all(pending)
@@ -482,7 +489,8 @@ async function queryLayerFeatures (
   copy: SnapshotLayer & { features?: SnapshotFeature[] },
   viewExtent?: unknown,
   indicator?: { longitude: number, latitude: number },
-  floorFields: readonly string[] = []
+  floorFields: readonly string[] = [],
+  mapTypes?: readonly SnapshotMapTypeHint[]
 ): Promise<void> {
   try {
     if (typeof layer.when === 'function') await withTimeout(layer.when(), 8000)
@@ -522,12 +530,11 @@ async function queryLayerFeatures (
     return
   }
   try {
-    // Layers that carry the map's floor field are queried whole. Travel
-    // keeps its own where. The shared floor list is often empty until load,
-    // and the live clause may already have been cleared, so the copy's
-    // published clause counts too. Otherwise Units stops at the 200-feature
-    // page, only one floor is stamped, and the Levels toggle is omitted.
-    const indoor = isFloorLayer(copy, floorFields) || isFloorLayer(layer, floorFields) || Boolean(ownFloorField(copy)) || Boolean(ownFloorField(layer))
+    // Layers that carry the map's floor field are queried whole. Travel and
+    // heatmap keep their own where. A State = 'Hawaii' clause is not a floor.
+    // Clearing it reloads national tract tiles, and Esri logs Failed to load tile.
+    const indoor = isFloorLayer(copy, floorFields) || isFloorLayer(layer, floorFields) ||
+      (hintedIndoor(layer, mapTypes) && Boolean(ownFloorField(layer) || ownFloorField(copy)))
     // A floor clause left on the layer is ANDed with this query. Units and
     // Levels then come back empty, and the legend says 0. Clear it before
     // createQuery copies it. The view filter still draws the selected floor.
@@ -552,10 +559,21 @@ async function queryLayerFeatures (
     // projection. A floor-filtered queryFeatures can return none while the
     // count is 239.
     copy.serviceFeatureCount = await countServiceFeatures(layer)
-    // A LEVEL_ID layer is an indoor floor plan. The first 200 rows are not
-    // the rooms on the other floors, so page the service. Travel and heatmap
-    // stay on the 200-feature page.
-    const page = await queryFeaturePages(layer, query, indoor)
+    // A filtered heatmap small enough to be one map is paged whole. Stopping
+    // at the service's 50-row page leaves every other painted tract as Empty
+    // Space. A national count stays on the view page.
+    const filteredCount = copy.serviceFeatureCount || 0
+    const pageHeatmap = !indoor && filteredCount > 0 && filteredCount <= HEATMAP_FEATURE_CAP
+    if (pageHeatmap) {
+      query.geometry = null
+      query.spatialRelationship = undefined
+    }
+    const page = await queryFeaturePages(
+      layer,
+      query,
+      indoor || pageHeatmap,
+      pageHeatmap ? HEATMAP_FEATURE_CAP : undefined
+    )
     // The tract under the indicator must be in the snapshot or the step says Empty Space.
     const standing = await featuresAtIndicator(layer, indicator)
     copy.features = await geographicFeatures(layer, mergeFeatures(page, standing))
@@ -572,12 +590,13 @@ async function queryLayerFeatures (
   }
 }
 
-/** Whole-layer count. Ignores a floor clause already cleared by the caller. */
+/** Whole-layer count. A cleared floor clause counts the building. A census
+ * filter such as State = 'Hawaii' stays, or the national count stalls the tiles. */
 async function countServiceFeatures (layer: SnapshotLayer): Promise<number | undefined> {
   if (typeof layer.queryFeatureCount !== 'function' || typeof layer.createQuery !== 'function') return undefined
   try {
     const query = layer.createQuery()
-    query.where = '1=1'
+    if (!query.where) query.where = '1=1'
     query.geometry = null
     query.returnGeometry = false
     const result = await layer.queryFeatureCount(query)
@@ -596,7 +615,7 @@ async function featuresAtIndicator (
   if (!indicator || typeof layer.createQuery !== 'function' || typeof layer.queryFeatures !== 'function') return []
   try {
     const query = layer.createQuery()
-    query.where = '1=1'
+    if (!query.where) query.where = '1=1'
     query.returnGeometry = true
     query.outFields = ['*']
     query.geometry = {
@@ -673,19 +692,22 @@ function expressionFieldNames (expression: string | null | undefined): string[] 
 async function queryFeaturePages (
   layer: SnapshotLayer,
   query: { num?: number, start?: number, resultOffset?: number },
-  indoor: boolean
+  pageAll: boolean,
+  cap = pageAll ? INDOOR_FEATURE_CAP : FEATURE_LIMIT
 ): Promise<SnapshotFeature[]> {
-  const pageSize = indoor ? INDOOR_PAGE : FEATURE_LIMIT
-  const cap = indoor ? INDOOR_FEATURE_CAP : FEATURE_LIMIT
+  const pageSize = pageAll ? INDOOR_PAGE : FEATURE_LIMIT
+  // The service may return 50 rows per request. A 2000-feature heatmap needs
+  // more than eight of those pages.
+  const pageBudget = pageAll ? Math.ceil(cap / 50) + 1 : 1
   const collected: SnapshotFeature[] = []
-  for (let page = 0; collected.length < cap && page < 8; page += 1) {
+  for (let page = 0; collected.length < cap && page < pageBudget; page += 1) {
     query.num = Math.min(pageSize, cap - collected.length)
     query.start = collected.length
     query.resultOffset = collected.length
     const result = await layer.queryFeatures?.(query)
     const features = result?.features || []
     const next = mergeFeatures(collected, features)
-    if (!indoor) return next
+    if (!pageAll) return next
     if (!features.length || next.length === collected.length) return next
     const truncated = result?.exceededTransferLimit === true || features.length >= (query.num || pageSize)
     if (!truncated) return next
@@ -905,21 +927,39 @@ function floorFieldsFromSnapshots (layers: readonly SnapshotLayer[]): string[] {
     }
   }
   // Two layers publishing the same floor clause is the floor field, even
-  // before their field collections have loaded.
+  // before their field collections have loaded. State = 'Hawaii' on both
+  // Tract and County is a geographic filter, not a floor. Clearing it makes
+  // the snapshot the national layer, which is too large to publish, and the
+  // view's feature tiles fail.
   for (const entry of clauseLayers.values()) {
-    if (entry.count >= 2) add(entry.name)
+    if (entry.count >= 2 && looksLikeFloorField(entry.name)) add(entry.name)
   }
   for (const field of selectors) {
+    if (!looksLikeFloorField(field)) continue
     if (layers.filter((layer) => hasField(layer, field)).length >= 2) add(field)
   }
   return fields
+}
+
+/** An indoor Source Configuration. A heatmap filter is not a floor clause. */
+function hintedIndoor (layer: SnapshotLayer, hints?: readonly SnapshotMapTypeHint[]): boolean {
+  if (!hints?.length) return false
+  const hint = hintForLayer(layer, hints)
+  const raw = hint?.mapType === 'standard' ? 'travel' : hint?.mapType
+  return String(raw || '').toLowerCase() === 'indoor'
+}
+
+/** LEVEL_ID and FLOOR_CODE. State and NAME are geographic filters, not floors. */
+function looksLikeFloorField (name: string): boolean {
+  return /level|floor/i.test(name)
 }
 
 /** The floor field this layer's own filter names, once its fields have loaded. */
 function ownFloorField (layer: SnapshotLayer): string | undefined {
   if (layer.floorInfo?.field) return layer.floorInfo.field
   for (const name of expressionFieldNames(layer.definitionExpression)) {
-    if (hasField(layer, name)) return name
+    if (!looksLikeFloorField(name) || !hasField(layer, name)) continue
+    return name
   }
   return undefined
 }
@@ -996,7 +1036,7 @@ async function attachFieldExtents (
   if (!fields.length) return
   try {
     const query = layer.createQuery()
-    query.where = '1=1'
+    if (!query.where) query.where = '1=1'
     query.returnGeometry = false
     query.outStatistics = fields.flatMap((field) => [
       { onStatisticField: field, outStatisticFieldName: `${field}__min`, statisticType: 'min' },

@@ -243,6 +243,38 @@ describe('audiom symbols', () => {
     expect(layer.__audiomOriginalRenderer).toBe(host)
   })
 
+  it('leaves a filtered census renderer in place instead of painting indoor grey', () => {
+    const host = { type: 'unique-value', field: 'B03002_001E' }
+    const features = [{ attributes: { OBJECTID: 1, State: 'Hawaii' } }]
+    const layer = {
+      geometryType: 'polygon',
+      renderer: host,
+      definitionExpression: "State = 'Hawaii'",
+      features,
+      __audiomOriginalRenderer: host
+    }
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, undefined, undefined, 0, 'indoor')).toBe(false)
+    expect(layer.renderer).toBe(host)
+    expect(layer.__audiomOriginalRenderer).toBeUndefined()
+  })
+
+  it('paints the statistic when a rules file only names the tracts', () => {
+    const host = { type: 'unique-value' }
+    const features = [1, 2, 3, 4, 5].map((value) => ({
+      attributes: {
+        OBJECTID: value,
+        NAME: `Tract ${value}`,
+        B03002_001E: value * 100,
+        ruleType: 'geographic',
+        ruleName: `Tract ${value}`
+      }
+    }))
+    const layer = { geometryType: 'polygon', objectIdField: 'OBJECTID', renderer: host, features }
+    expect(applyAudiomSymbols(layer, modules, features, VectorStyleMode.Colors, 'B03002_001E', undefined, 0, 'heatmap', true)).toBe(true)
+    expect(layer.renderer).not.toBe(host)
+    expect((layer.renderer as FakeSymbol).properties).toMatchObject({ field: 'B03002_001E' })
+  })
+
   it('keeps polygon class breaks for a heatmap map type', () => {
     const host = { kind: 'host', type: 'simple' }
     const features = [1, 2, 3, 4, 5].map((value) => ({

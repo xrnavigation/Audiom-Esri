@@ -157,7 +157,13 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
         selectionPending.current = false
       }
       let next = latestConfigRef.current
-      if (itemChanged) next = setConfigValue(next, AudiomConfigKey.MapItemId, itemId)
+      if (itemChanged) {
+        next = setConfigValue(next, AudiomConfigKey.MapItemId, itemId)
+        // The previous item's layers are not this map's Data Sources.
+        // Leaving them filters the new snapshot down to nothing, or lists
+        // the old service after the view has already changed.
+        next = setConfigValue(next, AudiomConfigKey.SourceConfigs, [])
+      }
       if (markerStale || (itemChanged && marker !== '')) {
         next = setConfigValue(next, AudiomConfigKey.ViewpointItemId, '')
       }
@@ -388,7 +394,11 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     const dataSourceId = selected?.dataSourceId || selected?.mainDataSourceId || ''
     const itemId = itemIdForSource(dataSourceId)
     const currentItem = latestConfigRef.current?.mapItemId || ''
+    const previous = props.useDataSources ? Array.from(props.useDataSources) : []
+    const previousSource = previous[previous.length - 1]
+    const previousSourceId = previousSource?.dataSourceId || previousSource?.mainDataSourceId || ''
     const changed = !itemId || itemId !== currentItem
+    const sourceChanged = dataSourceId !== previousSourceId
     // Do not start a viewpoint read here. That promise had no cancellation,
     // so a slower read of map A could finish after map B was selected and
     // write A's center back. The effect below reads, and its cleanup drops
@@ -402,6 +412,11 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     let next = latestConfigRef.current
     if (itemId) next = setConfigValue(next, AudiomConfigKey.MapItemId, itemId)
     if (changed) next = setConfigValue(next, AudiomConfigKey.ViewpointItemId, '')
+    // Drop the previous map's layers now. The viewpoint read writes this
+    // map's own list when it returns; until then the old list must not stay.
+    if (sourceChanged || (Boolean(itemId) && itemId !== currentItem)) {
+      next = setConfigValue(next, AudiomConfigKey.SourceConfigs, [])
+    }
     props.onSettingChange({
       id: props.id,
       useDataSources: kept,

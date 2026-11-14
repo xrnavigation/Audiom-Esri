@@ -10,7 +10,7 @@ export interface RulesLayer {
   title?: string
   url?: string
   geometryType?: string
-  features?: Array<{ attributes?: Record<string, unknown> }>
+  features?: Array<{ attributes?: Record<string, unknown>, geometry?: unknown }>
   /** Set when a rules file was evaluated, even if every feature was excluded. */
   rulesRef?: string
 }
@@ -86,6 +86,22 @@ export function rulesUrlForLayer (
 
 function textValue (value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+/**
+ * Census rules name every tract. That name is the tooltip, not a room
+ * sample. Dropping the painted statistic there is why only the tract already
+ * in the snapshot pitches, and every other painted tract is silent.
+ * Indoor still drops it so a restroom sample is not replaced by a chime.
+ */
+export function standingPitch (
+  statistic: number | undefined,
+  place: Record<string, unknown> | null | undefined,
+  heatmap: boolean
+): number | undefined {
+  if (heatmap) return statistic
+  if (place && (place.ruleType || place.ruleName || place.name)) return undefined
+  return statistic
 }
 
 /** The rules file's name expression, including its augmenters. The role is a sound, not a suffix. */
@@ -224,10 +240,15 @@ export async function applyConfiguredRules (
     const matched = outputs.filter((output) => output != null).length
     layer.rulesRef = rulesUrl
     if (!matched) return
+    // Esri geometry is a prototype getter. Spreading the graphic drops it,
+    // the snapshot then has no plots, and the legend stays empty.
     layer.features = features.flatMap((feature, index) => {
       const output = outputs[index]
       if (!output) return []
-      return [{ ...feature, attributes: mergeAttributes(feature.attributes, output) }]
+      return [{
+        attributes: mergeAttributes(feature.attributes, output),
+        geometry: feature.geometry
+      }]
     })
   })
   await Promise.all(pending)

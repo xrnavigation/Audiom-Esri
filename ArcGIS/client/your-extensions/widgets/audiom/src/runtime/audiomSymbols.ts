@@ -30,8 +30,10 @@ export interface SymbolLayer {
   objectIdField?: string
   /** Host and Audiom renderers. `kind` is a test double; Esri uses `type`. */
   renderer?: { type?: string, kind?: string, symbol?: unknown }
+  /** Published filter. A geographic clause is not an indoor floor. */
+  definitionExpression?: string | null
   /** Host renderer captured the first time Audiom paints this layer. */
-  __audiomOriginalRenderer?: unknown
+  __audiomOriginalRenderer?: { type?: string } | unknown
 }
 
 /** Esri field list. A Collection has forEach; tests pass an array. */
@@ -462,6 +464,20 @@ function classBreaksFor (
 }
 
 /**
+ * Census and other filtered choropleths publish a unique-value renderer
+ * plus a geographic where clause. Covering that with grey, or clearing the
+ * clause, reloads national tiles and leaves holes in the islands.
+ */
+function keepHostThematic (layer: SymbolLayer): boolean {
+  const host = (layer.__audiomOriginalRenderer ?? layer.renderer) as { type?: string } | undefined
+  const type = host?.type
+  if (type !== 'unique-value' && type !== 'class-breaks') return false
+  const expression = layer.definitionExpression
+  if (typeof expression !== 'string' || !expression.trim()) return false
+  return !/level|floor/i.test(expression)
+}
+
+/**
  * Travel and indoor have no statistic paint. A flat grey fill is the
  * unmodified map. A rules file is what replaces it. The host renderer is
  * saved once so a later heatmap paint does not capture this grey as the
@@ -535,8 +551,19 @@ export function applyAudiomSymbols (
   // are a flat grey fill until a rules file paints them. 'standard' is
   // Audiom's travel value. The host renderer stays saved. A rules file that
   // excluded every feature must not cover the map with that grey.
-  if (!styled.length && rulesApplied) return false
+  // A naming-only rules file, such as census, sets ruleType and leaves fill
+  // empty. That must not block the statistic choropleth. It also must not
+  // cover a filtered host choropleth, or an indoor layer, with flat grey.
+  if (!styled.length && rulesApplied && type !== 'heatmap') return false
   if (!styled.length && type && type !== 'heatmap') {
+    if (keepHostThematic(layer)) {
+      const host = layer.__audiomOriginalRenderer
+      if (host) {
+        layer.renderer = host as SymbolLayer['renderer']
+        delete layer.__audiomOriginalRenderer
+      }
+      return false
+    }
     return paintDefaultGrey(layer, modules)
   }
   if (!styled.length) {

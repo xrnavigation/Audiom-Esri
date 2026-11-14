@@ -18,7 +18,7 @@ import { JimuConfig } from '../utils/JimuConfig'
 import { bundledFocusTarget, bundledStatus, paintAudiomStyles, primeBundledAudio, restoreAudiomStyles, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
 import { VectorStyleMode } from './audiomSymbols'
 import { snapshotFeaturesFromMapView, type SnapshotMapTypeHint } from './mapSnapshot'
-import { resolveRulesFileUrl, soundPlaceForGraphic, spokenPlaceTitle } from './rulesStyle'
+import { resolveRulesFileUrl, soundPlaceForGraphic, spokenPlaceTitle, standingPitch } from './rulesStyle'
 import { bundledSoundpackName, resolveSoundpackFallbackUrl, resolveSoundpackUrl } from './soundpackUrl'
 import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
@@ -85,6 +85,16 @@ function bundledRulesUrl (config: {
     DEFAULT_CONFIG.baseUrl,
     DEFAULT_ASSET_BASE_URL
   ])
+}
+
+function heatmapSources (
+  world: unknown,
+  sources: ReadonlyArray<{ mapType?: string }> | undefined
+): boolean {
+  const typed = (sources || []).filter((source) => source.mapType)
+  if (typed.some((source) => source.mapType === MapType.Heatmap)) return true
+  const mapType = (world as { metadata?: { mapType?: string } } | null | undefined)?.metadata?.mapType
+  return mapType === MapType.Heatmap
 }
 
 function includeStatistic (
@@ -594,19 +604,45 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
       ? numericAttribute(field && point?.attributes ? point.attributes[field] : undefined)
       : undefined
     const title = lines.length ? lines.join('. ') : null
-    const rulesUrl = bundledRulesUrl(sanitizedConfig)
-    const generation = ++followGeneration.current
-    void soundPlaceForGraphic(point?.attributes, rulesUrl).then((place) => {
-      if (generation !== followGeneration.current) return
-      // Same string the rules file wrote into name. Do not append the role.
+    const heatmap = heatmapSources(world, sanitizedConfig.sourceConfigs)
+    const announce = (
+      place: Record<string, unknown> | null,
+      alreadySpoken: boolean
+    ) => {
       const ruled = spokenPlaceTitle(place)
       if (ruled && point && world && !audiomPopupLines(world, point.longitude, point.latitude).length) {
         showPopup({ ...point, name: ruled })
       }
-      bundledHandle?.program?.announceStanding?.(ruled || title, ruled ? undefined : statistic, place)
-    }).catch(() => {
+      const nextTitle = ruled || title
+      // The hit already named this tract. Waiting on the rules file left the
+      // step saying Empty Space, and a second call must not chime again.
+      if (alreadySpoken && (!ruled || (title && title.startsWith(ruled)))) return
+      const pitch = heatmap
+        ? statistic
+        : standingPitch(statistic, place, false)
+      bundledHandle?.program?.announceStanding?.(nextTitle, alreadySpoken ? undefined : pitch, place)
+    }
+    // A heatmap tract is named by the hit. Do not wait for the rules file.
+    if (heatmap) announce(null, false)
+    const rulesUrl = bundledRulesUrl(sanitizedConfig)
+    const generation = ++followGeneration.current
+    let settled = heatmap
+    const timer = window.setTimeout(() => {
+      if (generation !== followGeneration.current || settled) return
+      settled = true
+      announce(null, false)
+    }, 800)
+    void soundPlaceForGraphic(point?.attributes, rulesUrl).then((place) => {
+      window.clearTimeout(timer)
       if (generation !== followGeneration.current) return
-      bundledHandle?.program?.announceStanding?.(title, statistic, null)
+      const wasSettled = settled
+      settled = true
+      announce(place, wasSettled)
+    }).catch(() => {
+      window.clearTimeout(timer)
+      if (generation !== followGeneration.current || settled) return
+      settled = true
+      announce(null, false)
     })
   }
 
@@ -1715,6 +1751,13 @@ function useBundledRuntime (
     `${item.id || item.title || item.url || ''}:${item.enabled === false ? '0' : item.enabled === true ? '1' : ''}`
   ).join('|')
   const loadedSnapshot = useRef<MapSnapshot | null>(null)
+  // The Map Type effect republishes this snapshot into a new session. A map
+  // switch must drop it first, or Data Sources keeps the previous item's layers.
+  const snapshotItemId = useRef(mapItemId)
+  if (snapshotItemId.current !== mapItemId) {
+    snapshotItemId.current = mapItemId
+    loadedSnapshot.current = null
+  }
   // The Map Type effect must not depend on the surface. A new surface
   // identity would republish. The paint still needs the map that is drawn.
   const drawnMapRef = useRef<unknown>(null)
@@ -1884,9 +1927,6 @@ function useBundledRuntime (
       // The first statistic is ramp 0. A property-key index paints another ramp.
       const catalogIndex = chosen ? published.indexOf(chosen) : -1
       const paletteIndex = catalogIndex >= 0 ? catalogIndex : 0
-      // showMapLabels is the settings switch. Object labels is the in-map
-      // menu. Either one off hides the overlay. Do not fold the switch into
-      // the style mode: that left the names drawn.
       await paintAudiomStyles(
         view,
         snapshot,
@@ -1916,7 +1956,10 @@ function useBundledRuntime (
       const snapshot = await snapshotFeaturesFromMapView(
         view, instanceId, mapTypesRef.current, undefined, indicator
       )
-      if (cancelled) return
+      // A switch drops this query. Publishing it would put the previous
+      // item's layers back into Data Sources after the new map had loaded.
+      const stillThisMap = () => !cancelled && snapshotItemId.current === mapItemId
+      if (!stillThisMap()) return
       // Record the snapshot before any further async step so a pattern/color
       // repaint, or a Map Type change, has it without querying again.
       loadedSnapshot.current = snapshot
@@ -1927,7 +1970,7 @@ function useBundledRuntime (
       const extent = settled && settled.itemId === mapItemId
         ? settled.extent
         : await geographicExtentOf(drawnView)
-      if (cancelled) return
+      if (!stillThisMap()) return
       if (extent) (snapshot as MapSnapshot & { extent?: [number, number, number, number] }).extent = extent
       const program = handle.program as {
         applySnapshot?: (snapshot: MapSnapshot) => Promise<unknown>
@@ -1936,10 +1979,10 @@ function useBundledRuntime (
       // the host renderer in place so the first load had no Audiom colors.
       // The mode is already on the settings store, so this paint honors it.
       await paintChoice(snapshot)
-      if (cancelled) return
+      if (!stillThisMap()) return
       if (program?.applySnapshot) await program.applySnapshot(snapshot)
       else await handle.runtime.replaceSources(snapshot, 1)
-      if (cancelled) return
+      if (!stillThisMap()) return
       // A viewpoint that settled while the query was running replaces the
       // extent captured at the start of that query.
       const latestExtent = navigationExtent?.current
@@ -1994,6 +2037,10 @@ function useBundledRuntime (
   useEffect(() => {
     const loaded = loadedSnapshot.current
     if (!handle?.program || !mapTypeKey || !loaded) return
+    // Handle identity changes on a map switch. The snapshot above is the
+    // previous item until the new query lands; publishing it restores the
+    // old Data Sources on the new map.
+    if (snapshotItemId.current !== mapItemId) return
     const hints = mapTypesRef.current || []
     const retagged: MapSnapshot = {
       ...loaded,
@@ -2011,7 +2058,7 @@ function useBundledRuntime (
     const program = handle.program as {
       applySnapshot?: (snapshot: MapSnapshot) => Promise<unknown>
       world?: {
-        statistics?: { field?: string, fields?: Array<{ field?: string }> }
+        statistics?: { field?: string }
         settings?: { vectorStyleMode?: VectorStyleMode }
         rootStore?: { settings?: { vectorStyleMode?: VectorStyleMode } }
       }
@@ -2032,11 +2079,15 @@ function useBundledRuntime (
     const publish = program?.applySnapshot
       ? program.applySnapshot(retagged)
       : handle.runtime.replaceSources(retagged, 1)
-    void paint.then(() => publish).catch((error: unknown) => {
+    const publishedItemId = mapItemId
+    void paint.then(() => {
+      if (snapshotItemId.current !== publishedItemId) return undefined
+      return publish
+    }).catch((error: unknown) => {
       // eslint-disable-next-line no-console
       console.error('Audiom map type update failed', error)
     })
-  }, [handle, mapTypeKey])
+  }, [handle, mapItemId, mapTypeKey])
   useEffect(() => {
     if (!surface || !reported) return
     void showAvatar(surface, reported)
