@@ -1,4 +1,4 @@
-import { disableNativePopup, featureDetails, graphicIsRendered, graphicName, hitFeatureData, hitFeatureName, hitFeatureNames, renderedGraphic, resolvePopupTitle, type MountedMapView } from '../../src/runtime/esriMapSurface'
+import { disableNativePopup, featureDetails, graphicIsRendered, graphicName, hitFeatureData, hitFeatureName, hitFeatureNames, renderedGraphic, resolvePopupTitle, roomUnderHit, type MountedMapView } from '../../src/runtime/esriMapSurface'
 
 describe('disableNativePopup', () => {
   it('turns click-to-open off and closes one that is already open', () => {
@@ -146,6 +146,62 @@ describe('featureDetails', () => {
     })
     expect(details.attributes).toEqual({ OBJECTID: 7, percentImpervious: 42 })
     expect(details.name).toBeNull()
+  })
+})
+
+describe('roomUnderHit', () => {
+  it('returns a painted heatmap parcel that has no use type', async () => {
+    const details = await roomUnderHit({
+      results: [
+        { graphic: { attributes: { OBJECTID: 1 }, layer: { title: 'Imagery', renderer: { type: 'simple' } } } },
+        {
+          graphic: {
+            attributes: { OBJECTID: 7, MP_NAME: 'North Basin', percentImpervious: 42 },
+            layer: {
+              objectIdField: 'OBJECTID',
+              renderer: { type: 'class-breaks' },
+              __audiomOriginalRenderer: { type: 'simple' }
+            }
+          }
+        }
+      ]
+    })
+    expect(details?.name).toBe('North Basin')
+    expect(details?.attributes?.percentImpervious).toBe(42)
+  })
+
+  it('prefers the room under a floor polygon', async () => {
+    const details = await roomUnderHit({
+      results: [
+        {
+          graphic: {
+            attributes: { USE_TYPE: 'Level', NAME: 'Level 1' },
+            layer: { renderer: { type: 'simple' }, __audiomOriginalRenderer: {} }
+          }
+        },
+        {
+          graphic: {
+            attributes: { USE_TYPE: 'Office', NAME: '201A' },
+            layer: { renderer: { type: 'unique-value' } }
+          }
+        }
+      ]
+    })
+    expect(details?.name).toBe('201A')
+  })
+
+  it('does not treat the floor catalog as a plot', async () => {
+    const details = await roomUnderHit({
+      results: [
+        {
+          graphic: {
+            attributes: { USE_TYPE: 'Level', NAME: 'Level 1' },
+            layer: { renderer: { type: 'simple' }, __audiomOriginalRenderer: {} }
+          }
+        }
+      ]
+    })
+    expect(details).toBeNull()
   })
 })
 

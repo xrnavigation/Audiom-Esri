@@ -8,8 +8,10 @@ import {
 } from '../../../../shared/audiom-runtime/src/types'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { isDataSourceLayerType, isRasterLayerType } from '../utils/mapEnums'
+import { DISPLAY_NAME_FIELDS } from './featureFields'
 import { graphicName, loadMapModules } from './esriMapSurface'
 import { applyConfiguredRules } from './rulesStyle'
+import { isWebMercatorWkid, webMercatorToLonLat, Wkid } from './spatialReference'
 
 /** Same fallback as Audiom-Front-End esriLayerSync. A mismatch misses the eye toggle. */
 export const FALLBACK_LAYER_SOURCE_ID = 'layer'
@@ -545,7 +547,7 @@ async function queryLayerFeatures (
       query.geometry = viewExtent
       query.spatialRelationship = 'intersects'
     }
-    query.outSpatialReference = { wkid: 4326 }
+    query.outSpatialReference = { wkid: Wkid.Wgs84 }
     // The legend number is the service total, not how many rings survived
     // projection. A floor-filtered queryFeatures can return none while the
     // count is 239.
@@ -601,10 +603,10 @@ async function featuresAtIndicator (
       type: 'point',
       x: indicator.longitude,
       y: indicator.latitude,
-      spatialReference: { wkid: 4326 }
+      spatialReference: { wkid: Wkid.Wgs84 }
     }
     query.spatialRelationship = 'intersects'
-    query.outSpatialReference = { wkid: 4326 }
+    query.outSpatialReference = { wkid: Wkid.Wgs84 }
     query.num = 5
     const result = await layer.queryFeatures(query)
     return result?.features || []
@@ -1104,7 +1106,7 @@ function recordsFallbackId (feature: SnapshotFeature): string {
   return String(fallbackSerial)
 }
 
-const NAME_FIELDS = ['name', 'Name', 'NAME', 'title', 'Title', 'TITLE', 'label', 'Label', 'LABEL']
+const NAME_FIELDS = DISPLAY_NAME_FIELDS
 
 /** Columns a plain layer uses for the kind of place, not its spoken title. */
 const CATEGORY_FIELDS = [
@@ -1289,11 +1291,7 @@ function pointCoordinates (geometry: NonNullable<SnapshotFeature['geometry']>): 
   return null
 }
 
-const WEB_MERCATOR_HALF = 20037508.342789244
 
-function isWebMercatorWkid (wkid?: number): boolean {
-  return wkid === 102100 || wkid === 3857 || wkid === 102113
-}
 
 /** A floor query can ignore outSpatialReference and return Web Mercator meters
  * while the layer still says 4326. Dropping those rings is why Units and Levels
@@ -1302,14 +1300,13 @@ function isWebMercatorWkid (wkid?: number): boolean {
 function shouldTreatAsWebMercator (layer: SnapshotLayer, features: SnapshotFeature[]): boolean {
   const wkid = layer.spatialReference?.latestWkid || layer.spatialReference?.wkid
   if (isWebMercatorWkid(wkid)) return true
-  if (wkid && wkid !== 4326 && wkid !== 84) return false
+  if (wkid && wkid !== Wkid.Wgs84 && wkid !== Wkid.Crs84) return false
   return features.some((feature) => feature.geometry && !featureIsGeographic(feature))
 }
 
 function mercatorToLonLat (x: number, y: number): [number, number] {
-  const lon = (x / WEB_MERCATOR_HALF) * 180
-  const lat = (Math.atan(Math.exp((y / WEB_MERCATOR_HALF) * Math.PI)) * 360) / Math.PI - 90
-  return [lon, lat]
+  const geographic = webMercatorToLonLat(x, y)
+  return [geographic.longitude, geographic.latitude]
 }
 
 function convertMercatorPosition (position: number[]): number[] {
@@ -1359,7 +1356,7 @@ async function geographicFeatures (
     const SpatialReference = loaded[1] as (new (properties: { wkid: number }) => unknown) | undefined
     if (projection && SpatialReference && source) {
       if (typeof projection.load === 'function') await projection.load()
-      const geographic = new SpatialReference({ wkid: 4326 })
+      const geographic = new SpatialReference({ wkid: Wkid.Wgs84 })
       const projected = features.flatMap((feature) => {
         if (!feature.geometry || featureIsGeographic(feature)) return [feature]
         const next = projection.project({ ...feature.geometry, spatialReference: source }, geographic)

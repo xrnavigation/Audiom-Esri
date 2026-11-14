@@ -5,8 +5,16 @@
   SessionManager,
   type IMDataSourceJson
 } from 'jimu-core'
+import { dataSourcesFromAppState } from '../utils/appDataSources'
 import type { MapSyncConfig } from '../utils/mapSyncManager'
 import { createLogger } from '../utils/logger'
+import { AUDIOM_MAP_ELEMENT_ID } from '../runtime/chrome'
+import {
+  ESRI_ZOOM_0_SCALE,
+  isWebMercatorViewpointWkid,
+  webMercatorToLonLat,
+  Wkid
+} from '../runtime/spatialReference'
 
 const logger = createLogger('BundledViewpoint')
 
@@ -43,14 +51,12 @@ type WebMapData = {
   operationalLayers?: Array<{ id?: string, title?: string, url?: string, visibility?: boolean }>
 }
 
-const WEB_MERCATOR = 20037508.342789244
-
 /** The drawn map in the canvas iframe. Experience Builder names that frame `_appWindow`. */
 export function canvasMapViewpoint (): MapSyncConfig | null {
   try {
     const frame = document.getElementById('_appWindow') as HTMLIFrameElement | null
     const frameWindow = frame?.contentWindow as (Window & { document?: Document }) | null
-    const node = frameWindow?.document?.getElementById('audiom-esri-map') as {
+    const node = frameWindow?.document?.getElementById(AUDIOM_MAP_ELEMENT_ID) as {
       __audiomSurface?: { view?: { center?: { latitude?: number, longitude?: number }, zoom?: number } }
     } | null
     const view = node?.__audiomSurface?.view
@@ -69,14 +75,7 @@ export function canvasMapViewpoint (): MapSyncConfig | null {
 }
 
 function dataSources (): Record<string, IMDataSourceJson | null | undefined> {
-  const state = getAppStore().getState() as {
-    appConfig?: { dataSources?: Record<string, IMDataSourceJson | null | undefined> }
-    appStateInBuilder?: { appConfig?: { dataSources?: Record<string, IMDataSourceJson | null | undefined> } }
-  }
-  return {
-    ...(state.appConfig?.dataSources || {}),
-    ...(state.appStateInBuilder?.appConfig?.dataSources || {})
-  }
+  return dataSourcesFromAppState<IMDataSourceJson | null | undefined>()
 }
 
 /** The portal that owns this item. A missing URL is the CONT_0001 failure. */
@@ -246,7 +245,7 @@ function zoomOf (
   if (scale) return zoomFromScale(scale)
   const width = extentWidthDegrees(geometry) ?? extentWidthDegrees(extent)
   if (width == null || width <= 0) return undefined
-  const derivedScale = (width / 360) * 591657527.591555
+  const derivedScale = (width / 360) * ESRI_ZOOM_0_SCALE
   return zoomFromScale(derivedScale)
 }
 
@@ -320,23 +319,21 @@ function midpoint (min: number | undefined, max: number | undefined, point: numb
 
 function isGeographic (geometry: ExtentGeometry): boolean {
   const wkid = geometry.spatialReference?.latestWkid || geometry.spatialReference?.wkid
-  return wkid === 4326 || wkid === 4269
+  return wkid === Wkid.Wgs84 || wkid === Wkid.Nad83
 }
 
 function isWebMercator (geometry: ExtentGeometry): boolean {
   const wkid = geometry.spatialReference?.latestWkid || geometry.spatialReference?.wkid
-  return wkid === 102100 || wkid === 3857 || wkid === 102113 || wkid === 900913
+  return isWebMercatorViewpointWkid(wkid)
 }
 
 function webMercatorToGeographic (x: number, y: number): { latitude: number, longitude: number } {
-  const longitude = (x / WEB_MERCATOR) * 180
-  const latitude = (Math.atan(Math.exp((y / WEB_MERCATOR) * Math.PI)) * 360 / Math.PI) - 90
-  return { latitude, longitude }
+  return webMercatorToLonLat(x, y)
 }
 
 /** Esri scale to the Esri view zoom. Map Settings stores that zoom as-is. */
 function zoomFromScale (scale: number): number {
   if (!Number.isFinite(scale) || scale <= 0) return 0
-  const esriZoom = Math.log2(591657527.591555 / scale)
+  const esriZoom = Math.log2(ESRI_ZOOM_0_SCALE / scale)
   return Math.max(Math.round(esriZoom), 0)
 }

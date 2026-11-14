@@ -18,7 +18,9 @@ import { AUDIOM_LABEL_LAYER_ID, labelsForFeatures, labelSymbolPaint, thinLabels,
 import { applyAudiomLabels, applyAudiomSymbols, restoreAudiomLabels, restoreAudiomSymbols, VectorStyleMode, type LabelLayer, type SymbolLayer, type SymbolModules } from './audiomSymbols'
 import { FALLBACK_LAYER_SOURCE_ID, snapshotFeaturesFromMapView, type SnapshotLayer, type SnapshotMapView } from './mapSnapshot'
 import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
+import { AUDIOM_AVATAR_LAYER_ID } from './chrome'
 import { showAvatar, type MountedMapSurface } from './esriMapSurface'
+import { lonLatToWebMercator, Wkid } from './spatialReference'
 import { audiomProgramError, createAudiomProgram, type AudiomProgram } from './audiomProgram'
 
 export interface BundledRuntimeHandle {
@@ -464,7 +466,7 @@ async function labelsFromMap (
       query.where = floorWhere || '1=1'
       query.returnGeometry = true
       query.outFields = ['*']
-      query.outSpatialReference = { wkid: 4326 }
+      query.outSpatialReference = { wkid: Wkid.Wgs84 }
       const result = await layer.queryFeatures?.(query)
       for (const feature of result?.features || []) {
         const attributes = { ...(feature.attributes || {}) }
@@ -583,7 +585,7 @@ function pointForView (
   return new Point({
     longitude,
     latitude,
-    spatialReference: { wkid: 4326 }
+    spatialReference: { wkid: Wkid.Wgs84 }
   })
 }
 
@@ -606,20 +608,16 @@ function screenPoint (
     !view.rotation
   ) {
     const mercator = Math.abs(extent.xmin) > 180 || Math.abs(extent.xmax) > 180
-    const origin = 20037508.342789244
-    const x = mercator ? longitude * origin / 180 : longitude
-    const y = mercator
-      ? Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360)) * origin / Math.PI
-      : latitude
+    const projected = mercator ? lonLatToWebMercator(longitude, latitude) : { x: longitude, y: latitude }
     return {
-      x: (x - extent.xmin) / (extent.xmax - extent.xmin) * width,
-      y: (extent.ymax - y) / (extent.ymax - extent.ymin) * height
+      x: (projected.x - extent.xmin) / (extent.xmax - extent.xmin) * width,
+      y: (extent.ymax - projected.y) / (extent.ymax - extent.ymin) * height
     }
   }
   return view.toScreen?.({
     x: longitude,
     y: latitude,
-    spatialReference: { wkid: 4326 }
+    spatialReference: { wkid: Wkid.Wgs84 }
   })
 }
 
@@ -627,12 +625,9 @@ function mapPoint (view: LabelZoomView, longitude: number, latitude: number): { 
   const extent = view.extent
   if (!extent || typeof extent.xmin !== 'number' || typeof extent.ymin !== 'number') return null
   const mercator = Math.abs(extent.xmin) > 180 || Math.abs(extent.xmax || 0) > 180
-  const origin = 20037508.342789244
-  return {
-    x: mercator ? longitude * origin / 180 : longitude,
-    y: mercator
-      ? Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360)) * origin / Math.PI
-      : latitude
+  return mercator ? lonLatToWebMercator(longitude, latitude) : {
+    x: longitude,
+    y: latitude
   }
 }
 
@@ -788,7 +783,7 @@ async function drawAudiomLabels (
   layer.removeAll?.()
   if (layer.addMany) layer.addMany(graphics)
   else graphics.forEach((graphic) => layer?.add?.(graphic))
-  const avatar = findDrawLayer(map, 'audiom-avatar')
+  const avatar = findDrawLayer(map, AUDIOM_AVATAR_LAYER_ID)
   const length = map.layers?.length
   if (avatar && map.layers?.reorder && typeof length === 'number') {
     map.layers.reorder(avatar, Math.max(0, length - 1))

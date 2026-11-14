@@ -6,6 +6,8 @@
  * Front-End module graph must not enter the widget bundle from a symbol helper.
  * The five tokens match Legend/VectorStyleLegend and createPatternImage.
  */
+import { AUDIOM_NAVY as NAVY } from './chrome'
+
 export const PATTERN_TOKENS = [
   'dot-pattern',
   'empty-square-pattern',
@@ -16,7 +18,19 @@ export const PATTERN_TOKENS = [
 
 export type PatternToken = (typeof PATTERN_TOKENS)[number]
 
-const NAVY = '#04203e'
+const PATTERN_LABELS: Record<PatternToken, string> = {
+  'dot-pattern': 'Dots',
+  'empty-square-pattern': 'Squares',
+  'grid-pattern': 'Grid',
+  'diagonal-line-pattern': 'Diagonal',
+  'caret-pattern': 'Caret'
+}
+
+/** Legend rows, in the same order as the heatmap bands. */
+export const patternLegend = PATTERN_TOKENS.map((token) => ({
+  token,
+  label: PATTERN_LABELS[token]
+}))
 
 /** SVG bodies drawn to the same geometry as createPatternImage (16px). */
 const PATTERN_BODIES: Record<PatternToken, string> = {

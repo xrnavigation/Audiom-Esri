@@ -1,4 +1,6 @@
 import { loadArcGISJSAPIModules } from 'jimu-core'
+import { AUDIOM_AVATAR_LAYER_ID, AUDIOM_COMPASS_RADIUS } from './chrome'
+import { DISPLAY_NAME_FIELDS } from './featureFields'
 import type { ReportedAvatar } from './reportedAvatar'
 
 export interface MapSurfaceOptions {
@@ -160,10 +162,12 @@ export interface AvatarModules {
 
 type ModuleLoader = (modules: string[]) => Promise<unknown[]>
 
-let moduleLoader: ModuleLoader = async (modules) => {
+async function loadArcGisModules (modules: string[]): Promise<unknown[]> {
   const loaded = await loadArcGISJSAPIModules(modules)
   return loaded as MapModules[]
 }
+
+let moduleLoader: ModuleLoader = loadArcGisModules
 
 /** The loader used by the map and by feature projection. */
 export function loadMapModules (modules: string[]): Promise<unknown[]> {
@@ -172,10 +176,20 @@ export function loadMapModules (modules: string[]): Promise<unknown[]> {
 
 /** Tests replace the ArcGIS loader so jsdom never constructs a WebGL view. */
 export function setMapModuleLoader (loader: ModuleLoader | null): void {
-  moduleLoader = loader || (async (modules) => {
-    const loaded = await loadArcGISJSAPIModules(modules)
-    return loaded as MapModules[]
-  })
+  moduleLoader = loader || loadArcGisModules
+}
+
+type SurfaceHost = HTMLElement & { __audiomSurface?: MountedMapSurface }
+
+/** The view mounted into this node. Esri replaces the node's children, so the surface lives on the node. */
+export function readMountedSurface (node: HTMLElement | null | undefined): MountedMapSurface | null {
+  return (node as SurfaceHost | null | undefined)?.__audiomSurface ?? null
+}
+
+export function writeMountedSurface (node: HTMLElement, surface: MountedMapSurface | null): void {
+  const host = node as SurfaceHost
+  if (surface) host.__audiomSurface = surface
+  else delete host.__audiomSurface
 }
 
 /**
@@ -282,7 +296,7 @@ async function attachAvatarLayer (surface: MountedMapSurface): Promise<void> {
   const GraphicsLayer = loaded[0] as AvatarModules['GraphicsLayer'] | undefined
   if (!GraphicsLayer) return
   const layer = new GraphicsLayer({
-    id: 'audiom-avatar',
+    id: AUDIOM_AVATAR_LAYER_ID,
     listMode: 'hide',
     legendEnabled: false,
     title: 'Audiom avatar'
@@ -343,7 +357,7 @@ export function disableArrowKeyMapPan (surface: MountedMapSurface): void {
   })
 }
 
-const LAYER_NAME_FIELDS = ['name', 'Name', 'NAME', 'title', 'Title', 'TITLE', 'label', 'Label', 'LABEL']
+
 
 /**
  * The name Audiom would show for one hit graphic. Same fields as the
@@ -358,7 +372,7 @@ export function hitFeatureName (graphic: MapHitGraphic | null | undefined): stri
   if (!graphic || isAudiomChrome(graphic)) return null
   const attributes = graphic.attributes || {}
   const displayField = graphic.layer?.displayField
-  const fields = displayField ? [displayField, ...LAYER_NAME_FIELDS] : LAYER_NAME_FIELDS
+  const fields = displayField ? [displayField, ...DISPLAY_NAME_FIELDS] : DISPLAY_NAME_FIELDS
   for (const field of fields) {
     const value = attributes[field]
     if (typeof value === 'string' && value.trim()) return value.trim()
@@ -427,7 +441,7 @@ export function graphicName (graphic: MapHitGraphic | null | undefined): string 
   if (title) return title
   const attributes = graphic.attributes || {}
   const layer = graphic.layer
-  const direct = [layer?.displayField, 'name', 'Name', 'NAME', 'title', 'Title', 'TITLE', 'label', 'Label', 'LABEL']
+  const direct = [layer?.displayField, ...DISPLAY_NAME_FIELDS]
   for (const field of direct) {
     if (!field) continue
     const value = attributes[field]
@@ -490,9 +504,15 @@ function isRoomUse (use: string): boolean {
   return Boolean(use) && use.toLowerCase() !== 'level'
 }
 
+function isLevelUse (use: string): boolean {
+  return use.toLowerCase() === 'level'
+}
+
 /**
- * The room under the pointer. The floor polygon is painted on top and its
- * popup is "Levels: Level 1". A use type other than Level is the place.
+ * The place under the pointer. Indoor floors are painted on top and their
+ * popup is "Levels: Level 1", so a use type other than Level wins. A heatmap
+ * parcel has no use type; the painted graphic is still the place. Returning
+ * null there is what made every Manassas step say Empty Space.
  */
 export async function roomUnderHit (
   hit: MapViewHit | null | undefined
@@ -502,12 +522,19 @@ export async function roomUnderHit (
     .filter((graphic): graphic is MapHitGraphic => Boolean(graphic) && !isAudiomChrome(graphic))
   const quick = graphics.find((graphic) => isRoomUse(useTypeOf(graphic.attributes)))
   if (quick) return featureDetails(quick)
-  for (const graphic of graphics.slice(0, 6)) {
-    if (!graphicIsRendered(graphic) && typeof graphic.layer?.queryFeatures !== 'function') continue
+  let painted: { name: string | null, attributes: Record<string, unknown> | null } | null = null
+  let probed = 0
+  for (const graphic of graphics) {
+    const rendered = graphicIsRendered(graphic)
+    const canQuery = typeof graphic.layer?.queryFeatures === 'function'
+    if (!rendered && (!canQuery || probed >= 6)) continue
+    if (canQuery) probed += 1
     const details = await featureDetails(graphic)
-    if (isRoomUse(useTypeOf(details.attributes))) return details
+    const use = useTypeOf(details.attributes)
+    if (isRoomUse(use)) return details
+    if (!painted && rendered && !isLevelUse(use)) painted = details
   }
-  return null
+  return painted
 }
 
 /**
@@ -582,38 +609,68 @@ export async function showAvatar (
   }
 }
 
+async function projectGeographic (
+  surface: MountedMapSurface,
+  longitude: number,
+  latitude: number
+): Promise<{ x: number, y: number } | null> {
+  if (!surface.view.toScreen) return null
+  const [, Point] = await moduleLoader([
+    'esri/Graphic',
+    'esri/geometry/Point'
+  ]) as [AvatarModules['Graphic'], AvatarModules['Point']]
+  const projected = surface.view.toScreen(new Point({ longitude, latitude }))
+  if (projected?.x == null || projected.y == null) return null
+  return { x: projected.x, y: projected.y }
+}
+
+/** View-container pixel delta into the compass overlay. Null when it cannot be measured. */
+function overlayShift (view: MountedMapView): { x: number, y: number } | null {
+  const viewNode = view.container
+  const overlay = viewNode?.parentElement
+  const viewBox = viewNode?.getBoundingClientRect?.()
+  const overlayBox = overlay?.getBoundingClientRect?.()
+  if (!viewBox || !overlayBox) return null
+  return { x: viewBox.left - overlayBox.left, y: viewBox.top - overlayBox.top }
+}
+
+function toOverlay (view: MountedMapView, point: { x: number, y: number }): { x: number, y: number } {
+  const shift = overlayShift(view)
+  if (!shift) return point
+  return { x: point.x + shift.x, y: point.y + shift.y }
+}
+
+function toView (view: MountedMapView, point: { x: number, y: number }): { x: number, y: number } {
+  const shift = overlayShift(view)
+  if (!shift) return point
+  return { x: point.x - shift.x, y: point.y - shift.y }
+}
+
 /** Screen position of a reported avatar, or null when the view cannot project it. */
 export async function avatarScreenPoint (
   surface: MountedMapSurface | null,
   position: ReportedAvatar | null
 ): Promise<{ x: number, y: number } | null> {
   if (!surface || !position || !surface.view.toScreen) return null
-  const [, Point] = await moduleLoader([
-    'esri/Graphic',
-    'esri/geometry/Point'
-  ]) as [AvatarModules['Graphic'], AvatarModules['Point']]
-  const projected = surface.view.toScreen(new Point({
-    longitude: position.longitude,
-    latitude: position.latitude
-  }))
-  if (projected?.x == null || projected.y == null) return null
+  const projected = await projectGeographic(surface, position.longitude, position.latitude)
+  if (!projected) return null
   // toScreen is relative to the view container. The compass is a sibling of
   // that node, so shift into the overlay's box. Do not look up #audiom-embed
   // here: that node is a different size, and using it ties the compass to zoom.
   const viewNode = surface.view.container
   const overlay = viewNode?.parentElement
-  if (!viewNode || !overlay) return { x: projected.x, y: projected.y }
+  if (!viewNode || !overlay) return projected
   const viewBox = viewNode.getBoundingClientRect()
-  const overlayBox = overlay.getBoundingClientRect()
+  const shift = overlayShift(surface.view) ?? { x: 0, y: 0 }
   // Pin the indicator to the map edge rather than unmounting it off-screen.
   // Removing the node drops keyboard focus, which is what stopped navigation
   // at the corners once the avatar projected outside the view.
-  const margin = 26
   const clamp = (value: number, size: number): number =>
-    Math.min(Math.max(value, margin), Math.max(margin, size - margin))
-  const x = clamp(projected.x, viewBox.width) + viewBox.left - overlayBox.left
-  const y = clamp(projected.y, viewBox.height) + viewBox.top - overlayBox.top
-  return { x, y }
+    Math.min(Math.max(value, AUDIOM_COMPASS_RADIUS), Math.max(AUDIOM_COMPASS_RADIUS, size - AUDIOM_COMPASS_RADIUS))
+  return {
+    x: clamp(projected.x, viewBox.width) + shift.x,
+    y: clamp(projected.y, viewBox.height) + shift.y
+  }
 }
 
 /** Screen position of a geographic point in the compass overlay box, no clamp. */
@@ -623,21 +680,9 @@ export async function featureScreenPoint (
   latitude: number
 ): Promise<{ x: number, y: number } | null> {
   if (!surface || !surface.view.toScreen) return null
-  const [, Point] = await moduleLoader([
-    'esri/Graphic',
-    'esri/geometry/Point'
-  ]) as [AvatarModules['Graphic'], AvatarModules['Point']]
-  const projected = surface.view.toScreen(new Point({ longitude, latitude }))
-  if (projected?.x == null || projected.y == null) return null
-  const viewNode = surface.view.container
-  const overlay = viewNode?.parentElement
-  if (!viewNode || !overlay) return { x: projected.x, y: projected.y }
-  const viewBox = viewNode.getBoundingClientRect()
-  const overlayBox = overlay.getBoundingClientRect()
-  return {
-    x: projected.x + viewBox.left - overlayBox.left,
-    y: projected.y + viewBox.top - overlayBox.top
-  }
+  const projected = await projectGeographic(surface, longitude, latitude)
+  if (!projected) return null
+  return toOverlay(surface.view, projected)
 }
 
 /**
@@ -650,15 +695,7 @@ export function dropViewPoint (
 ): { x: number, y: number } | null {
   const view = surface?.view
   if (!view) return null
-  const viewNode = view.container
-  const overlay = viewNode?.parentElement
-  const viewBox = viewNode?.getBoundingClientRect?.()
-  const overlayBox = overlay?.getBoundingClientRect?.()
-  if (!viewBox || !overlayBox) return screen
-  return {
-    x: screen.x - (viewBox.left - overlayBox.left),
-    y: screen.y - (viewBox.top - overlayBox.top)
-  }
+  return toView(view, screen)
 }
 
 /**
@@ -672,17 +709,7 @@ export function mapPointFromScreen (
 ): { longitude: number, latitude: number } | null {
   const view = surface?.view
   if (!view?.toMap) return null
-  const viewNode = view.container
-  const overlay = viewNode?.parentElement
-  const viewBox = viewNode?.getBoundingClientRect?.()
-  const overlayBox = overlay?.getBoundingClientRect?.()
-  const x = viewBox && overlayBox
-    ? screen.x - (viewBox.left - overlayBox.left)
-    : screen.x
-  const y = viewBox && overlayBox
-    ? screen.y - (viewBox.top - overlayBox.top)
-    : screen.y
-  const mapped = view.toMap({ x, y })
+  const mapped = view.toMap(toView(view, screen))
   if (mapped?.longitude == null || mapped.latitude == null) return null
   if (!Number.isFinite(mapped.longitude) || !Number.isFinite(mapped.latitude)) return null
   return { longitude: mapped.longitude, latitude: mapped.latitude }

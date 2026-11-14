@@ -1,6 +1,7 @@
 import { type AllWidgetProps, React, ReactRedux, AppMode, DataSourceTypes, getAppStore, loadArcGISJSAPIModules, type IMState, type ImmutableObject } from 'jimu-core'
 import { audiomConfigToEmbedConfig } from '../utils/mapUtils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
+import { dataSourcesFromAppState } from '../utils/appDataSources'
 import { serializeLockedForDiff } from '../utils/sourceConfigUtils'
 import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis'
 import { DEFAULT_CONFIG, IAudiomConfig, toMutableConfig } from '../setting/configs'
@@ -26,17 +27,26 @@ import { StepSize, StepSizeUnit } from '../../../../shared/audiom-client/StepSiz
 /** Must match Audiom-Front-End EMBED_PAINT_EVENT. The widget cannot import that module. */
 const EMBED_PAINT_EVENT = 'audiom-embed-paint'
 import {
+  AUDIOM_COMPASS_RADIUS,
+  AUDIOM_COMPASS_SIZE,
+  AUDIOM_MAP_ELEMENT_ID,
+  AUDIOM_NAVY
+} from './chrome'
+import {
   avatarScreenPoint,
   destroyMapSurface,
   featureScreenPoint,
   dropViewPoint,
   mapPointFromScreen,
+  readMountedSurface,
   roomUnderHit,
   mountEsriMap,
   showAvatar,
+  writeMountedSurface,
   type FeatureClickPoint,
   type MountedMapSurface
 } from './esriMapSurface'
+import { isWebMercatorWkid, Wkid } from './spatialReference'
 import type { ReportedAvatar } from './reportedAvatar'
 import { ownedMapDataSourceId, publishOwnedMapView } from './publishMapView'
 import { viewpointReadyForItem } from './mapViewpoint'
@@ -90,19 +100,28 @@ function includeStatistic (
   })
 }
 
+function numericAttribute (value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return undefined
+}
+
 /** The selected statistic as "label: value", read from the clicked graphic. */
 function statisticLine (world: unknown, point: FeatureClickPoint): string {
   const stats = (world as { statistics?: { field?: string, label?: string } } | null | undefined)?.statistics
   const field = stats?.field
-  const value = field && point.attributes ? point.attributes[field] : undefined
-  if (typeof value !== 'number') return ''
+  const value = numericAttribute(field && point.attributes ? point.attributes[field] : undefined)
+  if (value == null) return ''
   const shown = Number.isInteger(value) ? value : Number(value.toFixed(2))
   return `${stats?.label ?? field}: ${shown}`
 }
 
 /** Replay a wheel event on the Esri view so zoom works over Audiom overlays. */
 function replayWheelToMap (event: React.WheelEvent<HTMLElement>): void {
-  const map = document.getElementById('audiom-esri-map')
+  const map = document.getElementById(AUDIOM_MAP_ELEMENT_ID)
   const view = map?.querySelector('.esri-view-surface')
   if (!(view instanceof HTMLElement)) return
   event.preventDefault()
@@ -168,29 +187,34 @@ function numericFieldType (type: string | undefined): boolean {
     key === 'small-integer' || key === 'long'
 }
 
+/** Identity, labels, and rule outputs. Not a choropleth statistic. */
+const NON_STATISTIC_FIELDS = new Set([
+  'objectid', 'fid', 'audiomstyle', 'id', 'name', 'state', 'updated',
+  'ruletype', 'rulename', 'level', 'origid'
+])
+
+/** Floor and room-geometry columns vary, but they are not a choropleth.
+ * Leaving them in made every indoor step a pitched chime. */
+const FLOOR_GEOMETRY_FIELDS = new Set([
+  'levelordinal', 'level_number', 'levelnumber',
+  'vertical_order', 'verticalorder',
+  'height_relative', 'heightrelative',
+  'area_gross', 'area_net', 'areagross', 'areanet',
+  'elevation', 'validationstatus', 'floor'
+])
+
+const SHAPE_MEASURE_FIELDS = new Set([
+  'shape__length', 'shape__area', 'shape_length', 'shape_area',
+  'st_area(shape)', 'st_length(shape)'
+])
+
 /** Same exclusions as the legend dropdown. Codes and labels are not statistics. */
 function isMeasureField (field: string): boolean {
   const key = field.toLowerCase()
-  if (
-    key === 'objectid' || key === 'fid' || key === 'audiomstyle' || key === 'id' ||
-    key === 'name' || key === 'state' || key === 'updated' || key === 'ruletype' ||
-    key === 'rulename' || key === 'level' || key === 'origid'
-  ) return false
-  // Floor and room-geometry columns vary, but they are not a choropleth.
-  // Leaving them in made every indoor step a pitched chime.
-  if (
-    key === 'levelordinal' || key === 'level_number' || key === 'levelnumber' ||
-    key === 'vertical_order' || key === 'verticalorder' ||
-    key === 'height_relative' || key === 'heightrelative' ||
-    key === 'area_gross' || key === 'area_net' || key === 'areagross' ||
-    key === 'areanet' || key === 'elevation' || key === 'validationstatus' ||
-    key === 'floor'
-  ) return false
-  if (
-    key === 'shape__length' || key === 'shape__area' || key === 'shape_length' ||
-    key === 'shape_area' || key === 'st_area(shape)' || key === 'st_length(shape)' ||
-    key.endsWith('_length') || key.endsWith('_area')
-  ) return false
+  if (NON_STATISTIC_FIELDS.has(key) || FLOOR_GEOMETRY_FIELDS.has(key) || SHAPE_MEASURE_FIELDS.has(key)) {
+    return false
+  }
+  if (key.endsWith('_length') || key.endsWith('_area')) return false
   if (key.startsWith('label') || key.includes('zip') || key.endsWith('code') || key.endsWith('_id')) {
     return false
   }
@@ -269,6 +293,16 @@ const styles = {
   }
 } as const satisfies Record<string, React.CSSProperties>
 
+/** Stacking inside the widget. The embed sits over the map; the compass and popup sit over that. */
+const STACK = {
+  map: 1,
+  embed: 8,
+  compass: 30,
+  popup: 40
+} as const
+
+const DRAG_START_PX = 4
+
 /** Shown until bundled mode has a web map or web scene to load. */
 const SET_MAP_SOURCE_MESSAGE = 'Set a map source first.'
 
@@ -280,14 +314,7 @@ const SET_MAP_SOURCE_MESSAGE = 'Set a map source first.'
 type MapSourceJson = { itemId?: string, portalUrl?: string, type?: string } | null | undefined
 
 function dataSourcesFromState (): Record<string, MapSourceJson> {
-  const state = getAppStore().getState() as {
-    appConfig?: { dataSources?: Record<string, MapSourceJson> }
-    appStateInBuilder?: { appConfig?: { dataSources?: Record<string, MapSourceJson> } }
-  }
-  return {
-    ...(state.appConfig?.dataSources || {}),
-    ...(state.appStateInBuilder?.appConfig?.dataSources || {})
-  }
+  return dataSourcesFromAppState<MapSourceJson>()
 }
 
 /** The web map or web scene the selector is currently connected to. */
@@ -563,8 +590,8 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
       if (stat) lines.push(stat)
     }
     const field = (world as { statistics?: { field?: string } } | null | undefined)?.statistics?.field
-    const statistic = withStatistic && field && point?.attributes
-      ? point.attributes[field]
+    const statistic = withStatistic
+      ? numericAttribute(field && point?.attributes ? point.attributes[field] : undefined)
       : undefined
     const title = lines.length ? lines.join('. ') : null
     const rulesUrl = bundledRulesUrl(sanitizedConfig)
@@ -641,7 +668,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
           )}
           <div
             ref={embedOverlay}
-            style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, overflow: 'visible', zIndex: 8, pointerEvents: 'none' }}
+            style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, overflow: 'visible', zIndex: STACK.embed, pointerEvents: 'none' }}
           />
         </div>
         {!needsMapSource && (
@@ -722,7 +749,7 @@ function publishWhenViewSettled (
     }
     notify()
   }
-  if (view.when) void view.when().then(finish).catch(() => undefined)
+  if (view.when) void view.when().then(finish).catch((): void => undefined)
   else finish()
   return () => {
     removed = true
@@ -735,6 +762,16 @@ function hasMapCenter (longitude?: number, latitude?: number): boolean {
   if (longitude == null || latitude == null) return false
   if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return false
   return !(longitude === 0 && latitude === 0)
+}
+
+function watchViewFrame (
+  view: { watch?: (property: string, handler: () => void) => { remove?: () => void } },
+  onChange: () => void
+): () => void {
+  const handles = (['extent', 'stationary', 'size'] as const).map((property) => view.watch?.(property, onChange))
+  return () => {
+    for (const handle of handles) handle?.remove?.()
+  }
 }
 
 function EsriMapSurface (props: {
@@ -819,7 +856,7 @@ function EsriMapSurface (props: {
     if (!centerReady) return
     let cancelled = false
     let surface: MountedMapSurface | null = null
-    let stopSettled = () => undefined
+    let stopSettled = (): void => undefined
     // Center and zoom updates must not rebuild the view. WebMap.load starts
     // in the constructor, and destroying the view aborts that item request.
     const current = mountedSurface.current
@@ -830,11 +867,11 @@ function EsriMapSurface (props: {
     if (current && !sameItem) {
       destroyMapSurface(current)
       mountedSurface.current = null
-      delete (node as { __audiomSurface?: MountedMapSurface }).__audiomSurface
+      writeMountedSurface(node, null)
     }
     if (mountedSurface.current && sameItem) {
       surface = current
-      ;(node as { __audiomSurface?: MountedMapSurface }).__audiomSurface = current
+      writeMountedSurface(node, current)
       setSurfaceReady(true)
       onSurface?.(current)
       return () => {
@@ -874,7 +911,7 @@ function EsriMapSurface (props: {
       mounted.onFeatureClick = (point) => {
         onFeatureClick?.(point)
       }
-      ;(node as { __audiomSurface?: MountedMapSurface }).__audiomSurface = mounted
+      writeMountedSurface(node, mounted)
       mountedSurface.current = mounted
       setSurfaceReady(true)
       onSurface?.(mounted)
@@ -892,7 +929,7 @@ function EsriMapSurface (props: {
       if (mountedSurface.current === surface) mountedSurface.current = null
       setSurfaceReady(false)
       destroyMapSurface(surface)
-      delete (node as { __audiomSurface?: MountedMapSurface }).__audiomSurface
+      writeMountedSurface(node, null)
       onSurface?.(null)
     }
   }, [props.existingMap, props.mapItemId, props.portalUrl, props.scene, centerReady, onSurface])
@@ -903,13 +940,11 @@ function EsriMapSurface (props: {
   // below. Do not goTo the settings center itself, or a pan echo pulls the
   // view off the indicator.
   useEffect(() => {
-    const node = container.current as { __audiomSurface?: MountedMapSurface } | null
-    const view = node?.__audiomSurface?.view
+    const view = readMountedSurface(container.current)?.view
     if (!view?.goTo || !surfaceReady || !avatar) return
     // The previous item's indicator must not pull the new map back to it.
     if (props.mapItemId && props.viewpointReady === false) return
-    if (!Number.isFinite(avatar.longitude) || !Number.isFinite(avatar.latitude)) return
-    if (avatar.longitude === 0 && avatar.latitude === 0) return
+    if (!hasMapCenter(avatar.longitude, avatar.latitude)) return
     void view.goTo({ center: [avatar.longitude, avatar.latitude] }).catch((): void => undefined)
   }, [avatar, surfaceReady, props.mapItemId, props.viewpointReady])
   const appliedZoom = useRef<number | undefined>(undefined)
@@ -928,8 +963,7 @@ function EsriMapSurface (props: {
     if (!props.mapItemId || props.viewpointReady === false) return
     if (appliedViewpoint.current === props.mapItemId) return
     if (!hasMapCenter(props.longitude, props.latitude)) return
-    const node = container.current as { __audiomSurface?: MountedMapSurface } | null
-    const view = node?.__audiomSurface?.view
+    const view = readMountedSurface(container.current)?.view
     if (!view?.goTo || !surfaceReady) return
     appliedViewpoint.current = props.mapItemId
     appliedZoom.current = props.zoom
@@ -942,8 +976,7 @@ function EsriMapSurface (props: {
     }).catch((): void => undefined)
   }, [props.mapItemId, props.viewpointReady, props.longitude, props.latitude, props.zoom, surfaceReady])
   useEffect(() => {
-    const node = container.current as { __audiomSurface?: MountedMapSurface } | null
-    const view = node?.__audiomSurface?.view
+    const view = readMountedSurface(container.current)?.view
     if (!view?.goTo || !surfaceReady) return
     if (props.mapItemId && props.viewpointReady === false) return
     if (typeof props.zoom !== 'number' || !Number.isFinite(props.zoom)) return
@@ -959,19 +992,18 @@ function EsriMapSurface (props: {
     void view.goTo({ zoom: props.zoom }).catch((): void => undefined)
   }, [props.zoom, props.mapItemId, props.viewpointReady, surfaceReady])
   useEffect(() => {
-    const node = container.current as { __audiomSurface?: MountedMapSurface } | null
-    if (!node?.__audiomSurface) return
-    node.__audiomSurface.onIndicatorClick = () => {
+    const surface = readMountedSurface(container.current)
+    if (!surface) return
+    surface.onIndicatorClick = () => {
       container.current?.focus()
       onSelect?.()
     }
-    node.__audiomSurface.onFeatureClick = (point) => {
+    surface.onFeatureClick = (point) => {
       onFeatureClick?.(point)
     }
   }, [onSelect, onFeatureClick])
   useEffect(() => {
-    const node = container.current as { __audiomSurface?: MountedMapSurface } | null
-    const surface = node?.__audiomSurface
+    const surface = readMountedSurface(container.current)
     if (!surface || !placed) {
       setScreen(null)
       onScreen?.(null)
@@ -989,15 +1021,11 @@ function EsriMapSurface (props: {
       if (!cancelled) place()
     })
     place()
-    const watch = surface.view.watch?.('extent', place)
-    const stationary = surface.view.watch?.('stationary', place)
-    const resize = surface.view.watch?.('size', place)
+    const unwatch = watchViewFrame(surface.view, place)
     const pointer = surface.view.on?.('pointer-move', place)
     return () => {
       cancelled = true
-      watch?.remove?.()
-      stationary?.remove?.()
-      resize?.remove?.()
+      unwatch()
       pointer?.remove?.()
     }
   }, [placed, surfaceReady, onScreen])
@@ -1009,8 +1037,7 @@ function EsriMapSurface (props: {
   useEffect(() => {
     const avatar = props.avatar
     const onFollow = props.onFeatureFollow
-    const node = container.current as { __audiomSurface?: MountedMapSurface } | null
-    const surface = node?.__audiomSurface
+    const surface = readMountedSurface(container.current)
     if (!avatar || !surface || !onFollow) return
     const view = surface.view
     if (!view.hitTest) return
@@ -1035,13 +1062,15 @@ function EsriMapSurface (props: {
     void avatarScreenPoint(surface, avatar).then((screen) => {
       if (cancelled || !screen) return
       followed.current = avatar
-      const { x, y } = screen
+      // The compass point is in the overlay. hitTest wants the view box.
+      // Using the overlay pixel misses the parcel and every step is empty.
+      const viewPoint = dropViewPoint(surface, screen) ?? screen
       const emit = (data?: { name: string | null, attributes: Record<string, unknown> | null }) => {
         onFollow({
           longitude: avatar.longitude,
           latitude: avatar.latitude,
-          x,
-          y,
+          x: screen.x,
+          y: screen.y,
           name: data?.name ?? undefined,
           attributes: data?.attributes ?? undefined,
           // The load position is not spoken and must not open a tooltip.
@@ -1049,7 +1078,7 @@ function EsriMapSurface (props: {
           openPopup: moved && !announced
         })
       }
-      void view.hitTest?.({ x, y }).then(async (hit) => {
+      void view.hitTest?.(viewPoint).then(async (hit) => {
         if (cancelled) return
         // Only a painted pattern or color. The visual base layer is not one.
         const details = await roomUnderHit(hit)
@@ -1068,8 +1097,7 @@ function EsriMapSurface (props: {
   // it on every camera change so it stays over the feature, like the compass.
   useEffect(() => {
     const anchor = props.popup
-    const node = container.current as { __audiomSurface?: MountedMapSurface } | null
-    const surface = node?.__audiomSurface
+    const surface = readMountedSurface(container.current)
     if (!anchor || !surface) {
       setPopupScreen(null)
       return
@@ -1081,35 +1109,21 @@ function EsriMapSurface (props: {
       })
     }
     place()
-    const watch = surface.view.watch?.('extent', place)
-    const stationary = surface.view.watch?.('stationary', place)
-    const resize = surface.view.watch?.('size', place)
+    const unwatch = watchViewFrame(surface.view, place)
     return () => {
       cancelled = true
-      watch?.remove?.()
-      stationary?.remove?.()
-      resize?.remove?.()
+      unwatch()
     }
   }, [props.popup, surfaceReady])
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const direction = unmodifiedArrow(event)
-    if (!direction || !props.onMove) return
-    event.preventDefault()
-    event.stopPropagation()
-    // Start the browser resume inside this key event. Waiting for the unlock
-    // promise before moving leaves the context suspended, so the step tone
-    // is decoded and then played into silence. The move itself is one tick
-    // later, after that resume has been requested.
-    props.onUnlock?.()
-    props.onMove(direction)
+    moveOnArrow(event, props.onMove, props.onUnlock)
   }
   // DOM-level click, independent of Esri's own click event. Clicks on the
   // Esri canvas bubble to this container; positioning is container-relative.
   const onMapClick = (event: React.MouseEvent<HTMLDivElement>) => {
     // A click on the map is a user gesture. Start the resume before the hit test.
     props.onUnlock?.()
-    const node = container.current as { __audiomSurface?: MountedMapSurface } | null
-    const surface = node?.__audiomSurface
+    const surface = readMountedSurface(container.current)
     const box = container.current?.getBoundingClientRect()
     if (!surface || !box) return
     const x = event.clientX - box.left
@@ -1137,9 +1151,9 @@ function EsriMapSurface (props: {
     }).catch(() => { emit() })
   }
   return (
-    <div style={{ position: 'absolute', zIndex: 1, top: props.headerHeight || 0, right: 0, bottom: 0, left: 0 }}>
+    <div style={{ position: 'absolute', zIndex: STACK.map, top: props.headerHeight || 0, right: 0, bottom: 0, left: 0 }}>
       <div
-        id="audiom-esri-map"
+        id={AUDIOM_MAP_ELEMENT_ID}
         ref={container}
         className="widget-map mapview-container"
         role="application"
@@ -1161,8 +1175,7 @@ function EsriMapSurface (props: {
         }}
         onDrag={(point) => { setDragScreen(point) }}
         onDragEnd={(point) => {
-          const node = container.current as { __audiomSurface?: MountedMapSurface } | null
-          const surface = node?.__audiomSurface ?? null
+          const surface = readMountedSurface(container.current)
           const geographic = mapPointFromScreen(surface, point)
           if (!geographic || !onDrop) {
             setDragScreen(null)
@@ -1226,14 +1239,14 @@ function FeaturePopup (props: {
         position: 'absolute',
         left: props.popup.x,
         top: props.popup.y,
-        zIndex: 40,
+        zIndex: STACK.popup,
         width: 'max-content',
         maxWidth: '18rem',
         transform: 'translate(-50%, calc(-100% - 10px))',
         padding: '0.5rem 1.75rem 0.5rem 0.75rem',
         background: '#fff',
-        color: '#04203e',
-        border: '0.125rem solid #04203e',
+        color: AUDIOM_NAVY,
+        border: `0.125rem solid ${AUDIOM_NAVY}`,
         borderRadius: 4,
         pointerEvents: 'auto',
         fontSize: '1rem',
@@ -1254,7 +1267,7 @@ function FeaturePopup (props: {
           padding: 0,
           border: 0,
           background: 'transparent',
-          color: '#04203e',
+          color: AUDIOM_NAVY,
           fontSize: '1.25rem',
           lineHeight: 1,
           cursor: 'pointer'
@@ -1265,7 +1278,7 @@ function FeaturePopup (props: {
       {lines.map((line, index) => (
         <p key={`${index}-${line}`} style={{ margin: 0, fontWeight: index === 0 ? 700 : 400 }}>{line}</p>
       ))}
-      <span style={{ position: 'absolute', bottom: -10, left: '50%', marginLeft: -9, width: 0, height: 0, borderLeft: '9px solid transparent', borderRight: '9px solid transparent', borderTop: '10px solid #04203e' }} />
+      <span style={{ position: 'absolute', bottom: -10, left: '50%', marginLeft: -9, width: 0, height: 0, borderLeft: '9px solid transparent', borderRight: '9px solid transparent', borderTop: `10px solid ${AUDIOM_NAVY}` }} />
       <span style={{ position: 'absolute', bottom: -7, left: '50%', marginLeft: -7, width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: '8px solid #fff' }} />
     </div>
   )
@@ -1330,7 +1343,7 @@ function AudiomIndicator (props: {
     if (!active || active.pointerId !== event.pointerId) return
     const dx = event.clientX - active.originX
     const dy = event.clientY - active.originY
-    if (!active.moved && Math.hypot(dx, dy) < 4) return
+    if (!active.moved && Math.hypot(dx, dy) < DRAG_START_PX) return
     if (!active.moved) {
       active.moved = true
       props.onDragStart?.()
@@ -1357,14 +1370,7 @@ function AudiomIndicator (props: {
     } else props.onDragCancel?.()
   }
   const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
-    const direction = unmodifiedArrow(event)
-    if (!direction || !props.onMove) return
-    event.preventDefault()
-    event.stopPropagation()
-    // Start the browser resume inside this key event, then move. Awaiting
-    // the unlock before the move plays the tone into a suspended context.
-    props.onUnlock?.()
-    props.onMove(direction)
+    moveOnArrow(event, props.onMove, props.onUnlock)
   }
   // The compass sits above the map, so the wheel never reaches Esri.
   // Replay it on the map view; click and keyboard stay on this button.
@@ -1392,15 +1398,15 @@ function AudiomIndicator (props: {
           position: 'absolute',
           left: screen.x,
           top: screen.y,
-          width: 52,
-          height: 52,
-          marginLeft: -26,
-          marginTop: -26,
+          width: AUDIOM_COMPASS_SIZE,
+          height: AUDIOM_COMPASS_SIZE,
+          marginLeft: -AUDIOM_COMPASS_RADIUS,
+          marginTop: -AUDIOM_COMPASS_RADIUS,
           padding: 0,
           border: 0,
           borderRadius: '50%',
           background: 'transparent',
-          zIndex: 30,
+          zIndex: STACK.compass,
           cursor: props.draggable ? 'grab' : 'pointer',
           touchAction: 'none',
           transform: `rotate(${avatar.heading}deg)`
@@ -1412,37 +1418,6 @@ function AudiomIndicator (props: {
       </button>
       <style>{AUDIOM_CURSOR_PULSE}</style>
     </>
-  )
-}
-
-/**
- * Audiom's sound unlock. A sibling of the map div, never a child of it.
- * The click resumes Audiom's audio context. This widget does not play a beep.
- */
-function AudiomSoundControl (props: {
-  soundpackUrl?: string
-  onUnlock: () => void
-}) {
-  if (!props.soundpackUrl) return null
-  return (
-    <button
-      type="button"
-      onClick={props.onUnlock}
-      style={{
-        position: 'absolute',
-        left: 8,
-        bottom: 8,
-        zIndex: 9,
-        pointerEvents: 'auto',
-        padding: '0.4rem 0.7rem',
-        border: '1px solid #04203e',
-        borderRadius: 4,
-        background: '#fff',
-        color: '#04203e'
-      }}
-    >
-      Enable sounds and skip to map
-    </button>
   )
 }
 
@@ -1480,7 +1455,7 @@ const AUDIOM_CURSOR_PULSE = `
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #04203e;
+  background-color: ${AUDIOM_NAVY};
   border-radius: 50%;
   z-index: -1;
   animation: audiom-grow-and-fade 1.75s infinite;
@@ -1504,6 +1479,31 @@ function stepSizeMeters (value?: number, unit?: StepSizeUnit): number | undefine
 function unmodifiedArrow (event: { key: string, shiftKey: boolean, ctrlKey: boolean, altKey: boolean, metaKey: boolean }): string | null {
   if (event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return null
   return movementDirection(event.key)
+}
+
+/**
+ * Arrow keys move the avatar. Unlock inside the key event: awaiting the
+ * unlock promise first plays the step tone into a suspended audio context.
+ */
+function moveOnArrow (
+  event: {
+    key: string
+    shiftKey: boolean
+    ctrlKey: boolean
+    altKey: boolean
+    metaKey: boolean
+    preventDefault: () => void
+    stopPropagation: () => void
+  },
+  onMove?: (direction: string) => void,
+  onUnlock?: () => void | Promise<boolean>
+): void {
+  const direction = unmodifiedArrow(event)
+  if (!direction || !onMove) return
+  event.preventDefault()
+  event.stopPropagation()
+  onUnlock?.()
+  onMove(direction)
 }
 
 function movementDirection (key: string): string | null {
@@ -1620,8 +1620,8 @@ async function geographicExtentOf (
   if (!extent) return undefined
   const { xmin, ymin, xmax, ymax, spatialReference: sr } = extent
   if (xmin == null || ymin == null || xmax == null || ymax == null) return undefined
-  if (sr?.isWGS84 || sr?.wkid === 4326) return [xmin, ymin, xmax, ymax]
-  if (!(sr?.isWebMercator || sr?.wkid === 102100 || sr?.wkid === 3857 || sr?.wkid === 102113)) {
+  if (sr?.isWGS84 || sr?.wkid === Wkid.Wgs84) return [xmin, ymin, xmax, ymax]
+  if (!(sr?.isWebMercator || isWebMercatorWkid(sr?.wkid))) {
     // An unsupported projection is left to the feature bbox fallback.
     return undefined
   }
@@ -1656,7 +1656,7 @@ function projectEmbedPoint (
     type: 'point',
     longitude,
     latitude,
-    spatialReference: { wkid: 4326 }
+    spatialReference: { wkid: Wkid.Wgs84 }
   })
   if (projected?.x == null || projected.y == null) return Promise.resolve(null)
   return Promise.resolve({ x: projected.x, y: projected.y })
@@ -1669,10 +1669,7 @@ function projectEmbedPoint (
  * origin, and must not restart it.
  */
 function sessionOriginKey (longitude?: number, latitude?: number): string {
-  if (longitude == null || latitude == null) return ''
-  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return ''
-  if (longitude === 0 && latitude === 0) return ''
-  return 'placed'
+  return hasMapCenter(longitude, latitude) ? 'placed' : ''
 }
 
 function useBundledRuntime (
@@ -1823,9 +1820,7 @@ function useBundledRuntime (
   // same center back, and following it would drag the indicator.
   useEffect(() => {
     if (!handle?.program?.placeAt) return
-    if (longitude == null || latitude == null) return
-    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return
-    if (longitude === 0 && latitude === 0) return
+    if (!hasMapCenter(longitude, latitude)) return
     const born = bornCenter.current
     if (born && born.longitude === longitude && born.latitude === latitude) return
     const placed = handle.program.placeAt(longitude, latitude)

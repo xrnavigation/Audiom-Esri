@@ -3,6 +3,7 @@
  * symbol layers from the rules output, not from the service display field.
  * A Sites NAME such as "Esri Redlands Main Campus" is not a room caption.
  */
+import { WEB_MERCATOR_HALF_WORLD, webMercatorToLonLat } from './spatialReference'
 
 export const AUDIOM_LABEL_LAYER_ID = 'audiom-labels'
 
@@ -144,18 +145,15 @@ export function featureLevel (attributes: Record<string, unknown> | null | undef
   return null
 }
 
-const WEB_MERCATOR_HALF = 20037508.342789244
-
 /** Queries sometimes leave meters in a geometry that claims to be geographic. */
 export function toLonLat (x: number, y: number): { x: number, y: number } | null {
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null
   if (Math.abs(x) <= 180 && Math.abs(y) <= 90) return { x, y }
-  if (Math.abs(x) > WEB_MERCATOR_HALF || Math.abs(y) > WEB_MERCATOR_HALF) return null
-  const lon = (x / WEB_MERCATOR_HALF) * 180
-  const lat = (Math.atan(Math.exp((y / WEB_MERCATOR_HALF) * Math.PI)) * 360) / Math.PI - 90
-  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null
-  if (Math.abs(lon) > 180 || Math.abs(lat) > 90) return null
-  return { x: lon, y: lat }
+  if (Math.abs(x) > WEB_MERCATOR_HALF_WORLD || Math.abs(y) > WEB_MERCATOR_HALF_WORLD) return null
+  const { longitude, latitude } = webMercatorToLonLat(x, y)
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null
+  if (Math.abs(longitude) > 180 || Math.abs(latitude) > 90) return null
+  return { x: longitude, y: latitude }
 }
 
 function ringArea (ring: number[][]): number {

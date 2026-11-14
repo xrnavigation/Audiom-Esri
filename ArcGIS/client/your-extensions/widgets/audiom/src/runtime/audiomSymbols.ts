@@ -8,10 +8,14 @@
  * Pattern bitmaps are the canonical tiles in patternTiles.ts, kept in step
  * with Audiom-Front-End/src/runtime/patternTiles.ts.
  */
+import { AUDIOM_NAVY as NAVY } from './chrome'
 import {
+  PATTERN_TOKENS,
   patternTileUrl as canonicalPatternTileUrl,
   patternToken as canonicalPatternToken
 } from './patternTiles'
+
+export { patternLegend } from './patternTiles'
 
 export interface SymbolFeature {
   attributes?: Record<string, unknown>
@@ -69,7 +73,6 @@ export enum VectorStyleMode {
   Hidden = 'hidden'
 }
 
-const NAVY = '#04203e'
 const DEFAULT_FILL = '#7bbf75'
 const DEFAULT_GREY = '#b0b0b0'
 const STYLE_FIELD = 'audiomStyle'
@@ -84,13 +87,6 @@ const HEATMAP_RAMPS = [
   ['#fef0d9', '#eab89b', '#d77c77', '#b53e6f', '#7a0177'],
   ['#ffffcc', '#f6be8e', '#e17a7c', '#aa4488', '#253494'],
   ['#ecfed7', '#d1c290', '#b9845d', '#994644', '#6a013b']
-]
-const HEATMAP_PATTERNS = [
-  'dot-pattern',
-  'empty-square-pattern',
-  'grid-pattern',
-  'diagonal-line-pattern',
-  'caret-pattern'
 ]
 
 export interface HeatmapPaint {
@@ -431,7 +427,7 @@ function heatmapAttributes (paint: HeatmapPaint, value: number, mode: VectorStyl
     stroke: NAVY,
     'stroke-width': 1
   }
-  if (showPattern) attributes['fill-pattern'] = HEATMAP_PATTERNS[Math.min(band, HEATMAP_PATTERNS.length - 1)]
+  if (showPattern) attributes['fill-pattern'] = PATTERN_TOKENS[Math.min(band, PATTERN_TOKENS.length - 1)]
   return attributes
 }
 
@@ -806,11 +802,3 @@ export function patternTileUrl (token: unknown, size = 16, fill?: string): strin
 export function patternToken (value: unknown): string {
   return canonicalPatternToken(value)
 }
-
-export const patternLegend = [
-  { token: 'dot-pattern', label: 'Dots' },
-  { token: 'empty-square-pattern', label: 'Squares' },
-  { token: 'grid-pattern', label: 'Grid' },
-  { token: 'diagonal-line-pattern', label: 'Diagonal' },
-  { token: 'caret-pattern', label: 'Caret' }
-] as const
