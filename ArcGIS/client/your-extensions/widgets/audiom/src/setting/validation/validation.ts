@@ -1,5 +1,6 @@
 import type { ValidityResult } from 'jimu-ui'
 import { React } from 'jimu-core'
+import { VisualBaseLayerType } from '../../../../../shared/audiom-client/AudiomEmbedConfig'
 import { DEFAULT_CONFIG, IAudiomConfig } from '../configs'
 import { isNullish, isNullishOrWhiteSpace, validateAndClamp, validateAndReset, parseStepSize } from './validationUtils'
 import { createLogger } from '../../utils/logger'
@@ -27,6 +28,7 @@ const MESSAGES = {
   STEP_SIZE_FORMAT: 'Step size must be a number, optionally followed by m, km, mi, or ft',
   REQUIRED: 'This field is required',
   INVALID_URL: 'Please enter a valid URL',
+  IMAGE_LAYER_URL: 'Enter an ImageServer layer URL ending in /ImageServer',
 } as const
 
 /**
@@ -105,6 +107,53 @@ export function validateUrl(value: string | undefined): ValidityResult {
   } catch {
     return { valid: false, msg: MESSAGES.INVALID_URL }
   }
+}
+
+const IMAGE_SERVER_PATTERN = /\/ImageServer\/?$/i
+
+/**
+ * Validates an ArcGIS image feature layer URL.
+ */
+export function validateImageLayerUrl(value: string | undefined): ValidityResult {
+  const urlResult = validateUrl(value)
+  if (!urlResult.valid || isNullishOrWhiteSpace(value)) {
+    return urlResult.valid
+      ? { valid: false, msg: MESSAGES.IMAGE_LAYER_URL }
+      : urlResult
+  }
+
+  const trimmed = value.trim()
+  if (trimmed.startsWith('./') || trimmed.startsWith('../') || trimmed.startsWith('/')) {
+    return { valid: false, msg: MESSAGES.IMAGE_LAYER_URL }
+  }
+
+  try {
+    const parsed = new URL(trimmed)
+    if (!IMAGE_SERVER_PATTERN.test(parsed.pathname)) {
+      return { valid: false, msg: MESSAGES.IMAGE_LAYER_URL }
+    }
+    return { valid: true }
+  } catch {
+    return { valid: false, msg: MESSAGES.INVALID_URL }
+  }
+}
+
+/**
+ * Layer type implied by a submitted base-layer URL.
+ * ImageServer URLs are image server layers; any other valid URL is a static image.
+ * Empty or invalid values do not imply a type.
+ */
+export function visualBaseLayerTypeFromUrl(value: string | undefined): VisualBaseLayerType | undefined {
+  if (isNullishOrWhiteSpace(value)) {
+    return undefined
+  }
+  if (validateImageLayerUrl(value).valid) {
+    return VisualBaseLayerType.ImageServer
+  }
+  if (validateUrl(value).valid) {
+    return VisualBaseLayerType.Image
+  }
+  return undefined
 }
 
 /**

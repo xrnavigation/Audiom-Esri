@@ -1,21 +1,30 @@
 import { React } from 'jimu-core'
 import { Card, Collapse, TextInput } from 'jimu-ui'
 import { TrashOutlined } from 'jimu-icons/outlined/editor/trash'
-import { IVisualBaseLayerConfig } from '../configs'
+import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
+import { InvisibleOutlined } from 'jimu-icons/outlined/application/invisible'
+import { IVisualBaseLayerConfig, isVisualBaseLayerNameLocked } from '../configs'
+import { VisualBaseLayerType } from '../../../../../shared/audiom-client/AudiomEmbedConfig'
 import { Padding } from '../enums'
-import { validateUrl } from '../validation/validation'
+import { TOOLTIP_HIDE_VISUAL_BASE_LAYER, TOOLTIP_LOCK_LAYER_NAME, TOOLTIP_SHOW_VISUAL_BASE_LAYER, TOOLTIP_UNLOCK_LAYER_NAME } from '../strings'
+import { validateUrl, validateImageLayerUrl, visualBaseLayerTypeFromUrl } from '../validation/validation'
 import CollapsibleHeader, { CollapsibleHeaderLevel } from './CollapsibleHeader'
 import CopyableLabel from './CopyableLabel'
 import GeoQuadEditor from './GeoQuadEditor'
 import IconActionButton from './IconActionButton'
+import LockToggle from './LockToggle'
 
 const { useCallback } = React
 
 // UI Text Constants
 const LAYER_PREFIX = 'Layer '
 const FIELD_LABEL_URL = 'Image URL'
-const PLACEHOLDER_URL = 'Enter image URL for visual base layer'
+const PLACEHOLDER_URL = 'Enter image or image server URL for visual base layer'
 const TOOLTIP_REMOVE = 'Remove layer'
+const FIELD_LABEL_IMAGE_URL = 'Image Server URL'
+const FIELD_LABEL_LAYER_NAME = 'Layer Name'
+const PLACEHOLDER_LAYER_NAME = 'Enter a name (optional)'
+
 
 const styles = {
   card: {
@@ -32,36 +41,95 @@ const styles = {
   } as React.CSSProperties
 }
 
+export interface VisualBaseLayerUrlUpdate {
+  layerName?: string | undefined
+  type?: VisualBaseLayerType
+}
+
 interface VisualBaseLayerCardProps {
   layer: IVisualBaseLayerConfig
   index: number
   isExpanded: boolean
   onToggleExpanded: () => void
   onFieldChange: (field: keyof IVisualBaseLayerConfig, value: string | undefined) => void
+  onUrlChange: (url: string, updates?: VisualBaseLayerUrlUpdate) => void
+  onToggleVisible: () => void
+  onLayerNameLockChange: (locked: boolean, layerName: string | undefined) => void
   onRemove: () => void
 }
 
+/** Filename from a layer URL, or undefined when the URL cannot provide one. */
+function nameFromLayerUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined
+  try {
+    return new URL(url).pathname.split('/').pop() || undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** A non-empty URL that changed and passes either base-layer validator. */
+function isNewValidBaseLayerUrl(currentUrl: string | undefined, nextUrl: string): boolean {
+  const trimmed = nextUrl.trim()
+  if (!trimmed || trimmed === (currentUrl ?? '').trim()) return false
+  return visualBaseLayerTypeFromUrl(trimmed) !== undefined
+}
+
 const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
-  const { layer, index, isExpanded, onToggleExpanded, onFieldChange, onRemove } = props
+  const {
+    layer, index, isExpanded, onToggleExpanded, onFieldChange, onUrlChange,
+    onToggleVisible, onLayerNameLockChange, onRemove
+  } = props
+  const isFeature = layer.type === VisualBaseLayerType.ImageServer
+  // Missing `visible` means shown, matching DEFAULT_VISUAL_BASE_LAYER.
+  const isVisible = layer.visible !== false
+  const visibilityTooltip = isVisible ? TOOLTIP_HIDE_VISUAL_BASE_LAYER : TOOLTIP_SHOW_VISUAL_BASE_LAYER
+  // Missing `layerNameLocked` means locked, so the name follows the URL.
+  const isLayerNameLocked = isVisualBaseLayerNameLocked(layer)
+  const derivedName = nameFromLayerUrl(layer.url)
+  const customName = !isLayerNameLocked ? layer.layerName?.trim() : ''
+  const layerNameValue = isLayerNameLocked ? (derivedName ?? '') : (layer.layerName ?? '')
 
   const handleUrlChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    onFieldChange('url', e.target.value)
-  }, [onFieldChange])
+    const nextUrl = e.target.value
+    const trimmed = nextUrl.trim()
+    // A newly valid URL sets the layer name and the source type together.
+    if (isNewValidBaseLayerUrl(layer.url, nextUrl)) {
+      onUrlChange(nextUrl, {
+        layerName: nameFromLayerUrl(trimmed),
+        type: visualBaseLayerTypeFromUrl(trimmed)
+      })
+      return
+    }
+    onUrlChange(nextUrl)
+  }, [layer.url, onUrlChange])
+
+  const handleUrlAccept = useCallback((value: string) => {
+    const nextType = visualBaseLayerTypeFromUrl(value.trim())
+    if (!nextType || nextType === (layer.type || VisualBaseLayerType.Image)) return
+    onUrlChange(value, { type: nextType })
+  }, [layer.type, onUrlChange])
+
+  const handleLayerNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isLayerNameLocked) return
+    onFieldChange('layerName', e.target.value || undefined)
+  }, [onFieldChange, isLayerNameLocked])
+
+  const handleLayerNameLockToggle = useCallback(() => {
+    if (isLayerNameLocked) {
+      onLayerNameLockChange(false, layer.layerName?.trim() || derivedName)
+    } else {
+      onLayerNameLockChange(true, layer.layerName || undefined)
+    }
+  }, [isLayerNameLocked, layer.layerName, derivedName, onLayerNameLockChange])
 
   const handlePositionChange = useCallback((value: string) => {
     onFieldChange('position', value || undefined)
   }, [onFieldChange])
 
-  // Safely derive label — URL parsing can fail; fall back to a generic numbered label
+  // Locked names follow the URL. An unlocked non-empty name overrides that.
   const fallbackLabel = `${LAYER_PREFIX}${index + 1}`
-  let safeLabel: string = fallbackLabel
-  if (layer.url) {
-    try {
-      safeLabel = new URL(layer.url).pathname.split('/').pop() || fallbackLabel
-    } catch {
-      // Keep fallbackLabel
-    }
-  }
+  const safeLabel = customName || derivedName || fallbackLabel
 
   const actions = (
     <div style={styles.actions}>
@@ -72,6 +140,15 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
         stopPropagation
       >
         <TrashOutlined />
+      </IconActionButton>
+      <IconActionButton
+        tooltip={visibilityTooltip}
+        ariaLabel={`${visibilityTooltip} ${index + 1}`}
+        onClick={onToggleVisible}
+        stopPropagation
+        active={!isVisible}
+      >
+        {isVisible ? <VisibleOutlined /> : <InvisibleOutlined />}
       </IconActionButton>
     </div>
   )
@@ -88,19 +165,53 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
       />
       <Collapse isOpen={isExpanded}>
         <div style={styles.content}>
-          <CopyableLabel label={FIELD_LABEL_URL} copyValue={layer.url || ''} />
+          <CopyableLabel
+            label={FIELD_LABEL_LAYER_NAME}
+            copyValue={layerNameValue}
+            actions={
+              <LockToggle
+                locked={isLayerNameLocked}
+                onToggle={handleLayerNameLockToggle}
+                unlockTooltip={TOOLTIP_UNLOCK_LAYER_NAME}
+                lockTooltip={TOOLTIP_LOCK_LAYER_NAME}
+              />
+            }
+          />
+          <TextInput
+            style={{ width: '100%', marginBottom: Padding.ElementGap }}
+            value={layerNameValue}
+            onChange={handleLayerNameChange}
+            placeholder={PLACEHOLDER_LAYER_NAME}
+            disabled={isLayerNameLocked}
+            aria-label={`${FIELD_LABEL_LAYER_NAME} for layer ${index + 1}`}
+          />
+          <CopyableLabel
+            label={isFeature ? FIELD_LABEL_IMAGE_URL : FIELD_LABEL_URL}
+            copyValue={layer.url || ''}
+          />
           <TextInput
             style={{ width: '100%', marginBottom: Padding.ElementGap }}
             value={layer.url || ''}
             onChange={handleUrlChange}
+            onAcceptValue={handleUrlAccept}
             placeholder={PLACEHOLDER_URL}
-            checkValidityOnAccept={(text) => validateUrl(String(text))}
-            aria-label={`${FIELD_LABEL_URL} for layer ${index + 1}`}
+            checkValidityOnAccept={(text) => {
+              const value = String(text ?? '')
+              // Empty still follows the current type. A non-empty URL may belong
+              // to either type; the type is set from the URL when it is entered.
+              if (!value.trim()) {
+                return isFeature ? validateImageLayerUrl(value) : validateUrl(value)
+              }
+              return validateUrl(value)
+            }}
+            aria-label={`${isFeature ? FIELD_LABEL_IMAGE_URL : FIELD_LABEL_URL} for layer ${index + 1}`}
           />
-          <GeoQuadEditor
-            value={layer.position ?? ''}
-            onChange={handlePositionChange}
-          />
+          {!isFeature && (
+            <GeoQuadEditor
+              value={layer.position ?? ''}
+              onChange={handlePositionChange}
+            />
+          )}
         </div>
       </Collapse>
     </Card>
