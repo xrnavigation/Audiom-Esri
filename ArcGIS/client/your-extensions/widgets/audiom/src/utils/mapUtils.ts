@@ -495,10 +495,16 @@ function selectorField (clause: string): string | undefined {
   return match?.[1]
 }
 
+/** LEVEL_ID and FLOOR_CODE. State and NAME are geographic filters, not floors. */
+function looksLikeFloorField (name: string): boolean {
+  return /level|floor/i.test(name)
+}
+
 /**
- * Fields the map itself uses to pick a floor: floorInfo, or an equality/IN
- * clause whose field is on more than one layer. A one-layer where such as
- * CITY = 'Sumner' is not a floor filter.
+ * Fields the map itself uses to pick a floor: floorInfo, or a floor-like
+ * equality/IN field shared by more than one layer. State = 'Hawaii' on
+ * Tract and County is a geographic filter. Treating it as a floor strips it
+ * from the source configuration and the embed reloads the national layer.
  */
 export function floorFieldsFromLayers (layers: Array<{
   id?: string
@@ -525,6 +531,7 @@ export function floorFieldsFromLayers (layers: Array<{
     }
   }
   for (const field of selectors) {
+    if (!looksLikeFloorField(field)) continue
     const holders = layers.filter((layer) =>
       layer.fields?.some((item) => item.name?.toUpperCase() === field.toUpperCase())
     )

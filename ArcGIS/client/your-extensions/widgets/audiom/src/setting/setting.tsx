@@ -34,6 +34,12 @@ const { useEffect, useCallback, useState, useRef } = React
 
 const logger = createLogger('Setting')
 
+/** Saved sources that never received the web map's definition expression. */
+function sourcesNeedMapFilters (sources: ISourceConfig[] | undefined): boolean {
+  if (!sources?.length) return false
+  return !sources.some((source) => (source.filters || []).some((filter) => filter.fromMap))
+}
+
 const MAP_SOURCE_TYPES = Immutable.from([
   DataSourceTypes.WebMap,
   DataSourceTypes.WebScene
@@ -291,6 +297,40 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
       cancelled = true
     }
   }, [bundledMapItemId, bundledPortalUrl, config?.viewpointItemId])
+
+  // A saved item already has a center, so the viewpoint read above does not
+  // run again. The embed still needs the map's definition expression as a
+  // source filter. Fill only that list; do not rewrite center or zoom.
+  const filterSyncItemId = useRef('')
+  useEffect(() => {
+    if (!bundledMapItemId || selectionPending.current) return undefined
+    if (config?.viewpointItemId !== bundledMapItemId) return undefined
+    if (filterSyncItemId.current === bundledMapItemId) return undefined
+    const sources = toMutableConfig(latestConfigRef.current).sourceConfigs
+    if (!sourcesNeedMapFilters(sources)) {
+      filterSyncItemId.current = bundledMapItemId
+      return undefined
+    }
+    filterSyncItemId.current = bundledMapItemId
+    const generation = viewpointGeneration.current
+    let cancelled = false
+    readBundledMapViewpoint(bundledMapItemId, bundledPortalUrl).then((viewpoint) => {
+      if (cancelled || generation !== viewpointGeneration.current) return
+      const mapSources = viewpoint?.sourceConfigs
+      if (!mapSources?.length) return
+      const current = latestConfigRef.current
+      const currentSources = toMutableConfig(current).sourceConfigs || []
+      const merged = mergeSourcesPreservingUnlocked(currentSources, mapSources)
+      if (serializeLockedForDiff(currentSources) === serializeLockedForDiff(merged)) return
+      props.onSettingChange({
+        id: props.id,
+        config: setConfigValue(current, AudiomConfigKey.SourceConfigs, merged)
+      })
+    }).catch((error) => {
+      logger.warn('could not load map filters into source configurations', error)
+    })
+    return () => { cancelled = true }
+  }, [bundledMapItemId, bundledPortalUrl, config?.viewpointItemId, props])
 
   useEffect(() => {
     // Use default value when useExistingMap is undefined

@@ -8,6 +8,7 @@
 import { dataSourcesFromAppState } from '../utils/appDataSources'
 import type { MapSyncConfig } from '../utils/mapSyncManager'
 import { createLogger } from '../utils/logger'
+import { FilterType } from './enums'
 import { AUDIOM_MAP_ELEMENT_ID } from '../runtime/chrome'
 import {
   ESRI_ZOOM_0_SCALE,
@@ -37,6 +38,10 @@ type ItemLayer = {
   layerType?: string
   visibility?: boolean
   layers?: ItemLayer[]
+  layerDefinition?: {
+    definitionExpression?: string
+    definitionQuery?: string
+  }
 }
 
 type PortalItemMeta = {
@@ -48,7 +53,7 @@ type PortalItemMeta = {
 type WebMapData = {
   error?: unknown
   initialState?: { viewpoint?: { targetGeometry?: ExtentGeometry, scale?: number } }
-  operationalLayers?: Array<{ id?: string, title?: string, url?: string, visibility?: boolean }>
+  operationalLayers?: ItemLayer[]
 }
 
 /** The drawn map in the canvas iframe. Experience Builder names that frame `_appWindow`. */
@@ -214,6 +219,16 @@ function isFeatureServer (layer: ItemLayer): boolean {
   return /Feature/i.test(kind)
 }
 
+/** `1=1` is the service's "no filter" sentinel. */
+function whereFromLayer (layer: ItemLayer): string | undefined {
+  const raw = layer.layerDefinition?.definitionExpression
+    || layer.layerDefinition?.definitionQuery
+    || ''
+  const expression = raw.trim()
+  if (!expression || /^1\s*=\s*1$/i.test(expression)) return undefined
+  return expression
+}
+
 function sourcesFromLayers (layers?: ItemLayer[]): MapSyncConfig['sourceConfigs'] {
   const configs: NonNullable<MapSyncConfig['sourceConfigs']> = []
   const walk = (nodes: ItemLayer[] | undefined, parentVisible: boolean) => {
@@ -221,11 +236,26 @@ function sourcesFromLayers (layers?: ItemLayer[]): MapSyncConfig['sourceConfigs'
       const visible = parentVisible && layer.visibility !== false
       // Group layers have no url of their own. Their children do.
       if (layer.url && isFeatureServer(layer)) {
+        const expression = whereFromLayer(layer)
         configs.push({
           name: layer.title,
           source: layer.id,
           sourceUrl: layer.url,
-          enabled: visible
+          enabled: visible,
+          // The web map's definition expression is the source filter. Leaving
+          // it off the configuration drops State = 'Hawaii' from the embed.
+          ...(expression
+            ? {
+                filters: [{
+                  expression,
+                  mapExpression: expression,
+                  filterType: FilterType.Where,
+                  mapFilterType: FilterType.Where,
+                  locked: true,
+                  fromMap: true
+                }]
+              }
+            : {})
         })
       }
       if (layer.layers?.length) walk(layer.layers, visible)

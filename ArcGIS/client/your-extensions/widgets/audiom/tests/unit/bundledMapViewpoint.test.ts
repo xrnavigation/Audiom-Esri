@@ -149,6 +149,78 @@ describe('bundledMapViewpoint', () => {
     }])
   })
 
+  it('loads a web map definition expression into the source filter', async () => {
+    stubFetch(
+      { title: 'Hawaii Census', extent: [[-160.3, 18.9], [-154.8, 22.3]] },
+      {
+        initialState: { viewpoint: { scale: 591657527.591555 / 512 } },
+        operationalLayers: [{
+          id: 'group',
+          title: 'ACS Population',
+          layers: [{
+            id: 'tract',
+            title: 'Tract',
+            layerType: 'ArcGISFeatureLayer',
+            url: 'https://services.example.com/ACS/FeatureServer/2',
+            visibility: true,
+            layerDefinition: { definitionExpression: "State = 'Hawaii'" }
+          }, {
+            id: 'county',
+            title: 'County',
+            layerType: 'ArcGISFeatureLayer',
+            url: 'https://services.example.com/ACS/FeatureServer/1',
+            visibility: false,
+            layerDefinition: { definitionExpression: '1=1' }
+          }, {
+            id: 'state',
+            title: 'State',
+            layerType: 'ArcGISFeatureLayer',
+            url: 'https://services.example.com/ACS/FeatureServer/0',
+            visibility: false,
+            layerDefinition: { definitionQuery: "NAME = 'Hawaii'" }
+          }]
+        }]
+      }
+    )
+    const vp = await readBundledMapViewpoint('item-1')
+    expect(vp?.sourceConfigs).toEqual([
+      {
+        name: 'Tract',
+        source: 'tract',
+        sourceUrl: 'https://services.example.com/ACS/FeatureServer/2',
+        enabled: true,
+        filters: [{
+          expression: "State = 'Hawaii'",
+          mapExpression: "State = 'Hawaii'",
+          filterType: 'where',
+          mapFilterType: 'where',
+          locked: true,
+          fromMap: true
+        }]
+      },
+      {
+        name: 'County',
+        source: 'county',
+        sourceUrl: 'https://services.example.com/ACS/FeatureServer/1',
+        enabled: false
+      },
+      {
+        name: 'State',
+        source: 'state',
+        sourceUrl: 'https://services.example.com/ACS/FeatureServer/0',
+        enabled: false,
+        filters: [{
+          expression: "NAME = 'Hawaii'",
+          mapExpression: "NAME = 'Hawaii'",
+          filterType: 'where',
+          mapFilterType: 'where',
+          locked: true,
+          fromMap: true
+        }]
+      }
+    ])
+  })
+
   it('returns null when neither REST nor the signed-in session yields a center', async () => {
     ;(global as unknown as { fetch: unknown }).fetch = jest.fn(() => Promise.resolve({ ok: false }))
     const vp = await readBundledMapViewpoint('item-1', PORTAL)
