@@ -9,12 +9,22 @@
  * - Use `wrapWidget` + `widgetRender` from jimu-for-test so Redux store,
  *   theme, and intl providers are wired up like the runtime.
  */
-import { React } from 'jimu-core'
+import { React, getAppStore, type ImmutableArray } from 'jimu-core'
+
+const publishedMapViews: Array<{ mapWidgetId?: string, isActive?: boolean, isEnablePopup?: boolean }> = []
 
 jest.mock('jimu-arcgis', () => ({
   __esModule: true,
   JimuMapViewComponent: (): null => null,
-  MapViewManager: { getInstance: (): undefined => undefined }
+  MapViewManager: {
+    getInstance: () => ({
+      createJimuMapView: (options: { mapWidgetId?: string, isActive?: boolean, isEnablePopup?: boolean }) => {
+        publishedMapViews.push(options)
+        return Promise.resolve(null)
+      },
+      destroyJimuMapView: jest.fn()
+    })
+  }
 }))
 
 const fakeManager = {
@@ -39,6 +49,8 @@ import { widgetRender, wrapWidget } from 'jimu-for-test'
 import _Widget from '../../src/runtime/widget'
 import { JimuConfig } from '../../src/utils/JimuConfig'
 import { makeImmutableConfig } from '../helpers/configFactories'
+import { RuntimeLocation } from '../../src/setting/runtimeLocation'
+import { setMapModuleLoader } from '../../src/runtime/esriMapSurface'
 
 const render = widgetRender()
 
@@ -49,6 +61,7 @@ function setBuilder(value: boolean) {
 
 describe('Audiom runtime widget', () => {
   beforeEach(() => {
+    publishedMapViews.length = 0
     Object.values(fakeManager).forEach(v => {
       if (typeof v === 'function' && (v as any).mockClear) (v as any).mockClear()
     })
@@ -119,6 +132,259 @@ describe('Audiom runtime widget', () => {
     const { unmount } = render(<Widget widgetId="audiom-7" />)
     unmount()
     expect(fakeManager.removeChangeListener).toHaveBeenCalled()
+  })
+
+  it('asks to set a map source instead of mounting a map when bundled mode has none', () => {
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: ''
+      }) as any
+    })
+    const { container, getByText } = render(<Widget widgetId="audiom-bundled-empty" />)
+    expect(getByText('Set a map source first.')).not.toBeNull()
+    expect(container.querySelector('#audiom-esri-map')).toBeNull()
+    expect(container.querySelector('iframe')).toBeNull()
+  })
+
+  it('shows the map as soon as a bundled source is connected, even before mapItemId is saved', async () => {
+    setMapModuleLoader(async () => [
+      class Map { constructor (public properties: unknown) {} },
+      class MapView {
+        constructor (properties: { container: HTMLElement }) {
+          properties.container.dataset.mapMounted = 'true'
+        }
+        destroy () {}
+      }
+    ])
+    const store = getAppStore() as unknown as { getState: () => unknown }
+    const state = store.getState() as { appConfig?: { dataSources?: Record<string, unknown> } }
+    const previous = state.appConfig
+    state.appConfig = {
+      ...previous,
+      dataSources: {
+        dataSource_2: { itemId: 'item-99', portalUrl: 'https://data.example.com' }
+      }
+    }
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: ''
+      }) as any,
+      useDataSources: [{ dataSourceId: 'dataSource_2', mainDataSourceId: 'dataSource_2' }] as any
+    })
+    const { container, queryByText, unmount } = render(<Widget widgetId="audiom-bundled-added" />)
+    expect(queryByText('Set a map source first.')).toBeNull()
+    expect(container.querySelector('#audiom-esri-map')).not.toBeNull()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    unmount()
+    state.appConfig = previous
+    setMapModuleLoader(null)
+  })
+
+  it('returns to the empty message as soon as the bundled source is removed', () => {
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: ''
+      }) as any,
+      useDataSources: [] as any
+    })
+    const { getByText, container } = render(<Widget widgetId="audiom-bundled-removed" />)
+    expect(getByText('Set a map source first.')).not.toBeNull()
+    expect(container.querySelector('#audiom-esri-map')).toBeNull()
+  })
+
+  it('renders an Esri map in the widget for bundled mode', async () => {
+    const created: Array<{ container: HTMLElement, map: unknown }> = []
+    setMapModuleLoader(async (modules) => {
+      if (modules[0] === 'esri/layers/GraphicsLayer') {
+        return [class GraphicsLayer {
+          constructor (public properties: unknown) {}
+          removeAll () {}
+          add () {}
+        }]
+      }
+      return [
+      class Map { constructor (public properties: unknown) {} },
+      class MapView {
+        container: HTMLElement
+        map: unknown
+        constructor (properties: { container: HTMLElement, map: unknown }) {
+          this.container = properties.container
+          this.map = properties.map
+          created.push(properties)
+          properties.container.dataset.mapMounted = 'true'
+        }
+        destroy () {}
+      }
+    ]
+    })
+
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-1',
+        centerLongitude: -77.45,
+        centerLatitude: 38.77
+      }) as any,
+      useMapWidgetIds: ['external-map'] as unknown as ImmutableArray<string>
+    })
+    const { container, unmount } = render(<Widget widgetId="audiom-bundled" />)
+    expect(container.querySelector('iframe')).toBeNull()
+    expect(container.querySelector('button')).toBeNull()
+    const map = container.querySelector('#audiom-esri-map')
+    expect(map).not.toBeNull()
+    await React.act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(map!.getAttribute('data-map-mounted')).toBe('true')
+    expect(map!.getAttribute('tabindex')).toBe('0')
+    expect(publishedMapViews).toEqual([expect.objectContaining({
+      mapWidgetId: 'audiom-bundled',
+      isActive: true,
+      isEnablePopup: false
+    })])
+    unmount()
+    expect(created.length).toBe(1)
+    expect((created[0].map as { properties: { portalItem?: { id: string } } }).properties.portalItem?.id).toBe('item-1')
+    expect((created[0] as { center?: [number, number] }).center).toEqual([-77.45, 38.77])
+    setMapModuleLoader(null)
+  })
+
+  it('does not mount a newly selected map at the previous center, then moves to the new viewpoint', async () => {
+    const created: Array<{ center?: [number, number], zoom?: number }> = []
+    const goTo = jest.fn(() => Promise.resolve())
+    setMapModuleLoader(async (modules) => {
+      if (modules[0] === 'esri/layers/GraphicsLayer') {
+        return [class GraphicsLayer {
+          constructor (public properties: unknown) {}
+          removeAll () {}
+          add () {}
+        }]
+      }
+      return [
+        class Map { constructor (public properties: unknown) {} },
+        class MapView {
+          goTo = goTo
+          constructor (properties: { container: HTMLElement, center?: [number, number], zoom?: number }) {
+            created.push(properties)
+            properties.container.dataset.mapMounted = 'true'
+          }
+          destroy () {}
+        }
+      ]
+    })
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-2',
+        viewpointItemId: '',
+        centerLongitude: -77.45,
+        centerLatitude: 38.77,
+        zoom: 12
+      }) as any
+    })
+    const view = render(<Widget widgetId="audiom-switch-map" />)
+    await React.act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(created).toHaveLength(1)
+    expect(created[0].center).toBeUndefined()
+    expect(created[0].zoom).toBeUndefined()
+    expect(goTo).not.toHaveBeenCalled()
+
+    view.rerender(<Widget
+      widgetId="audiom-switch-map"
+      config={makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-2',
+        viewpointItemId: 'item-2',
+        centerLongitude: -120.5,
+        centerLatitude: 45.2,
+        zoom: 8
+      }) as any}
+    />)
+    await React.act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(created).toHaveLength(1)
+    expect(goTo).toHaveBeenCalledWith(expect.objectContaining({
+      center: [-120.5, 45.2],
+      zoom: 8
+    }))
+    view.unmount()
+    setMapModuleLoader(null)
+  })
+
+  it('loads a bundled web map from the data source portal, not the app portal', async () => {
+    const created: Array<{ map: { properties: { portalItem?: { id: string, portal?: { url?: string } } } } }> = []
+    setMapModuleLoader(async (modules) => {
+      if (modules[0] === 'esri/layers/GraphicsLayer') {
+        return [class GraphicsLayer {
+          constructor (public properties: unknown) {}
+          removeAll () {}
+          add () {}
+        }]
+      }
+      class Portal {
+        url: string
+        loaded = false
+        constructor (properties: { url: string }) { this.url = properties.url }
+        async load () { this.loaded = true }
+      }
+      class PortalItem {
+        id: string
+        portal: { url?: string }
+        constructor (properties: { id: string, portal: { url?: string } }) {
+          this.id = properties.id
+          this.portal = properties.portal
+        }
+      }
+      return [
+        class Map { constructor (public properties: unknown) {} },
+        class MapView {
+          constructor (properties: { container: HTMLElement, map: { properties: { portalItem?: { id: string, portal?: { url?: string } } } } }) {
+            created.push(properties)
+            properties.container.dataset.mapMounted = 'true'
+          }
+          destroy () {}
+        },
+        Portal,
+        PortalItem
+      ]
+    })
+
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-1',
+        centerLongitude: -77.45,
+        centerLatitude: 38.77
+      }) as any,
+      useDataSources: [{ dataSourceId: 'dataSource_2', mainDataSourceId: 'dataSource_2' }] as any
+    })
+    const store = getAppStore() as unknown as { getState: () => unknown, dispatch: () => void }
+    const state = store.getState() as { appConfig?: { dataSources?: Record<string, unknown> } }
+    const previous = state.appConfig
+    state.appConfig = {
+      ...previous,
+      dataSources: {
+        dataSource_2: {
+          itemId: 'item-1',
+          portalUrl: 'https://data.example.com'
+        }
+      }
+    }
+    const { container, unmount } = render(<Widget widgetId="audiom-portal" />)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const item = created[0]?.map.properties.portalItem
+    expect(item?.id).toBe('item-1')
+    expect(item?.portal?.url).toBe('https://data.example.com')
+    expect(container.querySelector('#audiom-esri-map')!.getAttribute('data-map-mounted')).toBe('true')
+    unmount()
+    state.appConfig = previous
+    setMapModuleLoader(null)
   })
 
   it('appends visual base layer position as JSON, not "[object Object]"', () => {

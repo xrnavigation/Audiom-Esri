@@ -5,6 +5,7 @@ import { StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
 import { VisualStyle } from '../../../../shared/audiom-client/AudiomEmbedConfig'
 import { FieldType, FilterType } from './enums'
 import type { LockableFieldName } from './configKeys'
+import { DEFAULT_ASSET_BASE_URL, RuntimeLocation } from './runtimeLocation'
 
 /**
  * Centralized default configuration values for the Audiom widget.
@@ -24,6 +25,8 @@ export const DEFAULT_CONFIG = {
   stepSizeUnit: StepSizeUnit.Meters,
   showVisualMap: true,
   showHeading: false,
+  showMapControls: true,
+  showMapLabels: true,
   zoom: 10,
   heading: 3,
   useExistingMap: true,
@@ -34,6 +37,8 @@ export const DEFAULT_CONFIG = {
   centerLatitudeLocked: true,
   centerLongitudeLocked: true,
   zoomLocked: true,
+  runtimeLocation: RuntimeLocation.Standalone,
+  assetBaseUrl: DEFAULT_ASSET_BASE_URL,
 } as const satisfies Partial<IAudiomConfig>
 
 export const DEFAULT_SOURCE_CONFIG: ISourceConfig = {
@@ -142,6 +147,10 @@ export interface IAudiomConfig {
   stepSizeUnit?: StepSizeUnit
   showVisualMap?: boolean
   showHeading?: boolean
+  /** Bundled mode. Zoom, compass, fullscreen, and center controls. */
+  showMapControls?: boolean
+  /** Bundled mode. Room-name text drawn over the map. Absent means shown. */
+  showMapLabels?: boolean
   soundpackUrl?: string
   visualBaseLayers?: IVisualBaseLayerConfig[]
   visualStyle?: VisualStyle
@@ -154,6 +163,18 @@ export interface IAudiomConfig {
   zoomLocked?: boolean  // When locked (default), syncs with map. When unlocked, uses manual value.
   useExistingMap?: boolean
   existingMapId?: string
+  /** Portal item id of the web map or web scene Bundled mode draws itself. */
+  mapItemId?: string
+  /**
+   * Item id whose center and zoom are stored here. Empty means a new
+   * selection has not been read yet. Absent on older saves: that center
+   * belongs to mapItemId.
+   */
+  viewpointItemId?: string
+  /** Absent on configs saved before integrated modes. Those load as legacy. */
+  runtimeLocation?: RuntimeLocation
+  /** Bundled mode only. Ignored, not deleted, in the other modes. */
+  assetBaseUrl?: string
 }
 
 /**
