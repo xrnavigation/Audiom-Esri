@@ -63,12 +63,14 @@ assert.ok(moduleRule, 'Front-End module css needs its own rule')
 const cssLoader = moduleRule.use.find((item) => item && item.loader === 'css-loader')
 assert.strictEqual(cssLoader.options.modules.namedExport, false)
 assert.strictEqual(cssLoader.options.modules.exportLocalsConvention, 'as-is')
-assert.strictEqual(cssLoader.options.modules.auto, false)
+assert.notStrictEqual(cssLoader.options.modules.auto, false)
 
 const eager = config.module.rules.find((rule) => (
-  rule.parser && rule.parser.javascript && rule.parser.javascript.dynamicImportMode === 'eager'
+  rule.parser && rule.parser.dynamicImportMode === 'eager'
 ))
 assert.ok(eager, 'Front-End dynamic imports must be inlined')
+assert.strictEqual(eager.parser.dynamicImportMode, 'eager')
+assert.strictEqual(eager.parser.javascript, undefined)
 assert.strictEqual(matches(eager, frontEndTs), true)
 assert.strictEqual(matches(eager, 'D:/widgets/other/src/runtime/widget.tsx'), false)
 
