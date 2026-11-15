@@ -276,10 +276,11 @@ function aliasAudiomRuntimeToSource (config) {
   if (webpackSupportsEagerImports()) {
     config.module.rules.push({
       test: /(?:Audiom-Front-End|Audiom-Runtime|audiom-runtime)[\\/].+\.[cm]?[jt]sx?$/,
+      // Rule parser options are the parser's own options, not a map keyed
+      // by module type. Nesting this under `javascript` left import() lazy,
+      // so Enterprise still requested widgets/chunks from the portal.
       parser: {
-        javascript: {
-          dynamicImportMode: 'eager'
-        }
+        dynamicImportMode: 'eager'
       }
     })
   }
@@ -302,8 +303,9 @@ function hostCssUse (rules, modules) {
     if (loaderName(item).indexOf('mini-css-extract-plugin') !== -1) return 'style-loader'
     if (typeof item === 'string' || loaderName(item).indexOf('css-loader') === -1) return item
     const hostModules = item.options && item.options.modules
+    // Do not set auto: false. css-loader 7 reads that as modules disabled.
     const nextModules = modules && hostModules && typeof hostModules === 'object'
-      ? Object.assign({}, hostModules, { auto: false })
+      ? Object.assign({}, hostModules)
       : modules
     return Object.assign({}, item, {
       options: Object.assign({}, item.options, {
@@ -341,11 +343,13 @@ function cssLoaderMajor () {
 }
 
 function frontEndModuleCssOptions () {
+  // css-loader 7 treats `auto: false` as modules disabled, not as "always
+  // a module". The published rebuild kept the raw `.tabList` class and
+  // exported no locals, so style-loader's default import was undefined.
   return {
     url: false,
     importLoaders: 0,
     modules: {
-      auto: false,
       namedExport: false,
       exportLocalsConvention: 'as-is'
     }
