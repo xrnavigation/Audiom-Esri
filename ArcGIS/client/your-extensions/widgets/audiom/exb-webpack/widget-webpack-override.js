@@ -216,6 +216,13 @@ function aliasAudiomRuntimeToSource (config) {
   // for rule.use breaks CSS modules: webpack then requires an ident.
   const oldSass = experienceBuilderMinor() != null && experienceBuilderMinor() <= 13
   if (oldSass) rules.forEach(excludeFrontEndCssFromSass)
+  // css-loader 7 turns on namedExport for *.module.css. style-loader then
+  // publishes `content.locals` as the default import. Named exports leave
+  // that default undefined, so `styles.tabList` throws and the menu dies.
+  // Enterprise registers the widget by URL, outside the widgets folder, so
+  // this is the build that customers actually load.
+  const namedExportBreaksDefaultImport = cssLoaderMajor() >= 7
+  if (namedExportBreaksDefaultImport) rules.forEach(excludeFrontEndModuleCss)
   const frontEndCssRules = [{
     test: /Audiom-Front-End[\\/]src[\\/].+\.css$/,
     exclude: /\.module\.css$/,
@@ -230,7 +237,16 @@ function aliasAudiomRuntimeToSource (config) {
       }
     ]
   }]
-  if (oldSass) {
+  if (namedExportBreaksDefaultImport) {
+    frontEndCssRules.push({
+      test: /Audiom-Front-End[\\/]src[\\/].+\.module\.css$/,
+      use: [
+        'style-loader',
+        { loader: 'css-loader', options: frontEndModuleCssOptions() }
+      ]
+    })
+  }
+  if (oldSass && !namedExportBreaksDefaultImport) {
     frontEndCssRules.push(
       {
         test: /Audiom-Front-End[\\/].+\.module\.css$/,
@@ -251,6 +267,22 @@ function aliasAudiomRuntimeToSource (config) {
       }
     }
   ])
+  // Dynamic import() writes widgets/chunks/*.js and loads them from
+  // jimuConfig.baseUrl. A widget registered from
+  // esri.xrnavigation.io/builder-versions/<version>/audiom/ is not under
+  // /widgets/, so Experience Builder never retargets that public path.
+  // Enterprise then 404s the audio engine, cacophony, and road-following
+  // chunks. Inline those imports into the widget instead.
+  if (webpackSupportsEagerImports()) {
+    config.module.rules.push({
+      test: /(?:Audiom-Front-End|Audiom-Runtime|audiom-runtime)[\\/].+\.[cm]?[jt]sx?$/,
+      parser: {
+        javascript: {
+          dynamicImportMode: 'eager'
+        }
+      }
+    })
+  }
 }
 
 function hostCssUse (rules, modules) {
@@ -292,6 +324,64 @@ function loaderName (item) {
   if (typeof item === 'string') return item
   if (item && typeof item.loader === 'string') return item.loader
   return ''
+}
+
+function packageMajor (name) {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(require.resolve(name + '/package.json'), 'utf8'))
+    const match = String(pkg.version || '').match(/^(\d+)/)
+    return match ? Number(match[1]) : 0
+  } catch (err) {
+    return 0
+  }
+}
+
+function cssLoaderMajor () {
+  return packageMajor('css-loader')
+}
+
+function frontEndModuleCssOptions () {
+  return {
+    url: false,
+    importLoaders: 0,
+    modules: {
+      auto: false,
+      namedExport: false,
+      exportLocalsConvention: 'as-is'
+    }
+  }
+}
+
+function excludeFrontEndModuleCss (rule) {
+  if (!rule || typeof rule !== 'object') return
+  if (Array.isArray(rule.oneOf)) rule.oneOf.forEach(excludeFrontEndModuleCss)
+  if (Array.isArray(rule.rules)) rule.rules.forEach(excludeFrontEndModuleCss)
+  if (!rule.use || !rule.test) return
+  const original = rule.test
+  rule.test = (file) => {
+    const normalized = String(file).replace(/\\/g, '/').split('?')[0]
+    if (/Audiom-Front-End\/src\/.+\.module\.css$/.test(normalized)) return false
+    if (typeof original === 'function') return original(file)
+    if (original instanceof RegExp) return original.test(file)
+    if (Array.isArray(original)) {
+      return original.some((item) => item instanceof RegExp && item.test(file))
+    }
+    return true
+  }
+}
+
+function webpackSupportsEagerImports () {
+  try {
+    const dir = path.dirname(require.resolve('webpack/package.json'))
+    const schema = path.join(dir, 'schemas', 'WebpackOptions.json')
+    if (fs.existsSync(schema)) {
+      return fs.readFileSync(schema, 'utf8').includes('"dynamicImportMode"')
+    }
+    const check = path.join(dir, 'schemas', 'WebpackOptions.check.js')
+    return fs.existsSync(check) && fs.readFileSync(check, 'utf8').includes('dynamicImportMode')
+  } catch (err) {
+    return false
+  }
 }
 
 function experienceBuilderMinor () {
