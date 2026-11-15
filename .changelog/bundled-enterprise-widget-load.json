@@ -1,0 +1,6 @@
+{
+	"id": "bundled-enterprise-widget-load",
+	"category": "Fixed",
+	"summary": "The published bundled widget loads its menu and audio code in ArcGIS Enterprise.",
+	"details": "Experience Builder 1.20 publishes CSS module class names as named exports, so the menu read an empty style map and failed. Dynamic audio imports also asked Enterprise for chunks that only exist beside a widget installed under its widgets folder. The downloadable build keeps class names on the default style import and compiles those imports into the widget."
+}
