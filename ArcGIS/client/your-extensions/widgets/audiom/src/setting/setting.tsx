@@ -29,6 +29,7 @@ import {
   runtimeLocationOf
 } from './runtimeLocation'
 import { portalUrlForItem, readBundledMapViewpoint } from './bundledMapViewpoint'
+import { repairedWidgetIcon } from './widgetIcon'
 
 const { useEffect, useCallback, useState, useRef } = React
 
@@ -66,6 +67,18 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
       config: newConfig
     })
   }, [props])
+
+  // Enterprise saves the widget by item id and forgets its folder. The
+  // builder then requests the missing-folder icon from its own CDN. The
+  // resolved uri is on the setting props, so point the icon at the published file.
+  useEffect(() => {
+    const icon = repairedWidgetIcon(props.uri, props.icon)
+    if (!icon) return
+    props.onSettingChange({
+      id: props.id,
+      icon
+    })
+  }, [props.id, props.uri, props.icon])
 
   // Use the map sync state hook for lockable fields
   const {
