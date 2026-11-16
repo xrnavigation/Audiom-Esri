@@ -326,49 +326,37 @@ export function toImageServerBaseLayer(layer: MapImageryLayer): IVisualBaseLayer
 }
 
 /**
- * Merge map imagery into the visual base layer list.
+ * Replace the visual base layer list with imagery imported from the map.
  *
- * - Image-server layers imported from the map (`fromMap`) are added, kept, and
- *   removed to match the map, the same way source configs follow map layers.
- * - An existing match keeps the user's layer name and visibility.
- * - Static images and image servers the user added by hand are left in place.
+ * Used while "Use Existing Map" is on. The result contains only imported
+ * layers, in map order. Previous layers — static images, hand-added image
+ * servers, and imagery that has left the map — are removed.
+ *
+ * A saved image-server layer whose URL matches an import keeps the user's
+ * layer name and visibility. Those are edits to the imported layer, not a
+ * separate base layer.
  */
 export function mergeVisualBaseLayers(
   current: IVisualBaseLayerConfig[] | undefined,
   imported: IVisualBaseLayerConfig[]
 ): IVisualBaseLayerConfig[] {
-  const currentLayers = current ?? [];
-  const importedByUrl = new Map<string, IVisualBaseLayerConfig>();
-  for (const layer of imported) {
+  const currentByUrl = new Map<string, IVisualBaseLayerConfig>();
+  for (const layer of current ?? []) {
     const url = normalizeLayerUrl(layer.url);
-    if (url && !importedByUrl.has(url)) {
-      importedByUrl.set(url, layer);
+    if (!url || currentByUrl.has(url)) continue;
+    if (layer.fromMap || layer.type === VisualBaseLayerType.ImageServer) {
+      currentByUrl.set(url, layer);
     }
   }
 
   const seen = new Set<string>();
   const merged: IVisualBaseLayerConfig[] = [];
-
-  for (const layer of currentLayers) {
-    const url = normalizeLayerUrl(layer.url);
-    if (layer.fromMap && url && !importedByUrl.has(url)) {
-      continue;
-    }
-    if (url && importedByUrl.has(url)) {
-      seen.add(url);
-      if (layer.fromMap || layer.type === VisualBaseLayerType.ImageServer) {
-        merged.push(mergeMatchedImageryLayer(layer, importedByUrl.get(url)!));
-        continue;
-      }
-    }
-    merged.push(layer);
-  }
-
   for (const layer of imported) {
     const url = normalizeLayerUrl(layer.url);
     if (!url || seen.has(url)) continue;
     seen.add(url);
-    merged.push(layer);
+    const existing = currentByUrl.get(url);
+    merged.push(existing ? mergeMatchedImageryLayer(existing, layer) : layer);
   }
   return merged;
 }
@@ -410,9 +398,9 @@ export function serializeImageryForDiff(
 /**
  * Visual base layers for an embed config.
  *
- * When `useExistingMap` is on and the map view is ready, imagery layers are
- * imported the same way sources are read from the live map. Otherwise the
- * saved list is used.
+ * When `useExistingMap` is on and the map view is ready, only imagery imported
+ * from that map is used. Saved layers that are not on the map are dropped.
+ * Otherwise the saved list is used.
  */
 function resolveVisualBaseLayers(
   config: IAudiomConfig,

@@ -68,8 +68,8 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     const currentSourcesJson = JSON.stringify(currentSources)
     const mergedSourcesJson = JSON.stringify(mergedSources)
 
-    // Imagery layers follow the same sync as sources, but only when the map
-    // extract included them. An omitted list means the caller has no imagery
+    // While Use Existing Map is on, saved base layers are replaced by imagery
+    // imported from the map. An omitted list means the caller has no imagery
     // snapshot (tests / partial configs) and must not wipe saved layers.
     const currentLayers = mutableConfig.visualBaseLayers || []
     const mapLayers = newMapConfig.visualBaseLayers
@@ -218,6 +218,22 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     })
   }
 
+  /**
+   * Turning Use Existing Map on discards previously configured base layers.
+   * The attach effect then fills the list from the map. Clearing here covers
+   * the gap before that map view is ready, so stale layers are not kept.
+   */
+  const onUseExistingMapChange = (checked: boolean) => {
+    let nextConfig = setConfigValue(config, AudiomConfigKey.UseExistingMap, checked)
+    if (checked) {
+      nextConfig = setConfigValue(nextConfig, AudiomConfigKey.VisualBaseLayers, [])
+    }
+    props.onSettingChange({
+      id: props.id,
+      config: nextConfig
+    })
+  }
+
   const onSourceConfigsChange = (sourceConfigs: ISourceConfig[]) => {
     props.onSettingChange({
       id: props.id,
@@ -356,7 +372,7 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
         Invisible bridge: subscribes to the selected map widget so we get a
         callback the moment the JimuMapView becomes available. Drives the
         attach-to-map effect via mapViewReadyTick (replaces setInterval).
-      */}
+      */}UseExistingMapChange(
       {effectiveMapId ? (
         <JimuMapViewComponent
           useMapWidgetId={effectiveMapId}
