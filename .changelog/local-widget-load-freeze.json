@@ -1,0 +1,6 @@
+{
+	"id": "local-widget-load-freeze",
+	"category": "Fixed",
+	"summary": "The local Audiom widget loads instead of freezing the builder tab.",
+	"details": "A sibling Front-End checkout without the bundled entry was compiled as an empty program, and the real program was inlined into a 22 MB widget file that froze the tab while it loaded. The overlay uses an existing checkout beside the sibling when that checkout already has the entry, and treats its stylesheets the same as the sibling so the map controls keep their class names. It does not check out a branch. Development loads that program as a chunk after the widget file, so the builder can paint. The published build still inlines those imports. No environment variable is required."
+}

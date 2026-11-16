@@ -39,6 +39,10 @@ WEBPACK_OVERLAY = [
         "client/your-extensions/widgets/audiom/exb-webpack/host-jsx-runtime.js",
         "client/webpack/host-jsx-runtime.js",
     ),
+    (
+        "client/your-extensions/widgets/audiom/exb-webpack/missing-exb-entry.js",
+        "client/webpack/missing-exb-entry.js",
+    ),
 ]
 
 

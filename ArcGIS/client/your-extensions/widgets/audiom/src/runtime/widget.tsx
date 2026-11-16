@@ -20,6 +20,7 @@ import { VectorStyleMode } from './audiomSymbols'
 import { snapshotFeaturesFromMapView, type SnapshotMapTypeHint } from './mapSnapshot'
 import { resolveRulesFileUrl, soundPlaceForGraphic, spokenPlaceTitle, standingPitch } from './rulesStyle'
 import { bundledSoundpackName, resolveSoundpackFallbackUrl, resolveSoundpackUrl } from './soundpackUrl'
+import { compiledAudiomEntry, loadAudiomEntry } from './audiomProgram'
 import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { StepSize, StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
@@ -55,15 +56,7 @@ const { useState, useEffect, useRef, useCallback } = React
 
 /** Audiom feature name + "statistic: value" at a point, read from the world. */
 function audiomPopupLines (world: unknown, longitude: number, latitude: number): string[] {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const compiled = require('audiom-front-end/runtime/exbEntry') as {
-      popupContentAt?: (world: unknown, longitude: number, latitude: number) => string[]
-    }
-    return compiled.popupContentAt?.(world, longitude, latitude) ?? []
-  } catch {
-    return []
-  }
+  return compiledAudiomEntry()?.popupContentAt?.(world, longitude, latitude) ?? []
 }
 
 /**
@@ -129,11 +122,21 @@ function statisticLine (world: unknown, point: FeatureClickPoint): string {
   return `${stats?.label ?? field}: ${shown}`
 }
 
-/** Replay a wheel event on the Esri view so zoom works over Audiom overlays. */
-function replayWheelToMap (event: React.WheelEvent<HTMLElement>): void {
+/** React's onWheel is passive, so preventDefault there only logs a warning. */
+const MAP_WHEEL_LISTENER: AddEventListenerOptions = { passive: false }
+/** A step recenters. The default goTo ease is the camera lag behind the indicator. */
+const CAMERA_JUMP = { duration: 0 }
+
+function mapSurfaceElement (): HTMLElement | null {
   const map = document.getElementById(AUDIOM_MAP_ELEMENT_ID)
   const view = map?.querySelector('.esri-view-surface')
-  if (!(view instanceof HTMLElement)) return
+  return view instanceof HTMLElement ? view : null
+}
+
+/** Replay a wheel on the Esri view so zoom works over the compass and tooltip. */
+function forwardWheelToMap (event: WheelEvent): void {
+  const view = mapSurfaceElement()
+  if (!view || event.currentTarget === view) return
   event.preventDefault()
   view.dispatchEvent(new WheelEvent('wheel', {
     bubbles: true,
@@ -145,6 +148,12 @@ function replayWheelToMap (event: React.WheelEvent<HTMLElement>): void {
     deltaMode: event.deltaMode,
     ctrlKey: event.ctrlKey
   }))
+}
+
+function bindMapWheel (node: HTMLElement | null): () => void {
+  if (!node) return () => undefined
+  node.addEventListener('wheel', forwardWheelToMap, MAP_WHEEL_LISTENER)
+  return () => node.removeEventListener('wheel', forwardWheelToMap)
 }
 
 
@@ -622,28 +631,15 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
         : standingPitch(statistic, place, false)
       bundledHandle?.program?.announceStanding?.(nextTitle, alreadySpoken ? undefined : pitch, place)
     }
-    // A heatmap tract is named by the hit. Do not wait for the rules file.
-    if (heatmap) announce(null, false)
+    // Speak from the hit. The rules file can rename the tooltip, but it must
+    // not hold the tone for the old 800 ms fallback.
+    announce(null, false)
     const rulesUrl = bundledRulesUrl(sanitizedConfig)
     const generation = ++followGeneration.current
-    let settled = heatmap
-    const timer = window.setTimeout(() => {
-      if (generation !== followGeneration.current || settled) return
-      settled = true
-      announce(null, false)
-    }, 800)
     void soundPlaceForGraphic(point?.attributes, rulesUrl).then((place) => {
-      window.clearTimeout(timer)
       if (generation !== followGeneration.current) return
-      const wasSettled = settled
-      settled = true
-      announce(place, wasSettled)
-    }).catch(() => {
-      window.clearTimeout(timer)
-      if (generation !== followGeneration.current || settled) return
-      settled = true
-      announce(null, false)
-    })
+      announce(place, true)
+    }).catch((): void => undefined)
   }
 
   // Integrated runtime is Bundled only. Legacy and Standalone take the iframe below.
@@ -678,21 +674,19 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
             headerHeight={headerHeight}
             avatar={avatar}
             onMove={(direction) => {
-              // The key handler already started the browser resume. Wait
-              // for the pack before the step, or the first tone looks up
-              // samples that have not loaded and stays silent. A failed
-              // unlock still moves: speech does not need the pack, and
-              // holding the indicator would trap the user.
-              const pending = bundledHandle?.program?.unlockAudio?.()
-              void Promise.resolve(pending).then(() => {
-                void bundledHandle?.runtime.moveAvatar(direction)
-              })
+              // Unlock in this turn, but do not wait for it. Waiting held
+              // the indicator until the audio context resumed.
+              void bundledHandle?.program?.unlockAudio?.()
+              void bundledHandle?.runtime.moveAvatar(direction)
             }}
             onDrop={(longitude, latitude) => bundledHandle?.dropAvatar?.(longitude, latitude) ?? Promise.resolve(false)}
             onSelect={() => { void bundledHandle?.runtime.focusRuntime(bundledFocusTarget) }}
             onFeatureClick={showPopup}
             onFeatureFollow={followPopup}
             onFeatureFollowPrepare={() => { bundledHandle?.program?.expectPaintedHit?.() }}
+            onPopupAnchor={(longitude, latitude) => {
+              setFeaturePopup((current) => current ? { ...current, longitude, latitude } : current)
+            }}
             onUnlock={() => {
               primeBundledAudio(bundledHandle)
               return unlockBundledAudio(bundledHandle)
@@ -831,6 +825,8 @@ function EsriMapSurface (props: {
   onFeatureClick?: (point: FeatureClickPoint | null) => void
   onFeatureFollow?: (point: FeatureClickPoint | null) => void
   onFeatureFollowPrepare?: () => void
+  /** Move an open tooltip to the new step before the hit test returns. */
+  onPopupAnchor?: (longitude: number, latitude: number) => void
   onUnlock?: () => void | Promise<boolean>
   onScreen?: (point: { x: number, y: number } | null) => void
   onSurface?: (surface: MountedMapSurface | null) => void
@@ -981,7 +977,7 @@ function EsriMapSurface (props: {
     // The previous item's indicator must not pull the new map back to it.
     if (props.mapItemId && props.viewpointReady === false) return
     if (!hasMapCenter(avatar.longitude, avatar.latitude)) return
-    void view.goTo({ center: [avatar.longitude, avatar.latitude] }).catch((): void => undefined)
+    void view.goTo({ center: [avatar.longitude, avatar.latitude] }, CAMERA_JUMP).catch((): void => undefined)
   }, [avatar, surfaceReady, props.mapItemId, props.viewpointReady])
   const appliedZoom = useRef<number | undefined>(undefined)
   const zoomItem = useRef(props.mapItemId)
@@ -1090,6 +1086,7 @@ function EsriMapSurface (props: {
     const announced = landing != null &&
       landing.longitude === avatar.longitude &&
       landing.latitude === avatar.latitude
+    if (moved && !announced) props.onPopupAnchor?.(avatar.longitude, avatar.latitude)
     if (announced) dropLanding.current = null
     if (moved) followed.current = avatar
     let cancelled = false
@@ -1199,7 +1196,7 @@ function EsriMapSurface (props: {
         onClick={onMapClick}
         style={{ position: 'absolute', inset: 0 }}
       />
-      <FeaturePopup popup={props.popup && popupScreen ? { lines: props.popup.lines, x: popupScreen.x, y: popupScreen.y } : null} onClose={props.onPopupClose} />
+      <FeaturePopup popup={popupPlacement(props.popup, avatar, dragScreen ?? screen, popupScreen)} onClose={props.onPopupClose} />
       <AudiomIndicator
         avatar={placed}
         screen={dragScreen ?? screen}
@@ -1260,17 +1257,36 @@ function EsriMapSurface (props: {
  * with a tail pointing down at the plot. Drawn in the compass box so a
  * click or an avatar move anchors it on the right pixel.
  */
+function popupPlacement (
+  popup: { lines: string[], longitude: number, latitude: number } | null | undefined,
+  avatar: ReportedAvatar | null | undefined,
+  indicator: { x: number, y: number } | null,
+  projected: { x: number, y: number } | null
+): { lines: string[], x: number, y: number } | null {
+  if (!popup || popup.lines.length === 0) return null
+  const follows = avatar != null &&
+    popup.longitude === avatar.longitude &&
+    popup.latitude === avatar.latitude &&
+    indicator != null
+  const point = follows ? indicator : projected
+  if (!point) return null
+  return { lines: popup.lines, x: point.x, y: point.y }
+}
+
 function FeaturePopup (props: {
   popup: { lines: string[], x: number, y: number } | null
   onClose?: () => void
 }) {
+  const node = useRef<HTMLDivElement>(null)
+  const open = Boolean(props.popup)
+  useEffect(() => bindMapWheel(node.current), [open])
   if (!props.popup || props.popup.lines.length === 0) return null
   const lines = props.popup.lines
   return (
     <div
+      ref={node}
       role="dialog"
       aria-label={lines[0]}
-      onWheel={replayWheelToMap}
       style={{
         position: 'absolute',
         left: props.popup.x,
@@ -1342,6 +1358,7 @@ function AudiomIndicator (props: {
   const avatar = props.avatar
   const screen = props.screen
   const button = useRef<HTMLButtonElement>(null)
+  useEffect(() => bindMapWheel(button.current), [avatar, screen])
   const drag = useRef<{
     pointerId: number
     originX: number
@@ -1408,9 +1425,6 @@ function AudiomIndicator (props: {
   const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     moveOnArrow(event, props.onMove, props.onUnlock)
   }
-  // The compass sits above the map, so the wheel never reaches Esri.
-  // Replay it on the map view; click and keyboard stay on this button.
-  const onWheel = replayWheelToMap
   return (
     <>
       <button
@@ -1419,7 +1433,6 @@ function AudiomIndicator (props: {
         className="audiom-cursor"
         aria-label="Audiom navigation indicator"
         onKeyDown={onKeyDown}
-        onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={(event) => { finishDrag(event, true) }}
@@ -1579,47 +1592,36 @@ function useAudiomEmbed (
     }
     let cancelled = false
     let release: (() => void) | undefined
-    try {
-      // The webpack overlay aliases this id to the Front-End checkout.
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const compiled = require('audiom-front-end/runtime/exbEntry') as {
-        mountAudiomEmbed?: (
-          container: HTMLElement,
-          options: {
-            session: { world: unknown } | null
-            view: MountedMapSurface['view']
-            project: typeof projectEmbedPoint
-            controllerOptions: { welcome: false }
-            showMapControls?: boolean
-          }
-        ) => { release: () => void }
-        setEmbedMapControls?: (container: HTMLElement, show: boolean) => void
-        unmountAudiomEmbed?: (container: HTMLElement) => void
+    // The program chunk is not in the widget file. Waiting for it here
+    // does not block the widget module, which is what froze the tab.
+    void loadAudiomEntry().then((compiled) => {
+      if (cancelled) return
+      try {
+        const session = handle?.program as { world?: unknown } | null
+        if (!compiled?.mountAudiomEmbed) {
+          throw new Error('Audiom menu entry has no mountAudiomEmbed')
+        }
+        setControls.current = compiled.setEmbedMapControls ?? null
+        const controller = compiled.mountAudiomEmbed(node, {
+          session: session?.world ? session as { world: unknown } : null,
+          view: surface.view,
+          project: projectEmbedPoint,
+          controllerOptions: { welcome: false },
+          showMapControls: showMapControlsRef.current
+        })
+        release = () => {
+          controller?.release()
+          compiled.unmountAudiomEmbed?.(node)
+        }
+        if (!cancelled) setMounted(true)
+      } catch (error) {
+        // The embed is optional; the hand-rolled compass stays if it fails.
+        // Surface the reason instead of swallowing it.
+        // eslint-disable-next-line no-console
+        console.error('Audiom embed failed to mount', error)
+        if (!cancelled) setMounted(false)
       }
-      const session = handle?.program as { world?: unknown } | null
-      if (!compiled.mountAudiomEmbed) {
-        throw new Error('Audiom menu entry has no mountAudiomEmbed')
-      }
-      setControls.current = compiled.setEmbedMapControls ?? null
-      const controller = compiled.mountAudiomEmbed(node, {
-        session: session?.world ? session as { world: unknown } : null,
-        view: surface.view,
-        project: projectEmbedPoint,
-        controllerOptions: { welcome: false },
-        showMapControls: showMapControlsRef.current
-      })
-      release = () => {
-        controller?.release()
-        compiled.unmountAudiomEmbed?.(node)
-      }
-      if (!cancelled) setMounted(true)
-    } catch (error) {
-      // The embed is optional; the hand-rolled compass stays if it fails.
-      // Surface the reason instead of swallowing it.
-      // eslint-disable-next-line no-console
-      console.error('Audiom embed failed to mount', error)
-      if (!cancelled) setMounted(false)
-    }
+    }).catch((): void => undefined)
     return () => {
       cancelled = true
       release?.()
@@ -1801,32 +1803,41 @@ function useBundledRuntime (
       longitude: longitudeRef.current,
       latitude: latitudeRef.current
     }
-    const next = startBundledRuntime(
-      mapItemId ? `${instanceId}:${mapItemId}` : instanceId,
-      jimuMapView,
-      onStatus,
-      null,
-      {
-        longitude: longitudeRef.current,
-        latitude: latitudeRef.current,
-        moveDistance: moveDistanceRef.current,
-        soundpackUrl,
-        soundpackFallbackUrl
+    let cancelled = false
+    let next: BundledRuntimeHandle | null = null
+    // The program is a chunk. Starting before it loads used the empty
+    // fallback and left the widget with no session.
+    void loadAudiomEntry().then(() => {
+      if (cancelled) return
+      next = startBundledRuntime(
+        mapItemId ? `${instanceId}:${mapItemId}` : instanceId,
+        jimuMapView,
+        onStatus,
+        null,
+        {
+          longitude: longitudeRef.current,
+          latitude: latitudeRef.current,
+          moveDistance: moveDistanceRef.current,
+          soundpackUrl,
+          soundpackFallbackUrl
+        }
+      )
+      next.bindSurface?.(surface)
+      next.onReported = (state) => {
+        const position = {
+          longitude: state.position.longitude,
+          latitude: state.position.latitude,
+          heading: state.orientation
+        }
+        reportedRef.current = position
+        // A new runtime starts at the configured point. That is not a step.
+        onAvatar(position)
       }
-    )
-    next.bindSurface?.(surface)
-    next.onReported = (state) => {
-      const position = {
-        longitude: state.position.longitude,
-        latitude: state.position.latitude,
-        heading: state.orientation
-      }
-      reportedRef.current = position
-      // A new runtime starts at the configured point. That is not a step.
-      onAvatar(position)
-    }
-    setHandle(next)
+      setHandle(next)
+    }).catch((): void => undefined)
     return () => {
+      cancelled = true
+      if (!next) return
       next.onReported = undefined
       restoreAudiomStyles(jimuMapView)
       setReported(null)

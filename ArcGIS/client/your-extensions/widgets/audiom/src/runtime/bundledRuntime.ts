@@ -547,8 +547,13 @@ function bindLabelZoom (
     }, 60)
   }
   const zoomHandle = view.watch('zoom', () => schedule(false))
+  // A step recenters without changing zoom. Re-querying every room on that
+  // settle is what froze the next move. Query only when the zoom changed.
+  let queriedZoom = view.zoom
   const stillHandle = view.watch('stationary', (value: unknown) => {
-    if (value) schedule(true)
+    if (!value || view.zoom === queriedZoom) return
+    queriedZoom = view.zoom
+    schedule(true)
   })
   // The first extent is not the settled view. Place again once it is.
   // Rebinding the zoom watch must not cancel these.

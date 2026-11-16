@@ -110,7 +110,7 @@ export async function readBundledMapViewpoint (itemId: string, portalUrl?: strin
 
   // A shared item answers an unauthenticated REST read. A private item
   // returns 403, and that path must fall through to the signed-in session.
-  const fromRest = await readViaRest(itemId, url).catch((error) => {
+  const fromRest = await readViaRest(itemId, url).catch((error: unknown): null => {
     logger.warn('REST read failed for', itemId, error)
     return null
   })
@@ -119,7 +119,7 @@ export async function readBundledMapViewpoint (itemId: string, portalUrl?: strin
     return fromRest
   }
 
-  const fromSession = await readViaSession(itemId, url).catch((error) => {
+  const fromSession = await readViaSession(itemId, url).catch((error: unknown): null => {
     logger.warn('signed-in portal read failed for', itemId, error)
     return null
   })
@@ -148,7 +148,7 @@ async function readViaRest (itemId: string, portalUrl?: string): Promise<MapSync
   if (!center) return null
   let zoom: number | undefined
   let sourceConfigs: MapSyncConfig['sourceConfigs']
-  const data = await fetchJson<WebMapData>(`${base}/content/items/${itemId}/data?f=json`).catch(() => null)
+  const data = await fetchJson<WebMapData>(`${base}/content/items/${itemId}/data?f=json`).catch((): null => null)
   if (data && !data.error) {
     const viewpoint = data.initialState?.viewpoint
     zoom = zoomOf(viewpoint?.scale, viewpoint?.targetGeometry, meta.extent)
@@ -181,10 +181,11 @@ async function readViaSession (itemId: string, portalUrl?: string): Promise<MapS
   const data = await esri.restPortal.getItemData(itemId, { portal: restUrl, authentication }) as WebMapData
   if (!meta || meta.error || !data || data.error) return null
   const viewpoint = data.initialState?.viewpoint
-  const center = geographicCenter(viewpoint?.targetGeometry) || centerFromItemExtent(meta.extent)
+  const extent = portalItemExtent(meta.extent)
+  const center = geographicCenter(viewpoint?.targetGeometry) || centerFromItemExtent(extent)
   if (!center) return null
   const sourceConfigs = sourcesFromLayers(data.operationalLayers)
-  const zoom = zoomOf(viewpoint?.scale, viewpoint?.targetGeometry, meta.extent)
+  const zoom = zoomOf(viewpoint?.scale, viewpoint?.targetGeometry, extent)
   logger.debug('signed-in item read', {
     itemId,
     portal: restUrl,
@@ -309,6 +310,27 @@ function normalizePortalRest (portalUrl?: string): string | null {
     // Fall through to the local suffix.
   }
   return `${trimmed.replace(/\/sharing$/i, '')}/sharing/rest`
+}
+
+/**
+ * Portal item metadata types the extent as a loose number array. The rest of
+ * this file only accepts the two-corner WGS84 pair, or an extent object.
+ */
+function portalItemExtent (
+  extent: PortalItemMeta['extent'] | number[][] | null | undefined
+): PortalItemMeta['extent'] {
+  if (!extent) return undefined
+  if (!Array.isArray(extent)) return extent
+  const west = extent[0]
+  const east = extent[1]
+  if (!Array.isArray(west) || !Array.isArray(east)) return undefined
+  const westX = west[0]
+  const westY = west[1]
+  const eastX = east[0]
+  const eastY = east[1]
+  if (typeof westX !== 'number' || typeof westY !== 'number') return undefined
+  if (typeof eastX !== 'number' || typeof eastY !== 'number') return undefined
+  return [[westX, westY], [eastX, eastY]]
 }
 
 /** Portal item extent is already WGS84. Do not project it. */

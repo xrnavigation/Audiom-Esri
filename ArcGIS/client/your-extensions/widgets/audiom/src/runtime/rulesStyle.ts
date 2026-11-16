@@ -1,3 +1,5 @@
+import { compiledAudiomEntry, loadAudiomEntry } from './audiomProgram'
+
 export interface RulesHint {
   id?: string
   title?: string
@@ -135,6 +137,7 @@ export async function soundPlaceForGraphic (
   if (direct.ruleType || direct.ruleName) return direct
   if (rulesUrl) {
     try {
+      await loadAudiomEntry()
       const rules = await loadRulesFile(rulesUrl)
       const [output] = evaluateWithRuntime(rules, [{ ...attributes }], 'polygon')
       if (!output) return null
@@ -180,15 +183,11 @@ function evaluateWithRuntime (
   attributes: Array<Record<string, unknown>>,
   geometryType?: string
 ): Array<Record<string, unknown> | null> {
-  // The webpack overlay aliases this id to the Front-End checkout.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const compiled = require('audiom-front-end/runtime/exbEntry') as {
-    applyRulesToFeatures?: RulesApplyDeps['applyRules']
-  }
-  if (!compiled.applyRulesToFeatures) {
+  const apply = compiledAudiomEntry()?.applyRulesToFeatures
+  if (!apply) {
     throw new Error('Audiom rules entry is missing')
   }
-  return compiled.applyRulesToFeatures(rules, attributes, geometryType)
+  return apply(rules, attributes, geometryType)
 }
 
 function mergeAttributes (
@@ -217,6 +216,7 @@ export async function applyConfiguredRules (
     const rulesUrl = rulesUrlForLayer(layer, hints)
     const features = layer.features
     if (!rulesUrl || !features?.length) return
+  if (deps.applyRules === evaluateWithRuntime) await loadAudiomEntry()
     let rules: unknown
     try {
       rules = await deps.loadRules(rulesUrl)

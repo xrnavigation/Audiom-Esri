@@ -1,0 +1,6 @@
+{
+	"id": "bundled-step-responsiveness",
+	"category": "Fixed",
+	"summary": "A bundled step moves the indicator, tooltip, and tone without waiting on a feature query.",
+	"details": "Wheel events over the compass no longer call preventDefault on a passive listener. A step jumps the camera, keeps the tooltip on the indicator, and speaks from the hit. The feature service is queried only when that hit has no name, and room labels are not re-queried when the zoom did not change."
+}

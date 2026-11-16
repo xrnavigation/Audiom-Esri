@@ -139,6 +139,16 @@ describe('featureDetails', () => {
     expect(details.attributes).toEqual({ OBJECTID: 7, OWNER: 'CITY OF MANASSAS PARK', percentImpervious: 42 })
   })
 
+  it('does not query when the hit already names the plot', async () => {
+    const queryFeatures = jest.fn()
+    const details = await featureDetails({
+      attributes: { OBJECTID: 7, NAME: 'North Basin' },
+      layer: { objectIdField: 'OBJECTID', queryFeatures }
+    })
+    expect(queryFeatures).not.toHaveBeenCalled()
+    expect(details.name).toBe('North Basin')
+  })
+
   it('keeps the hit-test attributes when the query is rejected', async () => {
     const details = await featureDetails({
       attributes: { OBJECTID: 7, percentImpervious: 42 },

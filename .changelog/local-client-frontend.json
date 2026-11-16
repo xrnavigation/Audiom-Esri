@@ -1,0 +1,6 @@
+{
+	"id": "local-client-frontend",
+	"category": "Fixed",
+	"summary": "The Experience Builder client starts without AUDIOM_FRONTEND_ROOT when Front-End is the sibling checkout.",
+	"details": "The webpack overlay already resolves the sibling Audiom-Front-End. A checkout that has no bundled entry no longer aborts startup or tells you to set that variable. CI still fails when the named checkout is missing the entry."
+}

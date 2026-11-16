@@ -6,18 +6,59 @@
  * every Experience Builder extract. Paths below are relative to client/webpack,
  * which is where this file runs.
  *
- * AUDIOM_FRONTEND_ROOT is the Front-End checkout. Unset, it is the sibling
- * repo next to Audiom-Esri. CI sets it to a checkout inside the workspace.
+ * AUDIOM_FRONTEND_ROOT is optional. Unset, the Front-End checkout is the
+ * sibling repo next to Audiom-Esri. CI sets it because that checkout is
+ * inside the workspace. A sibling without the bundled entry does not stop
+ * the client. No environment variable is required, and no branch is checked out.
  */
 const fs = require('fs')
 const path = require('path')
 const webpack = require('webpack')
 
+const BUNDLED_ENTRY_RELATIVE = path.join('src', 'runtime', 'exbEntry.ts')
+// The sibling checkout and the local worktree. Plain CSS under either must
+// keep its class names. The worktree name is Audiom-Front-End-exb, which
+// does not match Audiom-Front-End/. Missing that left the map controls
+// on the host css-loader, which hashes .audiom-map-controls.
+const FRONT_END_SRC_CSS = /Audiom-Front-End(?:-exb)?[\\/]src[\\/].+\.css$/
+const FRONT_END_SRC_MODULE_CSS = /Audiom-Front-End(?:-exb)?[\\/]src[\\/].+\.module\.css$/
+const FRONT_END_MODULE_CSS = /Audiom-Front-End(?:-exb)?[\\/].+\.module\.css$/
+const FRONT_END_NODE_MODULES_CSS = /Audiom-Front-End(?:-exb)?[\\/]node_modules[\\/].+\.css$/
+const FRONT_END_CODE = /(?:Audiom-Front-End(?:-exb)?|Audiom-Runtime|audiom-runtime|widgets[\\/]audiom)[\\/].+\.[cm]?[jt]sx?$/
+
+function hasBundledEntry (root) {
+  return Boolean(root) && fs.existsSync(path.join(root, BUNDLED_ENTRY_RELATIVE))
+}
+
+function siblingFrontEndRoot () {
+  return path.resolve(__dirname, '../../../../Audiom-Front-End')
+}
+
+function bundledWorktreeRoot (sibling) {
+  return path.resolve(sibling, '../Audiom-Front-End-exb')
+}
+
+function linkSiblingModules (sibling, worktree) {
+  const modules = path.join(worktree, 'node_modules')
+  const siblingModules = path.join(sibling, 'node_modules')
+  if (fs.existsSync(modules) || !fs.existsSync(siblingModules)) return
+  fs.symlinkSync(siblingModules, modules, 'junction')
+}
+
+function existingBundledCheckout (sibling) {
+  const worktree = bundledWorktreeRoot(sibling)
+  if (!hasBundledEntry(worktree)) return ''
+  linkSiblingModules(sibling, worktree)
+  return worktree
+}
+
 function frontEndRoot () {
   if (process.env.AUDIOM_FRONTEND_ROOT) {
     return path.resolve(process.env.AUDIOM_FRONTEND_ROOT)
   }
-  return path.resolve(__dirname, '../../../../Audiom-Front-End')
+  const sibling = siblingFrontEndRoot()
+  if (hasBundledEntry(sibling)) return sibling
+  return existingBundledCheckout(sibling) || sibling
 }
 
 function runtimeRoot () {
@@ -36,7 +77,8 @@ function runtimeRoot () {
 const frontEnd = frontEndRoot()
 const frontEndModules = path.join(frontEnd, 'node_modules')
 const runtimeSrc = runtimeRoot()
-const exbEntry = path.join(frontEnd, 'src', 'runtime', 'exbEntry.ts')
+const siblingFrontEnd = siblingFrontEndRoot()
+const bundledEntry = path.join(frontEnd, 'src', 'runtime', 'exbEntry.ts')
 const hostJsxRuntime = path.join(__dirname, 'host-jsx-runtime.js')
 const layerloaderRule = path.join(
   frontEndModules,
@@ -47,21 +89,43 @@ const layerloaderRule = path.join(
   'rules',
   'mapboxRuleProcessor.js'
 )
+const exbEntry = resolveBundledEntry(bundledEntry)
 
 if (!fs.existsSync(path.join(runtimeSrc, 'factory.ts'))) {
   throw new Error('Vendored Audiom runtime is missing: ' + runtimeSrc)
 }
-if (!fs.existsSync(exbEntry)) {
-  throw new Error(
-    'Audiom Front-End entry is missing: ' + exbEntry +
-    '. Set AUDIOM_FRONTEND_ROOT to the Front-End checkout.'
-  )
-}
-if (!fs.existsSync(layerloaderRule)) {
+if (exbEntry === bundledEntry && !fs.existsSync(layerloaderRule)) {
   throw new Error(
     'Audiom Front-End dependencies are missing: ' + layerloaderRule +
     '. Run npm ci in the Front-End checkout.'
   )
+}
+
+function missingEntryStub () {
+  const besideOverlay = path.join(__dirname, 'missing-exb-entry.js')
+  if (fs.existsSync(besideOverlay)) return besideOverlay
+  return path.join(
+    __dirname,
+    '../your-extensions/widgets/audiom/exb-webpack/missing-exb-entry.js'
+  )
+}
+
+function resolveBundledEntry (entry) {
+  if (fs.existsSync(entry)) return entry
+  // CI names its checkout. A bad checkout must fail the build. A local
+  // start does not: the sibling next to this repo is the checkout, and
+  // the client still has to start when that branch has no bundled entry.
+  if (process.env.AUDIOM_FRONTEND_ROOT) {
+    throw new Error('Audiom Front-End entry is missing: ' + entry)
+  }
+  const where = fs.existsSync(siblingFrontEnd)
+    ? 'The Front-End checkout next to this repo has no src/runtime/exbEntry.ts: ' + siblingFrontEnd
+    : 'No Front-End checkout was found next to this repo: ' + siblingFrontEnd
+  console.warn(
+    'Audiom bundled program was not compiled. ' + where +
+    '. No environment variable is required.'
+  )
+  return missingEntryStub()
 }
 
 const runtimeRequests = {
@@ -203,7 +267,7 @@ function aliasAudiomRuntimeToSource (config) {
     const original = rule.test
     rule.test = (file) => {
       const normalized = String(file).replace(/\\/g, '/')
-      if (/Audiom-Front-End\/src\/.+\.css$/.test(normalized) && !/\.module\.css$/.test(normalized)) {
+      if (FRONT_END_SRC_CSS.test(normalized) && !/\.module\.css$/.test(normalized)) {
         return false
       }
       return original(file)
@@ -224,7 +288,7 @@ function aliasAudiomRuntimeToSource (config) {
   const namedExportBreaksDefaultImport = cssLoaderMajor() >= 7
   if (namedExportBreaksDefaultImport) rules.forEach(excludeFrontEndModuleCss)
   const frontEndCssRules = [{
-    test: /Audiom-Front-End[\\/]src[\\/].+\.css$/,
+    test: FRONT_END_SRC_CSS,
     exclude: /\.module\.css$/,
     use: [
       'style-loader',
@@ -239,7 +303,7 @@ function aliasAudiomRuntimeToSource (config) {
   }]
   if (namedExportBreaksDefaultImport) {
     frontEndCssRules.push({
-      test: /Audiom-Front-End[\\/]src[\\/].+\.module\.css$/,
+      test: FRONT_END_SRC_MODULE_CSS,
       use: [
         'style-loader',
         { loader: 'css-loader', options: frontEndModuleCssOptions() }
@@ -249,11 +313,11 @@ function aliasAudiomRuntimeToSource (config) {
   if (oldSass && !namedExportBreaksDefaultImport) {
     frontEndCssRules.push(
       {
-        test: /Audiom-Front-End[\\/].+\.module\.css$/,
+        test: FRONT_END_MODULE_CSS,
         use: hostCssUse(rules, true)
       },
       {
-        test: /Audiom-Front-End[\\/]node_modules[\\/].+\.css$/,
+        test: FRONT_END_NODE_MODULES_CSS,
         exclude: /\.module\.css$/,
         use: hostCssUse(rules, false)
       }
@@ -272,10 +336,12 @@ function aliasAudiomRuntimeToSource (config) {
   // esri.xrnavigation.io/builder-versions/<version>/audiom/ is not under
   // /widgets/, so Experience Builder never retargets that public path.
   // Enterprise then 404s the audio engine, cacophony, and road-following
-  // chunks. Inline those imports into the widget instead.
-  if (webpackSupportsEagerImports()) {
+  // chunks. The published build inlines those imports. Development does
+  // not: one inlined program is large enough to freeze the builder tab
+  // while the widget loads. Local chunks are served from this client.
+  if (process.env.NODE_ENV !== 'development' && webpackSupportsEagerImports()) {
     config.module.rules.push({
-      test: /(?:Audiom-Front-End|Audiom-Runtime|audiom-runtime)[\\/].+\.[cm]?[jt]sx?$/,
+      test: FRONT_END_CODE,
       // Rule parser options are the parser's own options, not a map keyed
       // by module type. Nesting this under `javascript` left import() lazy,
       // so Enterprise still requested widgets/chunks from the portal.
@@ -364,7 +430,7 @@ function excludeFrontEndModuleCss (rule) {
   const original = rule.test
   rule.test = (file) => {
     const normalized = String(file).replace(/\\/g, '/').split('?')[0]
-    if (/Audiom-Front-End\/src\/.+\.module\.css$/.test(normalized)) return false
+    if (FRONT_END_SRC_MODULE_CSS.test(normalized)) return false
     if (typeof original === 'function') return original(file)
     if (original instanceof RegExp) return original.test(file)
     if (Array.isArray(original)) {
@@ -407,7 +473,7 @@ function excludeFrontEndCssFromSass (rule) {
   const original = rule.test
   rule.test = (file) => {
     const normalized = String(file).replace(/\\/g, '/').split('?')[0]
-    if (normalized.indexOf('Audiom-Front-End/') !== -1 && normalized.endsWith('.css')) return false
+    if (/Audiom-Front-End(?:-exb)?\//.test(normalized) && normalized.endsWith('.css')) return false
     if (typeof original === 'function') return original(file)
     if (original instanceof RegExp) return original.test(file)
     if (Array.isArray(original)) {
