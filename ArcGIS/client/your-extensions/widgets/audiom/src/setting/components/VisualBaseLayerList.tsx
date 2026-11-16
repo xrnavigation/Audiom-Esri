@@ -5,7 +5,7 @@ import { VisualBaseLayerType } from '../../../../../shared/audiom-client/AudiomE
 import { IVisualBaseLayerConfig, DEFAULT_VISUAL_BASE_LAYER } from '../configs'
 import { ButtonType, FlowType } from '../enums'
 import { SettingRow } from 'jimu-ui/advanced/setting-components'
-import { getJimuMapViewById, getMapImageryLayers, type MapImageryLayer } from '../../utils/mapUtils'
+import { getJimuMapViewById, getMapImageryLayers, normalizeLayerUrl, toImageServerBaseLayer } from '../../utils/mapUtils'
 import { replaceAt } from '../../utils/sourceConfigUtils'
 import CollapsibleHeader from './CollapsibleHeader'
 import VisualBaseLayerCard, { type VisualBaseLayerUrlUpdate } from './VisualBaseLayerCard'
@@ -25,30 +25,10 @@ interface VisualBaseLayerListProps {
   mapId?: string
 
   /**
-   * When true, the widget reads the live map, so Add and Import are hidden.
-   * Missing means the existing map is in use.
+   * When true, imagery layers are imported automatically, so Add and Import
+   * are hidden. Missing means the existing map is in use.
    */
   useExistingMap?: boolean
-}
-
-/** Compare service URLs without trailing-slash or case differences. */
-function normalizeLayerUrl(url: string | undefined): string | undefined {
-  const trimmed = url?.trim()
-  if (!trimmed) return undefined
-  return trimmed.replace(/\/+$/, '').toLowerCase()
-}
-
-/** Map imagery layer → image server base layer. A title is kept editable. */
-function toImageServerBaseLayer(layer: MapImageryLayer): IVisualBaseLayerConfig {
-  return {
-    ...DEFAULT_VISUAL_BASE_LAYER,
-    url: layer.url,
-    type: VisualBaseLayerType.ImageServer,
-    position: undefined,
-    visible: layer.visible,
-    layerName: layer.name ?? '',
-    layerNameLocked: !layer.name
-  }
 }
 
 const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
@@ -168,6 +148,8 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
               onToggleVisible={() => handleToggleVisible(index)}
               onLayerNameLockChange={(locked, layerName) => handleLayerNameLockChange(index, locked, layerName)}
               onRemove={() => handleRemove(index)}
+              allowRemove={!useExistingMap || !layer.fromMap}
+              urlReadOnly={!!useExistingMap && !!layer.fromMap}
             />
           ))
         )}

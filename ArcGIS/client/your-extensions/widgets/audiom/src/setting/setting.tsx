@@ -11,7 +11,7 @@ import CollapsibleHeader from './components/CollapsibleHeader'
 import FieldRenderer from './components/FieldRenderer'
 import VisualBaseLayerList from './components/VisualBaseLayerList'
 import { useMapSyncState } from './hooks/useMapSyncState'
-import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/mapUtils'
+import { audiomConfigToEmbedConfig, isAudiomConfigValid, mergeVisualBaseLayers } from '../utils/mapUtils'
 import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { mergeSourcesPreservingUnlocked } from '../utils/sourceConfigUtils'
 import { createLogger } from '../utils/logger'
@@ -67,6 +67,17 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     
     const currentSourcesJson = JSON.stringify(currentSources)
     const mergedSourcesJson = JSON.stringify(mergedSources)
+
+    // Imagery layers follow the same sync as sources, but only when the map
+    // extract included them. An omitted list means the caller has no imagery
+    // snapshot (tests / partial configs) and must not wipe saved layers.
+    const currentLayers = mutableConfig.visualBaseLayers || []
+    const mapLayers = newMapConfig.visualBaseLayers
+    const mergedLayers = Array.isArray(mapLayers)
+      ? mergeVisualBaseLayers(currentLayers, mapLayers)
+      : currentLayers
+    const layersChanged = Array.isArray(mapLayers) &&
+      JSON.stringify(currentLayers) !== JSON.stringify(mergedLayers)
     
     // Track the map values for display/sync purposes
     updateMapValues(newMapConfig)
@@ -77,16 +88,20 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
       fieldNeedsUpdate(LockableFieldName.CenterLongitude, newMapConfig.centerLongitude) ||
       fieldNeedsUpdate(LockableFieldName.Zoom, newMapConfig.zoom) ||
       fieldNeedsUpdate(LockableFieldName.Title, newMapConfig.title) ||
-      currentSourcesJson !== mergedSourcesJson
+      currentSourcesJson !== mergedSourcesJson ||
+      layersChanged
 
     if (needsUpdate) {
-      // Sync source configs
+      // Sync source configs and imagery imported as visual base layers
       let newConfig = setConfigValue(config, AudiomConfigKey.SourceConfigs, mergedSources)
+      if (layersChanged) {
+        newConfig = setConfigValue(newConfig, AudiomConfigKey.VisualBaseLayers, mergedLayers)
+      }
       
       // Sync all locked fields using the helper
       newConfig = syncLockedFieldsToConfig(newConfig, newMapConfig)
 
-      logger.debug('Auto-sync settings: Updated config with', mergedSources.length, 'sources')
+      logger.debug('Auto-sync settings: Updated config with', mergedSources.length, 'sources and', mergedLayers.length, 'visual base layers')
 
       updateConfig(newConfig)
     }

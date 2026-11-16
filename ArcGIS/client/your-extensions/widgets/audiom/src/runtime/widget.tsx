@@ -1,5 +1,5 @@
 import { type AllWidgetProps, React, ReactRedux, AppMode, type IMState, type ImmutableObject } from 'jimu-core'
-import { audiomConfigToEmbedConfig } from '../utils/mapUtils'
+import { audiomConfigToEmbedConfig, serializeImageryForDiff } from '../utils/mapUtils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { serializeLockedForDiff } from '../utils/sourceConfigUtils'
 import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis'
@@ -9,6 +9,11 @@ import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
 
 const { useState, useEffect } = React
+
+/** Sources plus map-imported imagery, so either kind of map change can raise or clear the banner. */
+function mapSyncFingerprint(config: IAudiomConfig | undefined): string {
+  return `${serializeLockedForDiff(config?.sourceConfigs)}\n${serializeImageryForDiff(config?.visualBaseLayers, true)}`
+}
 
 // Typed styles with full key/value validation
 const styles = {
@@ -60,8 +65,8 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     // Attach to the map and pass current config to detect initial mismatches
     mapSyncManager.attach(sanitizedConfig.existingMapId, sanitizedConfig)
 
-    // Store the initial synced config (only locked sources for comparison)
-    const initialJson = serializeLockedForDiff(sanitizedConfig.sourceConfigs)
+    // Store the initial synced config (locked sources and map-imported imagery)
+    const initialJson = mapSyncFingerprint(sanitizedConfig)
     setLastSyncedConfigJson(initialJson)
 
     // Listen for changes
@@ -78,10 +83,11 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     }
   }, [sanitizedConfig?.useExistingMap, sanitizedConfig?.existingMapId, sanitizedConfig, mapSyncManager])
 
-  // Clear changes indicator when config updates (means settings panel synced)
-  // Only compare locked sources — unlocked sources are manually controlled
+  // Clear the banner when settings syncs. Locked sources and map-imported
+  // imagery are the map-owned parts; unlocked sources and hand-added images
+  // are left out of the comparison.
   useEffect(() => {
-    const currentJson = serializeLockedForDiff(sanitizedConfig?.sourceConfigs)
+    const currentJson = mapSyncFingerprint(sanitizedConfig)
     if (currentJson !== lastSyncedConfigJson && lastSyncedConfigJson !== '') {
       // Config changed, meaning settings panel likely synced it
       setHasChanges(false)
@@ -90,7 +96,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
       // Initial load
       setLastSyncedConfigJson(currentJson)
     }
-  }, [sanitizedConfig?.sourceConfigs, lastSyncedConfigJson])
+  }, [sanitizedConfig?.sourceConfigs, sanitizedConfig?.visualBaseLayers, lastSyncedConfigJson])
 
   const baseUrl = sanitizedConfig.baseUrl || DEFAULT_CONFIG.baseUrl
   const embedConfigKey = JSON.stringify({ ...DEFAULT_CONFIG, ...sanitizedConfig, jimuMapViewId: jimuMapView?.id })

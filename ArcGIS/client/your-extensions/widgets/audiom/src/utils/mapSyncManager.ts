@@ -1,6 +1,6 @@
 import { JimuMapView, JimuLayerView, MapViewManager } from 'jimu-arcgis'
-import { getJimuMapViewById, extractMapConfigFromEsriMap } from './mapUtils'
-import { ISourceConfig } from '../setting/configs'
+import { getJimuMapViewById, extractMapConfigFromEsriMap, serializeImageryForDiff } from './mapUtils'
+import { ISourceConfig, IVisualBaseLayerConfig } from '../setting/configs'
 import { getUnlockedSourceIds, serializeLockedForDiff } from './sourceConfigUtils'
 import { createLogger } from './logger'
 
@@ -59,6 +59,8 @@ export interface MapSyncConfig {
   centerLongitude?: number
   zoom?: number
   sourceConfigs?: ISourceConfig[]
+  /** Imagery layers imported as image-server visual base layers. */
+  visualBaseLayers?: IVisualBaseLayerConfig[]
 }
 
 export type MapSyncChangeListener = (newConfig: MapSyncConfig) => void
@@ -93,7 +95,7 @@ export class MapSyncManager {
    * @param mapId - The map widget ID to attach to
    * @param currentConfig - Optional current widget config to compare against for initial mismatch detection
    */
-  attach(mapId: string, currentConfig?: { sourceConfigs?: ISourceConfig[] }): boolean {
+  attach(mapId: string, currentConfig?: { sourceConfigs?: ISourceConfig[], visualBaseLayers?: IVisualBaseLayerConfig[] }): boolean {
     const mapViewManager = MapViewManager.getInstance()
     const jimuMapView = getJimuMapViewById(mapId, mapViewManager)
 
@@ -149,6 +151,9 @@ export class MapSyncManager {
     if (!hasRemovedListener || !hasVisibilityListener) {
       this.attachJsApiFallbacks(jimuMapView)
     }
+    // Imagery often lives on the basemap, outside map.layers. Watch the flat
+    // collection so those layers are imported when they load after attach.
+    this.attachImageryMembershipWatch(jimuMapView)
 
     logger.debug('Attached to map', mapId)
     return true
@@ -249,6 +254,27 @@ export class MapSyncManager {
     }
   }
 
+  /**
+   * Subscribe to allLayers add/remove. Used in addition to the Jimu listeners
+   * so basemap imagery is imported even when it never appears in map.layers.
+   */
+  private attachImageryMembershipWatch(jimuMapView: JimuMapView): void {
+    const allLayers = jimuMapView.view?.map?.allLayers as LayerCollectionLike | undefined
+    if (!allLayers || !isFunction(allLayers.on)) {
+      return
+    }
+    this.jsApiHandles.push(
+      allLayers.on('after-add', (event: { item?: LayerLike }) => {
+        logger.debug('Imagery watch: layer added', event?.item?.title)
+        this.scheduleNotify()
+      }),
+      allLayers.on('after-remove', (event: { item?: LayerLike }) => {
+        logger.debug('Imagery watch: layer removed', event?.item?.title)
+        this.scheduleNotify()
+      })
+    )
+  }
+
   private removeJsApiFallbacks(): void {
     this.jsApiHandles.forEach(handle => handle.remove())
     this.jsApiHandles = []
@@ -280,12 +306,13 @@ export class MapSyncManager {
   }
 
   /**
-   * Get the current map configuration (center, zoom, title, sources with visibility).
+   * Get the current map configuration (center, zoom, title, sources with
+   * visibility, and imagery layers as visual base layers).
    */
   getCurrentConfig(mapId: string): MapSyncConfig | null {
     const mapViewManager = MapViewManager.getInstance()
     const extracted = extractMapConfigFromEsriMap(mapId, mapViewManager)
-    
+
     if (!extracted) {
       return null
     }
@@ -295,7 +322,8 @@ export class MapSyncManager {
       centerLatitude: extracted.centerLatitude,
       centerLongitude: extracted.centerLongitude,
       zoom: extracted.zoom,
-      sourceConfigs: extracted.sourceConfigs as ISourceConfig[]
+      sourceConfigs: extracted.sourceConfigs as ISourceConfig[],
+      visualBaseLayers: extracted.visualBaseLayers
     }
   }
 
@@ -316,8 +344,9 @@ export class MapSyncManager {
   /**
    * Check if the current map config differs from the provided config.
    * Excludes unlocked sources from comparison (they are manually controlled).
+   * Also compares map-imported imagery against saved visual base layers.
    */
-  hasChanges(mapId: string, currentConfig: { sourceConfigs?: ISourceConfig[] }): boolean {
+  hasChanges(mapId: string, currentConfig: { sourceConfigs?: ISourceConfig[], visualBaseLayers?: IVisualBaseLayerConfig[] }): boolean {
     if (!this.initialized) {
       return false
     }
@@ -326,8 +355,11 @@ export class MapSyncManager {
     if (!newConfig) return false
 
     const unlockedIds = getUnlockedSourceIds(currentConfig.sourceConfigs || [])
-    return serializeLockedForDiff(currentConfig.sourceConfigs) !==
+    const sourcesChanged = serializeLockedForDiff(currentConfig.sourceConfigs) !==
       serializeLockedForDiff(newConfig.sourceConfigs, unlockedIds)
+    const imageryChanged = serializeImageryForDiff(currentConfig.visualBaseLayers, true) !==
+      serializeImageryForDiff(newConfig.visualBaseLayers)
+    return sourcesChanged || imageryChanged
   }
 
   /**
@@ -355,7 +387,6 @@ export class MapSyncManager {
     // Get the map ID from the jimuMapView
     const mapId = this.jimuMapView.mapWidgetId
     const newConfig = this.getCurrentConfig(mapId)
-
     if (!newConfig) return
 
     // Check if config actually changed
@@ -381,18 +412,19 @@ export class MapSyncManager {
    * @param mapId - The map widget ID
    * @param currentConfig - Optional current widget config to compare against
    */
-  private initializeBaselineConfig(mapId: string, currentConfig?: { sourceConfigs?: ISourceConfig[] }): void {
+  private initializeBaselineConfig(mapId: string, currentConfig?: { sourceConfigs?: ISourceConfig[], visualBaseLayers?: IVisualBaseLayerConfig[] }): void {
     const mapConfig = this.getCurrentConfig(mapId)
     if (!mapConfig) return
 
     const mapConfigJson = JSON.stringify(mapConfig.sourceConfigs || [])
 
-    // Check for initial mismatch if current config provided
     if (currentConfig) {
       const unlockedIds = getUnlockedSourceIds(currentConfig.sourceConfigs || [])
       const hasMismatch =
         serializeLockedForDiff(currentConfig.sourceConfigs) !==
-        serializeLockedForDiff(mapConfig.sourceConfigs, unlockedIds)
+          serializeLockedForDiff(mapConfig.sourceConfigs, unlockedIds) ||
+        serializeImageryForDiff(currentConfig.visualBaseLayers, true) !==
+          serializeImageryForDiff(mapConfig.visualBaseLayers)
 
       this.initialized = true
 

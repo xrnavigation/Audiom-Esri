@@ -12,7 +12,7 @@ import FeatureLayer from 'esri/layers/FeatureLayer';
 import CSVLayer from 'esri/layers/CSVLayer';
 import GeoJSONLayer from 'esri/layers/GeoJSONLayer';
 import MapImageLayer from 'esri/layers/MapImageLayer';
-import { DEFAULT_CONFIG, DEFAULT_SOURCE_CONFIG, IAudiomConfig, IFilterConfig } from "../setting/configs";
+import { DEFAULT_CONFIG, DEFAULT_SOURCE_CONFIG, DEFAULT_VISUAL_BASE_LAYER, IAudiomConfig, IFilterConfig, IVisualBaseLayerConfig } from "../setting/configs";
 import { FilterType } from "../setting/enums";
 import { isConfigValid } from "../setting/validation/validation";
 import { createLogger } from './logger';
@@ -111,15 +111,7 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
     soundpack: config.soundpackUrl || undefined,
     title: config.title || undefined,
     visualStyle: config.visualStyle || undefined,
-    visualBaseLayers: config.visualBaseLayers && config.visualBaseLayers.length > 0
-      ? config.visualBaseLayers.map(layer => ({
-          url: layer.url,
-          type: layer.type ?? VisualBaseLayerType.Image,
-          position: layer.position ? GeoQuad.parse(layer.position) : undefined,
-          visible: layer.visible !== undefined ? layer.visible : true,
-           layerName: layer.layerName?.trim() || undefined,
-        }))
-      : undefined,
+    visualBaseLayers: toEmbedVisualBaseLayers(resolveVisualBaseLayers(config, jmv)),
   });
 }
 
@@ -312,6 +304,143 @@ function imageryServiceUrl(layer: __esri.Layer): string | undefined {
   return trimmed || undefined;
 }
 
+/** Compare service URLs without trailing-slash or case differences. */
+export function normalizeLayerUrl(url: string | undefined): string | undefined {
+  const trimmed = url?.trim();
+  if (!trimmed) return undefined;
+  return trimmed.replace(/\/+$/, '').toLowerCase();
+}
+
+/** Map imagery layer → image server base layer imported from the map. */
+export function toImageServerBaseLayer(layer: MapImageryLayer): IVisualBaseLayerConfig {
+  return {
+    ...DEFAULT_VISUAL_BASE_LAYER,
+    url: layer.url,
+    type: VisualBaseLayerType.ImageServer,
+    position: undefined,
+    visible: layer.visible,
+    layerName: layer.name ?? '',
+    layerNameLocked: !layer.name,
+    fromMap: true
+  };
+}
+
+/**
+ * Merge map imagery into the visual base layer list.
+ *
+ * - Image-server layers imported from the map (`fromMap`) are added, kept, and
+ *   removed to match the map, the same way source configs follow map layers.
+ * - An existing match keeps the user's layer name and visibility.
+ * - Static images and image servers the user added by hand are left in place.
+ */
+export function mergeVisualBaseLayers(
+  current: IVisualBaseLayerConfig[] | undefined,
+  imported: IVisualBaseLayerConfig[]
+): IVisualBaseLayerConfig[] {
+  const currentLayers = current ?? [];
+  const importedByUrl = new Map<string, IVisualBaseLayerConfig>();
+  for (const layer of imported) {
+    const url = normalizeLayerUrl(layer.url);
+    if (url && !importedByUrl.has(url)) {
+      importedByUrl.set(url, layer);
+    }
+  }
+
+  const seen = new Set<string>();
+  const merged: IVisualBaseLayerConfig[] = [];
+
+  for (const layer of currentLayers) {
+    const url = normalizeLayerUrl(layer.url);
+    if (layer.fromMap && url && !importedByUrl.has(url)) {
+      continue;
+    }
+    if (url && importedByUrl.has(url)) {
+      seen.add(url);
+      if (layer.fromMap || layer.type === VisualBaseLayerType.ImageServer) {
+        merged.push(mergeMatchedImageryLayer(layer, importedByUrl.get(url)!));
+        continue;
+      }
+    }
+    merged.push(layer);
+  }
+
+  for (const layer of imported) {
+    const url = normalizeLayerUrl(layer.url);
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    merged.push(layer);
+  }
+  return merged;
+}
+
+function mergeMatchedImageryLayer(
+  current: IVisualBaseLayerConfig,
+  fresh: IVisualBaseLayerConfig
+): IVisualBaseLayerConfig {
+  const keepName = current.layerName?.trim();
+  return {
+    ...current,
+    url: current.url?.trim() || fresh.url,
+    type: VisualBaseLayerType.ImageServer,
+    fromMap: true,
+    position: undefined,
+    layerName: keepName ? current.layerName : fresh.layerName,
+    layerNameLocked: current.layerNameLocked ?? fresh.layerNameLocked,
+    visible: current.visible !== undefined ? current.visible : fresh.visible
+  };
+}
+
+/**
+ * Sorted service URLs used to detect imagery membership changes.
+ * Pass `fromMapOnly` for saved config so hand-added image servers do not
+ * look like a map diff.
+ */
+export function serializeImageryForDiff(
+  layers: IVisualBaseLayerConfig[] | undefined,
+  fromMapOnly = false
+): string {
+  const urls = (layers ?? [])
+    .filter(layer => !fromMapOnly || layer.fromMap === true)
+    .map(layer => normalizeLayerUrl(layer.url))
+    .filter((url): url is string => !!url)
+    .sort();
+  return JSON.stringify(urls);
+}
+
+/**
+ * Visual base layers for an embed config.
+ *
+ * When `useExistingMap` is on and the map view is ready, imagery layers are
+ * imported the same way sources are read from the live map. Otherwise the
+ * saved list is used.
+ */
+function resolveVisualBaseLayers(
+  config: IAudiomConfig,
+  jmv: JimuMapView | undefined
+): IVisualBaseLayerConfig[] {
+  const current = config.visualBaseLayers || [];
+  if (!config.useExistingMap) {
+    return current;
+  }
+  const map = jmv?.view?.map;
+  if (!map) {
+    return current;
+  }
+  const imported = getMapImageryLayers(map).map(toImageServerBaseLayer);
+  return mergeVisualBaseLayers(current, imported);
+}
+
+function toEmbedVisualBaseLayers(layers: IVisualBaseLayerConfig[]) {
+  if (layers.length === 0) return undefined;
+  return layers.map(layer => ({
+    url: layer.url,
+    type: layer.type ?? VisualBaseLayerType.Image,
+    position: layer.position ? GeoQuad.parse(layer.position) : undefined,
+    visible: layer.visible !== undefined ? layer.visible : true,
+    layerName: layer.layerName?.trim() || undefined,
+  }));
+}
+
 /**
  * Removes rules file URLs from source configs for diff comparison.
  * Rules files should not trigger a map change detection.
@@ -334,6 +463,7 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     filters?: IFilterConfig[];
     enabled?: boolean;
   }>;
+  visualBaseLayers?: IVisualBaseLayerConfig[];
 } | null {
   const jimuMapView = getJimuMapViewById(mapId, mapViewManager);
 
@@ -400,7 +530,9 @@ export function extractMapConfigFromEsriMap(mapId: string, mapViewManager?: MapV
     centerLatitude: center.latitude,
     centerLongitude: center.longitude,
     zoom: Math.max(zoom - esriToAudiomZoomOffset, 0),
-    sourceConfigs: sourceConfigs.length > 0 ? sourceConfigs : undefined
+    sourceConfigs: sourceConfigs.length > 0 ? sourceConfigs : undefined,
+    // Always an array so an empty map can drop imagery that was imported earlier.
+    visualBaseLayers: getMapImageryLayers(view.map).map(toImageServerBaseLayer)
   };
 }
 

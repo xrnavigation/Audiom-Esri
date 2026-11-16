@@ -81,6 +81,12 @@ export interface IVisualBaseLayerConfig {
    * Missing means locked, matching `DEFAULT_VISUAL_BASE_LAYER`.
    */
   layerNameLocked?: boolean
+
+  /**
+   * Set when this image-server layer was imported from the map. Map sync adds,
+   * updates, and removes these entries. Missing means the layer was added by hand.
+   */
+  fromMap?: boolean
 }
 
 /** Locked unless the layer was explicitly unlocked. */

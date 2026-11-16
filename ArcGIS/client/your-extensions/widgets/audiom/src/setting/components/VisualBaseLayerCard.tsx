@@ -56,6 +56,10 @@ interface VisualBaseLayerCardProps {
   onToggleVisible: () => void
   onLayerNameLockChange: (locked: boolean, layerName: string | undefined) => void
   onRemove: () => void
+  /** False when map sync owns this layer and removing it would only be undone. */
+  allowRemove?: boolean
+  /** True when the URL is the map-sync identity and must not be edited. */
+  urlReadOnly?: boolean
 }
 
 /** Filename from a layer URL, or undefined when the URL cannot provide one. */
@@ -78,7 +82,7 @@ function isNewValidBaseLayerUrl(currentUrl: string | undefined, nextUrl: string)
 const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
   const {
     layer, index, isExpanded, onToggleExpanded, onFieldChange, onUrlChange,
-    onToggleVisible, onLayerNameLockChange, onRemove
+    onToggleVisible, onLayerNameLockChange, onRemove, allowRemove = true, urlReadOnly = false
   } = props
   const isFeature = layer.type === VisualBaseLayerType.ImageServer
   // Missing `visible` means shown, matching DEFAULT_VISUAL_BASE_LAYER.
@@ -133,14 +137,16 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
 
   const actions = (
     <div style={styles.actions}>
-      <IconActionButton
-        tooltip={TOOLTIP_REMOVE}
-        ariaLabel={`${TOOLTIP_REMOVE} ${index + 1}`}
-        onClick={onRemove}
-        stopPropagation
-      >
-        <TrashOutlined />
-      </IconActionButton>
+      {allowRemove && (
+        <IconActionButton
+          tooltip={TOOLTIP_REMOVE}
+          ariaLabel={`${TOOLTIP_REMOVE} ${index + 1}`}
+          onClick={onRemove}
+          stopPropagation
+        >
+          <TrashOutlined />
+        </IconActionButton>
+      )}
       <IconActionButton
         tooltip={visibilityTooltip}
         ariaLabel={`${visibilityTooltip} ${index + 1}`}
@@ -193,6 +199,7 @@ const VisualBaseLayerCard = (props: VisualBaseLayerCardProps) => {
             style={{ width: '100%', marginBottom: Padding.ElementGap }}
             value={layer.url || ''}
             onChange={handleUrlChange}
+            disabled={urlReadOnly}
             onAcceptValue={handleUrlAccept}
             placeholder={PLACEHOLDER_URL}
             checkValidityOnAccept={(text) => {
