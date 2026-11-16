@@ -74,7 +74,7 @@ export interface MountedMapView {
   destroy?: () => void
   /** Set by the API destroy(), or by Audiom after it tears the view down. */
   destroyed?: boolean
-  goTo?: (target: unknown) => Promise<unknown>
+  goTo?: (target: unknown, options?: { duration?: number }) => Promise<unknown>
   toScreen?: (point: unknown) => { x?: number, y?: number } | null
   toMap?: (point: { x: number, y: number }) => { longitude?: number, latitude?: number } | null
   map?: {
@@ -522,19 +522,10 @@ export async function roomUnderHit (
     .filter((graphic): graphic is MapHitGraphic => Boolean(graphic) && !isAudiomChrome(graphic))
   const quick = graphics.find((graphic) => isRoomUse(useTypeOf(graphic.attributes)))
   if (quick) return featureDetails(quick)
-  let painted: { name: string | null, attributes: Record<string, unknown> | null } | null = null
-  let probed = 0
-  for (const graphic of graphics) {
-    const rendered = graphicIsRendered(graphic)
-    const canQuery = typeof graphic.layer?.queryFeatures === 'function'
-    if (!rendered && (!canQuery || probed >= 6)) continue
-    if (canQuery) probed += 1
-    const details = await featureDetails(graphic)
-    const use = useTypeOf(details.attributes)
-    if (isRoomUse(use)) return details
-    if (!painted && rendered && !isLevelUse(use)) painted = details
-  }
-  return painted
+  // One painted graphic. Querying every hit in order waited on the feature
+  // service before the tooltip could leave the previous plot.
+  const painted = graphics.find((graphic) => graphicIsRendered(graphic) && !isLevelUse(useTypeOf(graphic.attributes)))
+  return painted ? featureDetails(painted) : null
 }
 
 /**
@@ -544,6 +535,9 @@ export async function roomUnderHit (
 export async function featureDetails (graphic: MapHitGraphic | null | undefined): Promise<{ name: string | null, attributes: Record<string, unknown> | null }> {
   if (!graphic) return { name: null, attributes: null }
   let attributes = graphic.attributes ?? null
+  const named = graphicName(graphic)
+  // The hit already has the plot name. A query is only for the hidden column.
+  if (named) return { name: named, attributes }
   const layer = graphic.layer
   const oidField = layer?.objectIdField
   const oid = oidField && attributes ? attributes[oidField] : undefined

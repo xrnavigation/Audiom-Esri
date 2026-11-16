@@ -6,7 +6,10 @@
  * a script tag and does not invent movement.
  *
  * The Front-End program is audiom-front-end/runtime/exbEntry. The webpack
- * overlay resolves that id. Tests supply a program through setAudiomProgram.
+ * overlay resolves that id. It is a dynamic import so the widget file itself
+ * stays small; inlining it froze the builder tab while the widget loaded.
+ * The published build inlines that import. Tests supply a program through
+ * setAudiomProgram.
  */
 import type { AvatarState, RuntimeHost } from '../../../../shared/audiom-runtime/src/types'
 import type { InProcessRuntime } from '../../../../shared/audiom-runtime/src/factory'
@@ -105,23 +108,67 @@ export function audiomProgramError (): string {
   return loadError
 }
 
-function loadCompiledProgram (): AudiomProgramFactory | null {
-  if (programFactory) return programFactory
-  try {
-    // The webpack overlay aliases this id to the Front-End checkout.
-    // A variable require is not compiled in. Keep the string literal.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const compiled = require('audiom-front-end/runtime/exbEntry') as {
-      createRuntimeSession: AudiomProgramFactory
+export interface AudiomCompiledEntry {
+  createRuntimeSession?: AudiomProgramFactory
+  popupContentAt?: (world: unknown, longitude: number, latitude: number) => string[]
+  applyRulesToFeatures?: (
+    rules: unknown,
+    attributes: Array<Record<string, unknown>>,
+    geometryType?: string
+  ) => Array<Record<string, unknown> | null>
+  mountAudiomEmbed?: (
+    container: HTMLElement,
+    options: {
+      session: { world: unknown } | null
+      view: unknown
+      project: unknown
+      controllerOptions: { welcome: false }
+      showMapControls?: boolean
     }
-    programFactory = compiled.createRuntimeSession
-    return programFactory
-  } catch (error) {
-    loadError = error instanceof Error ? error.message : 'Audiom program failed to load'
-    // eslint-disable-next-line no-console
-    console.error('Audiom program failed to load', error)
-    return null
+  ) => { release: () => void }
+  setEmbedMapControls?: (container: HTMLElement, show: boolean) => void
+  unmountAudiomEmbed?: (container: HTMLElement) => void
+}
+
+let compiledEntry: AudiomCompiledEntry | null = null
+let compiledEntryPromise: Promise<AudiomCompiledEntry | null> | null = null
+
+/** The entry, once its chunk has loaded. Null before that, and in tests. */
+export function compiledAudiomEntry (): AudiomCompiledEntry | null {
+  return compiledEntry
+}
+
+/**
+ * Load the Front-End program chunk. A static require put that program in
+ * the widget file, and parsing it froze the tab. Tests set a factory and
+ * must not fetch the chunk.
+ */
+export function loadAudiomEntry (): Promise<AudiomCompiledEntry | null> {
+  if (compiledEntry) return Promise.resolve(compiledEntry)
+  if (programFactory) return Promise.resolve(null)
+  if (!compiledEntryPromise) {
+    compiledEntryPromise = import(
+      /* webpackChunkName: "audiom-program" */
+      'audiom-front-end/runtime/exbEntry'
+    ).then((compiled: AudiomCompiledEntry) => {
+      compiledEntry = compiled
+      if (!programFactory && compiled.createRuntimeSession) {
+        programFactory = compiled.createRuntimeSession
+      }
+      return compiled
+    }).catch((error: unknown): null => {
+      loadError = error instanceof Error ? error.message : 'Audiom program failed to load'
+      // eslint-disable-next-line no-console
+      console.error('Audiom program failed to load', error)
+      compiledEntryPromise = null
+      return null
+    })
   }
+  return compiledEntryPromise
+}
+
+function loadCompiledProgram (): AudiomProgramFactory | null {
+  return programFactory
 }
 
 /** The real Audiom program, compiled into the widget. Null only when it is absent. */
