@@ -1,0 +1,6 @@
+{
+	"id": "host-experience-embed",
+	"category": "Added",
+	"summary": "Standalone and legacy Audiom embeds include the host ArcGIS experience URL.",
+	"details": "The experience parameter is https://experience.arcgis.com/experience/{itemId} when the app id is a 32-character item id. A Developer Edition id, a missing id, or a downloaded app sends no experience parameter. Bundled mode is unchanged."
+}

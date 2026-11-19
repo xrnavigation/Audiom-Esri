@@ -1,5 +1,5 @@
 import { type AllWidgetProps, React, ReactRedux, AppMode, DataSourceTypes, getAppStore, loadArcGISJSAPIModules, type IMState, type ImmutableObject } from 'jimu-core'
-import { audiomConfigToEmbedConfig } from '../utils/mapUtils'
+import { audiomConfigToEmbedConfig, experienceUrlFromAppId } from '../utils/mapUtils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { dataSourcesFromAppState } from '../utils/appDataSources'
 import { serializeLockedForDiff } from '../utils/sourceConfigUtils'
@@ -493,7 +493,8 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     ? ''
     : audiomConfigToEmbedConfig(
       { ...DEFAULT_CONFIG, ...sanitizedConfig, useExistingMap: false },
-      jimuMapView
+      jimuMapView,
+      experienceUrlFromAppId(getAppStore().getState().appId)
     ).toUrl(sanitizedConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
   const title = props.config.title || 'Audiom'
   const soundpackName = bundledSoundpackName(

@@ -2,7 +2,7 @@
 
 ## Done
 
-The plan is filed in PLAN.md. Tests cover the experience URL, the embed query, the runtime iframe, and the settings preview. They fail because the URL is not built or passed yet.
+The plan is filed in PLAN.md. Tests cover the experience URL, the embed query, the runtime iframe, and the settings preview. Both iframe callers send `experience=https://experience.arcgis.com/experience/{itemId}` when the app id is a 32-character item id. A Developer Edition id, a missing id, or a downloaded app sends nothing. Bundled mode is unchanged.
 
 ## In progress
 
@@ -10,7 +10,7 @@ Nothing.
 
 ## Next
 
-Implement the URL function and pass it from both iframe callers.
+Developer review of the embed parameter.
 
 ## Blockers
 

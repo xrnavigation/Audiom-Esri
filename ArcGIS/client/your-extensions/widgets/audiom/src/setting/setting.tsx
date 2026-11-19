@@ -12,7 +12,7 @@ import CollapsibleHeader from './components/CollapsibleHeader'
 import FieldRenderer from './components/FieldRenderer'
 import VisualBaseLayerList from './components/VisualBaseLayerList'
 import { useMapSyncState } from './hooks/useMapSyncState'
-import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/mapUtils'
+import { audiomConfigToEmbedConfig, experienceUrlFromAppId, isAudiomConfigValid } from '../utils/mapUtils'
 import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { mergeSourcesPreservingUnlocked, serializeLockedForDiff } from '../utils/sourceConfigUtils'
 import { createLogger } from '../utils/logger'
@@ -498,7 +498,11 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
   const onPreviewInAudiom = () => {
     // For preview, we use URL mode sources (not existing map sources since we don't have JimuMapView in settings)
     const previewConfig: IAudiomConfig = { ...mutableConfig, useExistingMap: false }
-    const embedConfig = audiomConfigToEmbedConfig(previewConfig, undefined)
+    const embedConfig = audiomConfigToEmbedConfig(
+      previewConfig,
+      undefined,
+      experienceUrlFromAppId(getAppStore().getState().appId)
+    )
 
     const previewUrl = embedConfig.toUrl(previewConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
     window.open(previewUrl, '_blank', 'noopener,noreferrer')
