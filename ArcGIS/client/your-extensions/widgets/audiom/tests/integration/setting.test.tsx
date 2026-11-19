@@ -29,11 +29,13 @@ jest.mock('jimu-ui/advanced/setting-components', () => {
 })
 
 jest.mock('jimu-ui/advanced/data-source-selector', () => {
-  const React = require('react')
+  // Experience Builder's React, not the copy the runtime package installs
+  // beside this widget. Read at render, like stubComponents.
+  const host = (): typeof import('jimu-core').React => require('jimu-core').React
   return {
     __esModule: true,
     DataSourceSelector: (props: Record<string, unknown>): React.ReactElement =>
-      React.createElement('div', {
+      host().createElement('div', {
         'data-testid': 'map-source-selector',
         'data-must-use': String(Boolean(props.mustUseDataSource)),
         'data-enabled': String(Boolean(props.useDataSourcesEnabled)),

@@ -143,7 +143,7 @@ const CollapsibleHeader = (props: CollapsibleHeaderProps) => {
   const { label, isOpen, onToggle, backgroundColor, actions, contentId, level = CollapsibleHeaderLevel.Section, showLabelTooltip = false } = props
 
   const levelStyle = level === CollapsibleHeaderLevel.Section ? styles.section : styles.card
-  const containerStyle: React.CSSProperties = { ...styles.base, ...levelStyle, ...(backgroundColor ? { backgroundColor } : {}) }
+  const containerStyle = { ...styles.base, ...levelStyle, ...(backgroundColor ? { backgroundColor } : {}) }
 
   return (
     <div
