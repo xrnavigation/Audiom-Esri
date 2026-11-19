@@ -2,7 +2,7 @@
 
 ## Done
 
-The plan is filed in PLAN.md. The widget sends an ArcGIS Online experience URL when the app id is an item id. It does not join descriptions or add a sidebar.
+The plan is filed in PLAN.md. Tests cover the experience URL, the embed query, the runtime iframe, and the settings preview. They fail because the URL is not built or passed yet.
 
 ## In progress
 
@@ -10,7 +10,7 @@ Nothing.
 
 ## Next
 
-Tests for the experience URL and the embed query parameter. No production code in that step.
+Implement the URL function and pass it from both iframe callers.
 
 ## Blockers
 

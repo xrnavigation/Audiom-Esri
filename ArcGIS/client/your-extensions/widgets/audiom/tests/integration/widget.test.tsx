@@ -412,4 +412,55 @@ describe('Audiom runtime widget', () => {
     const src = container.querySelector('iframe')!.getAttribute('src')!
     expect(src).not.toContain('<script>')
   })
+
+  it('sends the host experience on the iframe when the app id is an item id', () => {
+    const itemId = 'cbd2f9848c4849c89dae5fcb6a31dc45'
+    const experienceUrl = `https://experience.arcgis.com/experience/${itemId}`
+    const store = getAppStore() as unknown as { getState: () => { appId?: string | null } }
+    const state = store.getState()
+    const previous = state.appId
+    state.appId = itemId
+    try {
+      const Widget = wrapWidget(_Widget, { config: makeImmutableConfig() as any })
+      const { container } = render(<Widget widgetId="audiom-experience" />)
+      const src = container.querySelector('iframe')!.getAttribute('src')!
+      expect(src).toContain(`experience=${encodeURIComponent(experienceUrl)}`)
+    } finally {
+      state.appId = previous
+    }
+  })
+
+  it('omits experience when the app id is a Developer Edition number', () => {
+    const store = getAppStore() as unknown as { getState: () => { appId?: string | null } }
+    const state = store.getState()
+    const previous = state.appId
+    state.appId = '1'
+    try {
+      const Widget = wrapWidget(_Widget, { config: makeImmutableConfig() as any })
+      const { container } = render(<Widget widgetId="audiom-dev-edition" />)
+      const src = container.querySelector('iframe')!.getAttribute('src')!
+      expect(src).not.toContain('experience=')
+    } finally {
+      state.appId = previous
+    }
+  })
+
+  it('still draws no iframe in bundled mode when the app id is an item id', () => {
+    const store = getAppStore() as unknown as { getState: () => { appId?: string | null } }
+    const state = store.getState()
+    const previous = state.appId
+    state.appId = 'cbd2f9848c4849c89dae5fcb6a31dc45'
+    try {
+      const Widget = wrapWidget(_Widget, {
+        config: makeImmutableConfig({
+          runtimeLocation: RuntimeLocation.Bundled,
+          mapItemId: ''
+        }) as any
+      })
+      const { container } = render(<Widget widgetId="audiom-bundled-experience" />)
+      expect(container.querySelector('iframe')).toBeNull()
+    } finally {
+      state.appId = previous
+    }
+  })
 })

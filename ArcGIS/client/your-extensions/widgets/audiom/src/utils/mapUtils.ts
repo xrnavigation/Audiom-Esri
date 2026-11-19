@@ -94,7 +94,15 @@ function formatTimeExtent(timeExtent: { start?: Date, end?: Date }): string | un
   return DateTimeInterval.create(start, end).toOgcDateTimeParam()
 }
 
-export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapView | undefined): AudiomEmbedConfig {
+/**
+ * ArcGIS Online experience URL for a portal item id.
+ * A Developer Edition id, a missing id, or a downloaded app is not an item id.
+ */
+export function experienceUrlFromAppId (_appId: string | null | undefined): string | undefined {
+  return undefined
+}
+
+export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapView | undefined, _experienceUrl?: string): AudiomEmbedConfig {
   logger.debug('audiomConfigToEmbedConfig - useExistingMap:', config.useExistingMap);
 
   const sources = resolveSources(config, jmv);
