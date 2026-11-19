@@ -1,7 +1,7 @@
 import { primeBundledAudio, startBundledRuntime, unlockBundledAudio } from '../../src/runtime/bundledRuntime'
 import { setAudiomProgram, type AudiomProgram } from '../../src/runtime/audiomProgram'
 import type { AvatarState } from '../../../../shared/audiom-runtime/src/types'
-import { mapPointFromScreen, setMapModuleLoader, showAvatar, type MountedMapSurface } from '../../src/runtime/esriMapSurface'
+import { avatarScreenPoint, mapPointFromScreen, setMapModuleLoader, showAvatar, type MountedMapSurface } from '../../src/runtime/esriMapSurface'
 import { createInProcessRuntime } from '../../../../shared/audiom-runtime/src/factory'
 
 /** Stand-in for Audiom grid movement. Left and right slide sideways. */
@@ -162,6 +162,39 @@ describe('Audiom avatar', () => {
     expect(centers).toEqual([])
     expect(drops).toEqual([[-1, 5], [11, 21]])
     await handle.runtime.dispose()
+  })
+
+  it('loads the point constructor once while projecting several positions', async () => {
+    let loads = 0
+    setMapModuleLoader(async (modules) => {
+      loads += 1
+      expect(modules).toEqual(['esri/Graphic', 'esri/geometry/Point'])
+      return [
+        class Graphic {},
+        class Point { constructor (public props: unknown) {} }
+      ]
+    })
+    const surface = {
+      view: {
+        toScreen (point: { longitude?: number, props?: { longitude?: number } }) {
+          return { x: point.longitude ?? point.props?.longitude, y: 4 }
+        }
+      }
+    } as unknown as MountedMapSurface
+
+    await expect(avatarScreenPoint(surface, { longitude: 10, latitude: 20, heading: 0 })).resolves.toEqual({ x: 10, y: 4 })
+    await expect(avatarScreenPoint(surface, { longitude: 11, latitude: 21, heading: 90 })).resolves.toEqual({ x: 11, y: 4 })
+    expect(loads).toBe(1)
+
+    setMapModuleLoader(async () => {
+      loads += 1
+      return [
+        class Graphic {},
+        class Point { constructor (public props: unknown) {} }
+      ]
+    })
+    await avatarScreenPoint(surface, { longitude: 12, latitude: 22, heading: 0 })
+    expect(loads).toBe(2)
   })
 
   it('converts an overlay screen point back into the view before asking Esri', () => {
