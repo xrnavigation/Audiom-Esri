@@ -1,0 +1,1 @@
+System.register([],function(e){return{execute:function(){e({zoomIn:"확대",zoomOut:"축소",resetBearing:"방위각을 북쪽으로 재설정",enterFullscreen:"전체화면 진입",exitFullscreen:"전체화면 종료",recenterMap:"아바타에 지도 다시 맞추기"})}}});

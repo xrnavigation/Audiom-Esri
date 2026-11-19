@@ -22,8 +22,8 @@ import { resolveRulesFileUrl } from './rulesStyle'
 import { bundledSoundpackName, resolveSoundpackFallbackUrl, resolveSoundpackUrl } from './soundpackUrl'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { StepSize, StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
-import { MapControls, mapControlLabels, type MapControlView } from './mapControls'
-import { RUNTIME_TRANSLATIONS, runtimeLocale } from './runtimeLocales'
+import { MapControls, type MapControlLabels, type MapControlView } from './mapControls'
+import defaultMessages from './translations/default'
 import { guardFloorClicks, onEsriLayerChange, setEsriFloor, setEsriLayerVisible, type EsriFloorView } from './esriLayerSync'
 import {
   AUDIOM_COMPASS_RADIUS,
@@ -630,7 +630,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
           {!needsMapSource && (
             <MapControls
               view={mapSurface?.view as MapControlView | undefined}
-              labels={mapControlLabels(RUNTIME_TRANSLATIONS[runtimeLocale(props.locale)])}
+              labels={mapControlLabels(props.intl)}
               indicator={avatar}
               fullscreenTarget={widgetBox.current}
               themeSource={embedOverlay.current}
@@ -671,6 +671,26 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     </div>
   )
 }
+/**
+ * The map buttons' names in the app's locale, from this widget's
+ * runtime/translations (manifest translatedLocales). English when the
+ * locale has no file, or when no intl is given.
+ */
+function mapControlLabels (
+  intl: { formatMessage?: (descriptor: { id: string, defaultMessage: string }) => string } | undefined
+): MapControlLabels {
+  const read = (id: keyof MapControlLabels): string =>
+    intl?.formatMessage?.({ id, defaultMessage: defaultMessages[id] }) || defaultMessages[id]
+  return {
+    zoomIn: read('zoomIn'),
+    zoomOut: read('zoomOut'),
+    resetBearing: read('resetBearing'),
+    enterFullscreen: read('enterFullscreen'),
+    exitFullscreen: read('exitFullscreen'),
+    recenterMap: read('recenterMap')
+  }
+}
+
 /** A refused call is the runtime's answer, not a widget crash. Log it and go on. */
 function logRuntimeFailure (error: unknown): void {
   // eslint-disable-next-line no-console

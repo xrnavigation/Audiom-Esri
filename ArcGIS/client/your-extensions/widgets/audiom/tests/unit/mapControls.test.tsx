@@ -1,10 +1,12 @@
 import { React } from 'jimu-core'
 import { fireEvent, render } from '@testing-library/react'
+import * as fs from 'fs'
+import * as path from 'path'
+import defaultMessages from '../../src/runtime/translations/default'
 import {
   centerOn,
   compassRotation,
   isMapFullscreen,
-  mapControlLabels,
   MapControls,
   type MapControlView,
   resetBearing,
@@ -76,20 +78,28 @@ describe('map control actions', () => {
     Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => null })
   })
 
-  it('reads the button names from the runtime catalog and keeps English for a missing key', () => {
-    expect(mapControlLabels({ visualMap: { zoomIn: 'Agrandir', recenterMap: 'Recentrer' } })).toEqual({
-      zoomIn: 'Agrandir',
-      zoomOut: 'Zoom out',
-      resetBearing: 'Reset bearing to north',
-      enterFullscreen: 'Enter fullscreen',
-      exitFullscreen: 'Exit fullscreen',
-      recenter: 'Recentrer'
-    })
+  it('ships every button name in every locale the manifest lists', () => {
+    const folder = path.join(__dirname, '../../src/runtime/translations')
+    const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../../manifest.json'), 'utf8')) as { translatedLocales: string[] }
+    const keys = Object.keys(defaultMessages)
+    for (const locale of manifest.translatedLocales.filter((item) => item !== 'en')) {
+      let messages: Record<string, string> = {}
+      const register = (_deps: unknown[], declare: (exporter: (value: Record<string, string>) => void) => { execute: () => void }) => {
+        declare((value) => { messages = value }).execute()
+      }
+      // Experience Builder's translation files are SystemJS modules.
+      new Function('System', fs.readFileSync(path.join(folder, `${locale}.js`), 'utf8'))({ register })
+      expect([locale, Object.keys(messages)]).toEqual([locale, keys])
+      for (const key of keys) {
+        expect(messages[key]).toBeTruthy()
+        expect(messages[key]).not.toBe(defaultMessages[key as keyof typeof defaultMessages])
+      }
+    }
   })
 })
 
 describe('MapControls', () => {
-  const labels = mapControlLabels(null)
+  const labels = defaultMessages
 
   it('drives the Esri view and recenters on the indicator', () => {
     const goTo = jest.fn(() => Promise.resolve())

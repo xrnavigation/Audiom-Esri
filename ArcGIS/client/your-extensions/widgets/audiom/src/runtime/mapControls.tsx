@@ -38,44 +38,17 @@ export interface MapControlView {
   watch?: (name: string, handler: () => void) => { remove?: () => void } | undefined
 }
 
+/**
+ * The buttons' accessible names. The widget owns them: its
+ * runtime/translations hold them for every locale it ships.
+ */
 export interface MapControlLabels {
   zoomIn: string
   zoomOut: string
   resetBearing: string
   enterFullscreen: string
   exitFullscreen: string
-  recenter: string
-}
-
-const ENGLISH: MapControlLabels = {
-  zoomIn: 'Zoom in',
-  zoomOut: 'Zoom out',
-  resetBearing: 'Reset bearing to north',
-  enterFullscreen: 'Enter fullscreen',
-  exitFullscreen: 'Exit fullscreen',
-  recenter: 'Recenter map on avatar'
-}
-
-/**
- * The names from the runtime's viewer catalog (`visualMap.*`). A missing
- * key stays English instead of showing the key. Front-End keeps these keys
- * in app.json, which the package does not ship, so today every locale
- * reads English.
- */
-export function mapControlLabels (catalog: Record<string, unknown> | null | undefined): MapControlLabels {
-  const section = catalog?.visualMap as Record<string, unknown> | undefined
-  const read = (key: keyof MapControlLabels, catalogKey: string) => {
-    const value = section?.[catalogKey]
-    return typeof value === 'string' && value.length > 0 ? value : ENGLISH[key]
-  }
-  return {
-    zoomIn: read('zoomIn', 'zoomIn'),
-    zoomOut: read('zoomOut', 'zoomOut'),
-    resetBearing: read('resetBearing', 'resetBearing'),
-    enterFullscreen: read('enterFullscreen', 'enterFullscreen'),
-    exitFullscreen: read('exitFullscreen', 'exitFullscreen'),
-    recenter: read('recenter', 'recenterMap')
-  }
+  recenterMap: string
 }
 
 const AT_LIMIT = 1e-6
@@ -318,8 +291,8 @@ export function MapControls (props: MapControlsProps): React.JSX.Element | null 
         <button
           type="button"
           className="audiom-map-recenter"
-          title={labels.recenter}
-          aria-label={labels.recenter}
+          title={labels.recenterMap}
+          aria-label={labels.recenterMap}
           onClick={() => {
             if (indicator) centerOn(view, indicator.longitude, indicator.latitude)
           }}

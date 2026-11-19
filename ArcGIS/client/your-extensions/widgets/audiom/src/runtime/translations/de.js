@@ -1,0 +1,1 @@
+System.register([],function(e){return{execute:function(){e({zoomIn:"Vergrößern",zoomOut:"Verkleinern",resetBearing:"Ausrichtung nach Norden zurücksetzen",enterFullscreen:"Vollbild aktivieren",exitFullscreen:"Vollbild verlassen",recenterMap:"Karte auf Avatar zentrieren"})}}});

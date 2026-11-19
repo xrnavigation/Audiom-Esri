@@ -1,0 +1,1 @@
+System.register([],function(e){return{execute:function(){e({zoomIn:"Inzoomen",zoomOut:"Uitzoomen",resetBearing:"Richting naar noorden herstellen",enterFullscreen:"Volledig scherm openen",exitFullscreen:"Volledig scherm verlaten",recenterMap:"Kaart opnieuw centreren op avatar"})}}});

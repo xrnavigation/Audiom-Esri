@@ -13,7 +13,16 @@
     "canCreateMapView": true
   },
   "translatedLocales": [
-    "en"
+    "en",
+    "de",
+    "es",
+    "fr",
+    "it",
+    "ko",
+    "nl",
+    "pt-br",
+    "ru",
+    "zh-cn"
   ],
   "defaultSize": {
     "width": 800,
