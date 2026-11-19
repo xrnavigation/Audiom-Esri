@@ -10,7 +10,6 @@ on:
     branches: [main, master]
     paths:
     - 'ArcGIS/client/your-extensions/widgets/audiom/**'
-    - 'ArcGIS/client/your-extensions/shared/audiom-runtime/**'
     - '.github/workflows/build-audiom-widget.yaml'
     - 'utils/setup_arcgis.py'
     - '.github/scripts/verify-build-output.sh'
@@ -30,12 +29,6 @@ permissions:
 env:
   AUDIOM_ORIGINAL_URL: 'https://audiom-staging.herokuapp.com'
   AUDIOM_REPLACEMENT_URL: 'https://audiom.net'
-  # Front-End checkout inside this workspace. The widget require cannot walk
-  # outside $GITHUB_WORKSPACE, so the overlay aliases a module id to this path.
-  AUDIOM_FRONTEND_ROOT: ${{ github.workspace }}/Audiom-Front-End
-  # Front-End branch compiled into the widget. Checkout uses the branch tip,
-  # not a pinned SHA. A Front-End push does not itself rebuild the widget.
-  AUDIOM_FRONTEND_REF: feature/1977-use-map-viewer
   # Absolute path to the workflow helper scripts, anchored to the repo root so
   # every step calls the same location regardless of its working directory.
   SCRIPTS_DIR: ${{ github.workspace }}/.github/scripts
@@ -85,42 +78,17 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Require Front-End checkout token
+    # The widget installs @xrnavigation/audiom-runtime and its @xrnavigation
+    # dependencies from GitHub Packages. This token already reads packages in
+    # @xrnavigation.
+    - name: Require packages token
       env:
         AUDIOM_FRONTEND_TOKEN: ${{ secrets.AUDIOM_FRONTEND_TOKEN }}
       run: |
         if [ -z "$AUDIOM_FRONTEND_TOKEN" ]; then
-          echo "::error::Set AUDIOM_FRONTEND_TOKEN. It must read Coughlan-Lab/Audiom-Front-End and packages in @xrnavigation."
+          echo "::error::Set AUDIOM_FRONTEND_TOKEN. It must read packages in @xrnavigation."
           exit 1
         fi
-
-    - name: Checkout Audiom Front-End
-      uses: actions/checkout@v4
-      with:
-        repository: Coughlan-Lab/Audiom-Front-End
-        ref: ${{ env.AUDIOM_FRONTEND_REF }}
-        path: Audiom-Front-End
-        token: ${{ secrets.AUDIOM_FRONTEND_TOKEN }}
-
-    # Front-End's only file: dependency is ../Audiom-Runtime. The vendored
-    # contract in this repo is that package. Webpack compiles its src.
-    - name: Link vendored runtime for Front-End install
-      run: |
-        rm -rf Audiom-Runtime
-        cp -a ArcGIS/client/your-extensions/shared/audiom-runtime Audiom-Runtime
-        test -f Audiom-Runtime/package.json
-        test -f Audiom-Runtime/src/factory.ts
-
-    - name: Set up Node.js 22 for Front-End install
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-
-    - name: Install Audiom Front-End dependencies
-      working-directory: Audiom-Front-End
-      env:
-        NPM_TOKEN: ${{ secrets.AUDIOM_FRONTEND_TOKEN }}
-      run: npm ci
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -130,10 +98,14 @@ jobs:
     - name: Install Python dependencies for setup scripts
       run: pip install requests
 
+    # registry-url and scope write an .npmrc that sends NODE_AUTH_TOKEN to
+    # GitHub Packages for @xrnavigation only.
     - name: Set up Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
+        registry-url: 'https://npm.pkg.github.com'
+        scope: '@xrnavigation'
 
     # Use the project script to pull the right ExB version.
     # This preserves `your-extensions` (the Audiom widget) while replacing the
@@ -153,12 +125,12 @@ jobs:
     - name: Rewrite Audiom base URL for production
       run: python "$SCRIPTS_DIR/rewrite-url.py" "ArcGIS/client/your-extensions" --require-match
 
-    # Experience Builder installs a widget lockfile during extension bootstrap.
-    # Authenticate the @xrnavigation scope with this repository's own token.
+    # The runtime package and its dependencies. The webpack overlay stops the
+    # build when this folder has no installed runtime.
     - name: Install widget dependencies
       working-directory: ArcGIS/client/your-extensions/widgets/audiom
       env:
-        NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NODE_AUTH_TOKEN: ${{ secrets.AUDIOM_FRONTEND_TOKEN }}
       run: npm ci
 
     # The downloaded client has no node_modules. build:for-download runs
