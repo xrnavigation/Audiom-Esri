@@ -168,15 +168,38 @@ async function loadArcGisModules (modules: string[]): Promise<unknown[]> {
 }
 
 let moduleLoader: ModuleLoader = loadArcGisModules
+let pointConstructor: Promise<AvatarModules['Point']> | null = null
 
 /** The loader used by the map and by feature projection. */
 export function loadMapModules (modules: string[]): Promise<unknown[]> {
   return moduleLoader(modules)
 }
 
+/**
+ * One import for every projection. SystemJS enumerates window on each
+ * import, including a module it has already loaded.
+ */
+function loadPointConstructor (): Promise<AvatarModules['Point']> {
+  if (!pointConstructor) {
+    pointConstructor = moduleLoader([
+      'esri/Graphic',
+      'esri/geometry/Point'
+    ]).then((loaded) => {
+      const Point = loaded[1] as AvatarModules['Point'] | undefined
+      if (!Point) throw new Error('Esri point module did not load')
+      return Point
+    }).catch((error: unknown) => {
+      pointConstructor = null
+      throw error
+    })
+  }
+  return pointConstructor
+}
+
 /** Tests replace the ArcGIS loader so jsdom never constructs a WebGL view. */
 export function setMapModuleLoader (loader: ModuleLoader | null): void {
   moduleLoader = loader || loadArcGisModules
+  pointConstructor = null
 }
 
 type SurfaceHost = HTMLElement & { __audiomSurface?: MountedMapSurface }
@@ -609,10 +632,7 @@ async function projectGeographic (
   latitude: number
 ): Promise<{ x: number, y: number } | null> {
   if (!surface.view.toScreen) return null
-  const [, Point] = await moduleLoader([
-    'esri/Graphic',
-    'esri/geometry/Point'
-  ]) as [AvatarModules['Graphic'], AvatarModules['Point']]
+  const Point = await loadPointConstructor()
   const projected = surface.view.toScreen(new Point({ longitude, latitude }))
   if (projected?.x == null || projected.y == null) return null
   return { x: projected.x, y: projected.y }

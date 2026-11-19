@@ -52,7 +52,7 @@ import type { ReportedAvatar } from './reportedAvatar'
 import { ownedMapDataSourceId, publishOwnedMapView } from './publishMapView'
 import { viewpointReadyForItem } from './mapViewpoint'
 
-const { useState, useEffect, useRef, useCallback } = React
+const { useState, useEffect, useRef, useCallback, useMemo } = React
 
 /** Audiom feature name + "statistic: value" at a point, read from the world. */
 function audiomPopupLines (world: unknown, longitude: number, latitude: number): string[] {
@@ -795,6 +795,16 @@ function hasMapCenter (longitude?: number, latitude?: number): boolean {
   return !(longitude === 0 && latitude === 0)
 }
 
+/** True when a projection landed on the pixel already stored. A new object is not a move. */
+function sameScreenPoint (
+  current: { x: number, y: number } | null,
+  next: { x: number, y: number } | null
+): boolean {
+  if (current === next) return true
+  if (!current || !next) return false
+  return current.x === next.x && current.y === next.y
+}
+
 function watchViewFrame (
   view: { watch?: (property: string, handler: () => void) => { remove?: () => void } },
   onChange: () => void
@@ -843,6 +853,7 @@ function EsriMapSurface (props: {
   // report that follows is the same landing. Do not announce it again.
   const dropLanding = useRef<ReportedAvatar | null>(null)
   const [screen, setScreen] = useState<{ x: number, y: number } | null>(null)
+  const publishedScreen = useRef<{ x: number, y: number } | null>(null)
   const [dragScreen, setDragScreen] = useState<{ x: number, y: number } | null>(null)
   const [surfaceReady, setSurfaceReady] = useState(false)
   const [popupScreen, setPopupScreen] = useState<{ x: number, y: number } | null>(null)
@@ -853,11 +864,36 @@ function EsriMapSurface (props: {
   // Waiting on that report is what left the map with no navigation icon.
   // While a new item's viewpoint is unread, that center is the previous map.
   const showSavedCenter = props.viewpointReady !== false
-  const placed = avatar ?? (
-    showSavedCenter && props.longitude != null && props.latitude != null
-      ? { longitude: props.longitude, latitude: props.latitude, heading: 0 }
-      : null
-  )
+  const reportedLongitude = avatar?.longitude
+  const reportedLatitude = avatar?.latitude
+  const reportedHeading = avatar?.heading
+  const hasAvatar = avatar != null
+  // Identity is not a move. A new object with the same coordinates restarted
+  // this effect, reinstalled the view watches, and imported the point module
+  // on every render. That scan of window is the idle spin.
+  const placed = useMemo(() => {
+    if (hasAvatar && reportedLongitude != null && reportedLatitude != null) {
+      return {
+        longitude: reportedLongitude,
+        latitude: reportedLatitude,
+        heading: reportedHeading ?? 0
+      }
+    }
+    if (showSavedCenter && props.longitude != null && props.latitude != null) {
+      return { longitude: props.longitude, latitude: props.latitude, heading: 0 }
+    }
+    return null
+  }, [
+    hasAvatar,
+    reportedLongitude,
+    reportedLatitude,
+    reportedHeading,
+    showSavedCenter,
+    props.longitude,
+    props.latitude
+  ])
+  const placedLongitude = placed?.longitude
+  const placedLatitude = placed?.latitude
   // A new item whose viewpoint is unread must mount now, but not at the
   // previous item's camera. Omitting center lets the web map's own
   // viewpoint set the center and the bounding box.
@@ -974,12 +1010,12 @@ function EsriMapSurface (props: {
   // view off the indicator.
   useEffect(() => {
     const view = readMountedSurface(container.current)?.view
-    if (!view?.goTo || !surfaceReady || !avatar) return
+    if (!view?.goTo || !surfaceReady || !hasAvatar) return
     // The previous item's indicator must not pull the new map back to it.
     if (props.mapItemId && props.viewpointReady === false) return
-    if (!hasMapCenter(avatar.longitude, avatar.latitude)) return
-    void view.goTo({ center: [avatar.longitude, avatar.latitude] }, CAMERA_JUMP).catch((): void => undefined)
-  }, [avatar, surfaceReady, props.mapItemId, props.viewpointReady])
+    if (!hasMapCenter(reportedLongitude, reportedLatitude)) return
+    void view.goTo({ center: [reportedLongitude, reportedLatitude] }, CAMERA_JUMP).catch((): void => undefined)
+  }, [hasAvatar, reportedLongitude, reportedLatitude, surfaceReady, props.mapItemId, props.viewpointReady])
   const appliedZoom = useRef<number | undefined>(undefined)
   const zoomItem = useRef(props.mapItemId)
   if (zoomItem.current !== props.mapItemId) {
@@ -1037,18 +1073,27 @@ function EsriMapSurface (props: {
   }, [onSelect, onFeatureClick])
   useEffect(() => {
     const surface = readMountedSurface(container.current)
-    if (!surface || !placed) {
-      setScreen(null)
-      onScreen?.(null)
+    const position = placedLongitude == null || placedLatitude == null
+      ? null
+      : { longitude: placedLongitude, latitude: placedLatitude, heading: 0 }
+    if (!surface || !position) {
+      setScreen((current) => current == null ? current : null)
+      if (publishedScreen.current != null) {
+        publishedScreen.current = null
+        onScreen?.(null)
+      }
       return
     }
     let cancelled = false
+    const publish = (point: { x: number, y: number } | null) => {
+      if (cancelled) return
+      setScreen((current) => sameScreenPoint(current, point) ? current : point)
+      if (sameScreenPoint(publishedScreen.current, point)) return
+      publishedScreen.current = point
+      onScreen?.(point)
+    }
     const place = () => {
-      void avatarScreenPoint(surface, placed).then((point) => {
-        if (cancelled) return
-        setScreen(point)
-        onScreen?.(point)
-      })
+      void avatarScreenPoint(surface, position).then(publish)
     }
     void surface.view.when?.().then(() => {
       if (!cancelled) place()
@@ -1061,7 +1106,7 @@ function EsriMapSurface (props: {
       unwatch()
       pointer?.remove?.()
     }
-  }, [placed, surfaceReady, onScreen])
+  }, [placedLongitude, placedLatitude, surfaceReady, onScreen])
   // The compass is a button above the map, so moving it never clicks the
   // map. Follow the avatar: hit test under it and show the same popup.
   // The first report is the load position. Do not speak it, and do not

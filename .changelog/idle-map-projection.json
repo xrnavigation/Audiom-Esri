@@ -1,0 +1,6 @@
+{
+	"id": "idle-map-projection",
+	"category": "Fixed",
+	"summary": "The bundled map no longer reloads ArcGIS modules while the page is idle.",
+	"details": "The compass effect treated a new center object as a move, so it reinstalled view watches and imported the point module on every render. SystemJS enumerates window on each import. The center is compared by coordinates, an unchanged pixel does not render again, and the point constructor is loaded once."
+}
