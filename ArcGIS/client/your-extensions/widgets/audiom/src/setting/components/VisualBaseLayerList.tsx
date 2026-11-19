@@ -91,7 +91,7 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
 
   const countSuffix = layers.length > 0 ? ` (${layers.length})` : ''
 
-  const handleListBaseLayers = useCallback(() => {
+  const handleImportBaseLayers = useCallback(() => {
     const map = mapId
       ? getJimuMapViewById(mapId, MapViewManager.getInstance())?.view?.map
       : undefined
@@ -165,7 +165,7 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
             <Button
               type={ButtonType.Primary}
               style={{ width: '100%', marginBottom: 12 }}
-              onClick={handleListBaseLayers}
+              onClick={handleImportBaseLayers}
             >
               {BUTTON_IMPORT}
             </Button>
