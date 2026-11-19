@@ -1,5 +1,3 @@
-import { compiledAudiomEntry, loadAudiomEntry } from './audiomProgram'
-
 export interface RulesHint {
   id?: string
   title?: string
@@ -17,14 +15,16 @@ export interface RulesLayer {
   rulesRef?: string
 }
 
-export interface RulesApplyDeps {
-  loadRules: (url: string) => Promise<unknown>
-  applyRules: (
-    rules: unknown,
-    attributes: Array<Record<string, unknown>>,
-    geometryType?: string
-  ) => Array<Record<string, unknown> | null>
-}
+/**
+ * Rule outputs for each attribute row, null where the rules exclude it.
+ * The widget passes the runtime's evaluateRecords, so the paint uses the
+ * same rules engine as the audio map.
+ */
+export type EvaluateRules = (
+  rulesUrl: string,
+  layer: RulesLayer,
+  attributes: Array<Record<string, unknown>>
+) => Promise<Array<Record<string, unknown> | null>>
 
 const rulesCache = new Map<string, Promise<unknown>>()
 
@@ -86,82 +86,7 @@ export function rulesUrlForLayer (
   return configured.length === 1 ? configured[0] : ''
 }
 
-function textValue (value: unknown): string {
-  return typeof value === 'string' ? value.trim() : ''
-}
-
-/**
- * Census rules name every tract. That name is the tooltip, not a room
- * sample. Dropping the painted statistic there is why only the tract already
- * in the snapshot pitches, and every other painted tract is silent.
- * Indoor still drops it so a restroom sample is not replaced by a chime.
- */
-export function standingPitch (
-  statistic: number | undefined,
-  place: Record<string, unknown> | null | undefined,
-  heatmap: boolean
-): number | undefined {
-  if (heatmap) return statistic
-  if (place && (place.ruleType || place.ruleName || place.name)) return undefined
-  return statistic
-}
-
-/** The rules file's name expression, including its augmenters. The role is a sound, not a suffix. */
-export function spokenPlaceTitle (place: Record<string, unknown> | null | undefined): string | null {
-  if (!place || place.ruleType === 'level') return null
-  return textValue(place.name) || textValue(place.ruleName) || null
-}
-
-function soundKeys (attributes: Record<string, unknown>): Record<string, unknown> {
-  const name = textValue(attributes.name) || textValue(attributes.Name) || textValue(attributes.NAME)
-  const ruleName = textValue(attributes.ruleName)
-  const ruleType = textValue(attributes.ruleType)
-  const place: Record<string, unknown> = {}
-  if (name) place.name = name
-  if (ruleName) place.ruleName = ruleName
-  if (ruleType) place.ruleType = ruleType
-  return place
-}
-
-/**
- * The room the painted graphic is, in the shape step playback looks up.
- * Rules win. A raw USE_TYPE still names a restroom when the file is slow.
- * Hallway and corridor are walkway samples; the pack has no hallway_step.
- */
-export async function soundPlaceForGraphic (
-  attributes: Record<string, unknown> | null | undefined,
-  rulesUrl: string | undefined
-): Promise<Record<string, unknown> | null> {
-  if (!attributes) return null
-  const direct = soundKeys(attributes)
-  if (direct.ruleType || direct.ruleName) return direct
-  if (rulesUrl) {
-    try {
-      await loadAudiomEntry()
-      const rules = await loadRulesFile(rulesUrl)
-      const [output] = evaluateWithRuntime(rules, [{ ...attributes }], 'polygon')
-      if (!output) return null
-      const stamped = soundKeys(output)
-      if (stamped.ruleType || stamped.ruleName || stamped.name) return stamped
-    } catch {
-      // The use type is still a sound name.
-    }
-  }
-  const useType = textValue(attributes.USE_TYPE) || textValue(attributes.use_type)
-  if (!useType && !direct.name) return null
-  const key = useType.toLowerCase()
-  const ruleType = key === 'hallway' || key === 'corridor'
-    ? 'walkway'
-    : key.includes('restroom')
-      ? 'restroom'
-      : undefined
-  return {
-    ...(direct.name ? { name: direct.name } : {}),
-    ...(useType ? { ruleName: useType } : {}),
-    ...(ruleType ? { ruleType } : {})
-  }
-}
-
+/** The rules file at `url`, fetched once. The runtime resolves rulesRef through this. */
 export function loadRulesFile (url: string): Promise<unknown> {
   const cached = rulesCache.get(url)
   if (cached) return cached
@@ -176,18 +101,6 @@ export function loadRulesFile (url: string): Promise<unknown> {
     rulesCache.delete(url)
   })
   return pending
-}
-
-function evaluateWithRuntime (
-  rules: unknown,
-  attributes: Array<Record<string, unknown>>,
-  geometryType?: string
-): Array<Record<string, unknown> | null> {
-  const apply = compiledAudiomEntry()?.applyRulesToFeatures
-  if (!apply) {
-    throw new Error('Audiom rules entry is missing')
-  }
-  return apply(rules, attributes, geometryType)
 }
 
 function mergeAttributes (
@@ -205,32 +118,23 @@ function mergeAttributes (
 
 /**
  * Evaluate each layer's rules file and stamp the outputs onto the queried
- * copies. Paint reads those copies. A failed fetch leaves the layer alone.
+ * copies. Paint reads those copies. A failed evaluation leaves the layer alone.
  */
 export async function applyConfiguredRules (
   layers: RulesLayer[],
   hints: readonly RulesHint[] | undefined,
-  deps: RulesApplyDeps = { loadRules: loadRulesFile, applyRules: evaluateWithRuntime }
+  evaluate: EvaluateRules
 ): Promise<void> {
   const pending = layers.map(async (layer) => {
     const rulesUrl = rulesUrlForLayer(layer, hints)
     const features = layer.features
     if (!rulesUrl || !features?.length) return
-  if (deps.applyRules === evaluateWithRuntime) await loadAudiomEntry()
-    let rules: unknown
-    try {
-      rules = await deps.loadRules(rulesUrl)
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Audiom could not load rules', rulesUrl, error)
-      return
-    }
     let outputs: Array<Record<string, unknown> | null>
     try {
-      outputs = deps.applyRules(
-        rules,
-        features.map((feature) => ({ ...(feature.attributes || {}) })),
-        layer.geometryType
+      outputs = await evaluate(
+        rulesUrl,
+        layer,
+        features.map((feature) => ({ ...(feature.attributes || {}) }))
       )
     } catch (error) {
       // eslint-disable-next-line no-console
