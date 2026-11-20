@@ -15,6 +15,15 @@ jest.mock('jimu-arcgis', () => ({
   }
 }))
 
+// Jest cannot load the runtime package (its exports have only `import`), so a
+// stand-in runtime answers every call and never reports an avatar position.
+jest.mock('@xrnavigation/audiom-runtime/in-process', () => ({
+  createInProcessRuntime: () => new Proxy({}, {
+    get: () => (message: object) => Promise.resolve({ ...message, payload: { status: 'applied' } })
+  })
+}), { virtual: true })
+jest.mock('@xrnavigation/audiom-runtime/labels', () => ({ labelStyle: (): null => null }), { virtual: true })
+
 jest.mock('../../src/utils/mapSyncManager', () => ({
   __esModule: true,
   AUTO_SYNC_LAYERS: false,
