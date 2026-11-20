@@ -50,7 +50,7 @@ import type { ReportedAvatar } from './reportedAvatar'
 import { ownedMapDataSourceId, publishOwnedMapView } from './publishMapView'
 import { viewpointReadyForItem } from './mapViewpoint'
 
-const { useState, useEffect, useRef, useCallback, useMemo } = React
+const { useState, useEffect, useRef, useCallback } = React
 
 /**
  * Indoor and Travel name the plot. The statistic line is heatmap content,
@@ -844,17 +844,11 @@ function EsriMapSurface (props: {
   // Waiting on that report is what left the map with no navigation icon.
   // While a new item's viewpoint is unread, that center is the previous map.
   const showSavedCenter = props.viewpointReady !== false
-  const savedLongitude = showSavedCenter ? props.longitude : undefined
-  const savedLatitude = showSavedCenter ? props.latitude : undefined
-  // The compass effect below depends on this object. A new object on every
-  // render reruns it every render, and its setScreen renders again: a loop
-  // that starves the page until Audiom reports an avatar.
-  const savedCenter = useMemo(() => (
-    savedLongitude != null && savedLatitude != null
-      ? { longitude: savedLongitude, latitude: savedLatitude, heading: 0 }
+  const placed = avatar ?? (
+    showSavedCenter && props.longitude != null && props.latitude != null
+      ? { longitude: props.longitude, latitude: props.latitude, heading: 0 }
       : null
-  ), [savedLongitude, savedLatitude])
-  const placed = avatar ?? savedCenter
+  )
   // A new item whose viewpoint is unread must mount now, but not at the
   // previous item's camera. Omitting center lets the web map's own
   // viewpoint set the center and the bounding box.
