@@ -3,6 +3,6 @@
   "private": true,
   "description": "Experience Builder widget dependencies. The runtime is installed from GitHub Packages; this folder is not published.",
   "dependencies": {
-    "@xrnavigation/audiom-runtime": "^0.3.1"
+    "@xrnavigation/audiom-runtime": "^0.3.2"
   }
 }
