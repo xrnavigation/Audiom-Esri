@@ -1,0 +1,6 @@
+{
+	"id": "compass-render-loop",
+	"category": "Fixed",
+	"summary": "The bundled widget no longer freezes the page when Start Audio Map is pressed.",
+	"details": "Until Audiom reported a position, the compass stood at the configured center, and that center was a new object on every render. The effect that projects the compass to the screen reran on every render, and its own screen update rendered again, about a thousand times a second. On the Hawaii census heatmap, pressing Start Audio Map froze the tab. The center is now the same object until it changes, so the compass is projected once per position."
+}
