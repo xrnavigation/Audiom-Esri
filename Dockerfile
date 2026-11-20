@@ -1,8 +1,8 @@
 # ArcGIS Experience Builder - Server
 # Multi-stage build to keep final image clean
 
-ARG EXB_VERSION=1.19
-ARG NODE_VERSION=22
+ARG EXB_VERSION=1.21
+ARG NODE_VERSION=24
 ARG SERVER_PORT=3000
 
 # Stage 1: Download and extract ArcGIS
@@ -45,9 +45,22 @@ WORKDIR /ArcGIS
 # Copy both client and server from the extracted files
 COPY --from=downloader /download/ArcGISExperienceBuilder ./
 
-# Install dependencies for both client and server
-RUN cd client && npm ci && npm cache clean --force && \
-    cd ../server && npm ci && npm cache clean --force
+# 1.20 and older install with npm. 1.21+ rejects npm and requires the pnpm
+# version declared in package.json packageManager.
+RUN set -eu; \
+    install_dir() { \
+      dir="$1"; \
+      pm="$(node -p "require('./${dir}/package.json').packageManager || ''")"; \
+      echo "Installing ${dir} with ${pm:-npm}"; \
+      if printf '%s' "$pm" | grep -q '^pnpm@'; then \
+        npm install -g "pnpm@${pm#pnpm@}"; \
+        (cd "$dir" && pnpm ci); \
+      else \
+        (cd "$dir" && npm ci && npm cache clean --force); \
+      fi; \
+    }; \
+    install_dir client; \
+    install_dir server
 
 # Copy startup script
 COPY entrypoint.sh /entrypoint.sh

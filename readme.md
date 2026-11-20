@@ -19,7 +19,7 @@ Automated Docker environment for running ArcGIS Experience Builder with custom e
 
 ### Option 1: Run ArcGIS Experience Builder Locally
 
-Download and extract a specific version (default: 1.19):
+Download and extract a specific version (default: 1.21):
 
 ```bash
 python utils/setup_arcgis.py
@@ -31,17 +31,17 @@ Or specify a version:
 python utils/setup_arcgis.py 1.14
 ```
 
-Then run the client and the server separately.
+Then run the client and the server separately. Experience Builder 1.21 and newer reject `npm ci`. Install the pnpm version named in `package.json` `packageManager` (1.21 is `pnpm@11.9.0`), then `pnpm ci`. `npm start` still starts both processes. 1.20 and older keep `npm ci`.
 
 ```bash
-# Run the server.
+# Server. 1.21+: npm i -g pnpm@11.9.0 && pnpm ci
 cd ./ArcGIS/server
 npm ci
 npm start -- --port 3000 --https_port 3001
 ```
 
 ```bash
-# Run the client.
+# Client. 1.21+: npm i -g pnpm@11.9.0 && pnpm ci
 cd ./ArcGIS/client
 npm ci
 npm start
@@ -81,7 +81,7 @@ The application will be available at:
 The `setup_arcgis.py` script supports several commands:
 
 ```bash
-# Download and setup (uses default version 1.19)
+# Download and setup (uses default version 1.21)
 python utils/setup_arcgis.py
 
 # Download specific version
@@ -107,8 +107,8 @@ During setup or cleanup, these folders are automatically preserved:
 Edit `compose.yaml` or create a `.env` file:
 
 ```env
-EXB_VERSION=1.19
-NODE_VERSION=22
+EXB_VERSION=1.21
+NODE_VERSION=24
 ```
 
 ## Utilities
@@ -144,7 +144,7 @@ Bundled mode compiles the Audiom Front-End program into the widget. Experience B
 
 Place `Audiom-Front-End` next to this repo, or set `AUDIOM_FRONTEND_ROOT` to that checkout, and run `npm ci` in it. The overlay reads `node_modules` from that checkout and compiles `src/runtime/exbEntry.ts`. Locally it compiles the sibling `Audiom-Runtime` checkout when that exists, otherwise the vendored copy in `client/your-extensions/shared/audiom-runtime`. Do not install the public `@xrnavigation/audiom-runtime` SDK for this. That package is a different API and the same name.
 
-Restart the Experience Builder client after the overlay is copied. `webpack --watch` loads this file once at startup and will keep compiling the widget without the Front-End entry until it is restarted.
+Restart the Experience Builder client after the overlay is copied. `webpack --watch` loads this file once at startup and will keep compiling the widget without the Front-End entry until it is restarted. Experience Builder 1.21 ships an empty `widget-webpack-override.js`. Leaving that file in place compiles a missing `audiom-front-end/runtime/exbEntry` module, and the builder retries the widget until the tab freezes.
 
 CI checks out the Front-End branch named by `AUDIOM_FRONTEND_REF` in `.github/workflows/build-audiom-widget.yaml`. The `AUDIOM_FRONTEND_TOKEN` secret must be able to read `Coughlan-Lab/Audiom-Front-End` and `@xrnavigation` packages.
 
