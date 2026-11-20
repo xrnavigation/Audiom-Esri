@@ -34,16 +34,18 @@ python utils/setup_arcgis.py 1.14
 Then run the client and the server separately. Experience Builder 1.21 and newer reject `npm ci`. Install the pnpm version named in `package.json` `packageManager` (1.21 is `pnpm@11.9.0`), then `pnpm ci`. `npm start` still starts both processes. 1.20 and older keep `npm ci`.
 
 ```bash
-# Server. 1.21+: npm i -g pnpm@11.9.0 && pnpm ci
+# Server. 1.20 and older: npm ci, then the same npm start.
 cd ./ArcGIS/server
-npm ci
+npm i -g pnpm@11.9.0
+pnpm ci
 npm start -- --port 3000 --https_port 3001
 ```
 
 ```bash
-# Client. 1.21+: npm i -g pnpm@11.9.0 && pnpm ci
+# Client. 1.20 and older: npm ci, then the same npm start.
 cd ./ArcGIS/client
-npm ci
+npm i -g pnpm@11.9.0
+pnpm ci
 npm start
 ```
 
@@ -120,12 +122,12 @@ python utils/exb-versions.py
 
 ### Get Required Node Version
 ```bash
-python utils/exb_versions.py 1.19 --node-version
+python utils/exb_versions.py 1.21 --node-version
 ```
 
 ### Download Only (without extraction)
 ```bash
-python utils/download-arcgis.py 1.19
+python utils/download-arcgis.py 1.21
 ```
 
 ## Development
