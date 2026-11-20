@@ -18,8 +18,8 @@ The Audiom widget is packaged for the following ArcGIS Experience Builder versio
 
 | ArcGIS Enterprise | Build Manifest |
 | :--- | :--- |
-| 12.2 | **[https://esri.xrnavigation.io/builder-versions/1.22/audiom/manifest.json](https://esri.xrnavigation.io/builder-versions/1.22/audiom/manifest.json)** |
-| 12.1 | [https://esri.xrnavigation.io/builder-versions/1.21/audiom/manifest.json](https://esri.xrnavigation.io/builder-versions/1.21/audiom/manifest.json)<br>**[Experience Builder 1.20 build manifest](./builder-versions/1.20/audiom/manifest.json)** |
+| 12.2 | **[Experience Builder 1.22 build manifest](./builder-versions/1.22/audiom/manifest.json)**<br>|
+| 12.1 | [Experience Builder 1.21 build manifest](./builder-versions/1.21/audiom/manifest.json)<br>**[Experience Builder 1.20 build manifest](./builder-versions/1.20/audiom/manifest.json)** |
 | 12.0 | [Experience Builder 1.19 build manifest](./builder-versions/1.19/audiom/manifest.json)<br>**[Experience Builder 1.18 build manifest](./builder-versions/1.18/audiom/manifest.json)** |
 | 11.5 | **[Experience Builder 1.17 build manifest](./builder-versions/1.17/audiom/manifest.json)** |
 | 11.4 | [Experience Builder 1.16 build manifest](./builder-versions/1.16/audiom/manifest.json)<br>**[Experience Builder 1.15 build manifest](./builder-versions/1.15/audiom/manifest.json)** |
@@ -41,8 +41,8 @@ You must register each custom widget in your portal. Portal administrator privil
 3. Click **Add Item** and choose *An application.*
 4. Choose *Experience Builder widget,* and provide the URL to your manifest file.
 5. Select the manifest file for your version of Experience Builder from the links in the section above.
-	- For ArcGIS Enterprise v12.2 this is [https://esri.xrnavigation.io/builder-versions/1.22/audiom/manifest.json](https://esri.xrnavigation.io/builder-versions/1.22/audiom/manifest.json).
-	- For ArcGIS Enterprise v12.1 this is [Experience Builder 1.20](./builder-versions/1.20/audiom/manifest.json). Do not register the 1.21 manifest on a 12.1 or 12.2 portal.
+	- For ArcGIS Enterprise v12.2 this will be Experience Builder 1.22. That package is not published yet. Do not register the 1.21 manifest on a 12.2 portal.
+	- For ArcGIS Enterprise v12.1 this is [Experience Builder 1.20](./builder-versions/1.20/audiom/manifest.json).
 	- For ArcGIS Enterprise v12.0 this is [Experience Builder 1.18](./builder-versions/1.18/audiom/manifest.json).
 6. Click the *Title box.*
 7. The title of the item automatically populates from the manifest file. Optionally, you can manually edit the title.
@@ -57,10 +57,10 @@ You must register each custom widget in your portal. Portal administrator privil
 
 Copy the `audiom` folder for your Experience Builder version into `<ArcGIS Developer Edition>/client/your-extensions/widgets/`. Keep the folder name `audiom`.
 
-- Developer edition 1.21: [https://esri.xrnavigation.io/builder-versions/1.21/audiom/manifest.json](https://esri.xrnavigation.io/builder-versions/1.21/audiom/manifest.json). Experience Builder 1.21 itself installs with pnpm 11.9.0 and Node 24. `npm ci` is rejected. `npm start` still starts the client and server.
+- Developer edition 1.21: [Experience Builder 1.21 widget](./builder-versions/1.21/audiom/manifest.json). That folder is published with the downloadable widget build. Experience Builder 1.21 itself installs with pnpm 11.9.0 and Node 24. `npm ci` is rejected. `npm start` still starts the client and server.
 - Developer edition 1.20 and older: use the matching folder under `builder-versions/`. Those builder versions still install with `npm ci`.
 
-Experience Builder 1.21 is the developer edition after Enterprise 12.1. Enterprise 12.2 uses [https://esri.xrnavigation.io/builder-versions/1.22/audiom/manifest.json](https://esri.xrnavigation.io/builder-versions/1.22/audiom/manifest.json).
+Experience Builder 1.21 is the developer edition after Enterprise 12.1. It is not the Enterprise 12.2 build. Enterprise 12.2 uses Experience Builder 1.22, which is not packaged yet.
 
 
 ## 🎧 Using the Audiom Widget
