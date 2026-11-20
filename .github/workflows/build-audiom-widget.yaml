@@ -81,6 +81,10 @@ jobs:
           node-version: '22'
         - exb-version: '1.20'
           node-version: '24'
+        # 1.21 recommends Node 24 and requires Node 22+. It installs with the
+        # pnpm version in the extracted package.json, not npm ci.
+        - exb-version: '1.21'
+          node-version: '24'
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -153,19 +157,36 @@ jobs:
     - name: Rewrite Audiom base URL for production
       run: python "$SCRIPTS_DIR/rewrite-url.py" "ArcGIS/client/your-extensions" --require-match
 
-    # Experience Builder installs a widget lockfile during extension bootstrap.
-    # Authenticate the @xrnavigation scope with this repository's own token.
+    # 1.20 and older install the widget lockfile with npm. 1.21's client
+    # postinstall imports that lockfile and runs pnpm ci, so a prior npm ci
+    # would leave a node_modules tree pnpm refuses to replace.
     - name: Install widget dependencies
       working-directory: ArcGIS/client/your-extensions/widgets/audiom
       env:
         NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: npm ci
+      run: |
+        PM="$(node -p "require('../../../package.json').packageManager || ''")"
+        if printf '%s' "$PM" | grep -q '^pnpm@'; then
+          echo "Widget dependencies install with the client pnpm postinstall ($PM)."
+        else
+          npm ci
+        fi
 
     # The downloaded client has no node_modules. build:for-download runs
     # cross-env from the client devDependencies, so install those first.
+    # 1.21 rejects npm and requires the pnpm version in packageManager.
     - name: Install Experience Builder client dependencies
       working-directory: ArcGIS/client
-      run: npm ci
+      run: |
+        PM="$(node -p "require('./package.json').packageManager || ''")"
+        if printf '%s' "$PM" | grep -q '^pnpm@'; then
+          VERSION="${PM#pnpm@}"
+          npm install -g "pnpm@${VERSION}"
+          pnpm --version
+          pnpm ci
+        else
+          npm ci
+        fi
 
     # Developer Edition 1.18+ emits the downloadable widget, including lazy
     # import() chunks, with build:for-download. Older releases keep build:prod.

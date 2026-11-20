@@ -9,6 +9,9 @@ arcgis-experience-builder-*.zip
 ArcGIS/client/*
 !ArcGIS/client/start-client.bat
 !ArcGIS/client/your-extensions/
+# Local installs inside the preserved extension tree. The widget keeps package-lock.json.
+ArcGIS/client/your-extensions/**/node_modules/
+ArcGIS/client/your-extensions/**/pnpm-lock.yaml
 
 !ArcGIS/server/
 ArcGIS/server/*
