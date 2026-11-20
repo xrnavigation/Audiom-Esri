@@ -39,6 +39,21 @@ const fakeManager = {
   removeChangeListener: jest.fn()
 }
 
+/**
+ * Jest cannot load the published runtime (its exports name only an `import`
+ * condition). A stand-in answers every contract call as applied.
+ */
+const runtimeConfigs: Array<{ container: HTMLElement, start?: unknown }> = []
+jest.mock('@xrnavigation/audiom-runtime/in-process', () => ({
+  createInProcessRuntime: (config: { container: HTMLElement, start?: unknown }) => {
+    runtimeConfigs.push(config)
+    return new Proxy({}, {
+      get: () => (message: object) => Promise.resolve({ ...message, payload: { status: 'applied' } })
+    })
+  }
+}), { virtual: true })
+jest.mock('@xrnavigation/audiom-runtime/labels', () => ({ labelStyle: (): null => null }), { virtual: true })
+
 jest.mock('../../src/utils/mapSyncManager', () => ({
   __esModule: true,
   AUTO_SYNC_LAYERS: true,
@@ -230,6 +245,7 @@ describe('Audiom runtime widget', () => {
       }) as any,
       useMapWidgetIds: ['external-map'] as unknown as ImmutableArray<string>
     })
+    runtimeConfigs.length = 0
     const { container, unmount } = render(<Widget widgetId="audiom-bundled" />)
     expect(container.querySelector('iframe')).toBeNull()
     expect(container.querySelector('button')).toBeNull()
@@ -240,6 +256,13 @@ describe('Audiom runtime widget', () => {
     })
     expect(map!.getAttribute('data-map-mounted')).toBe('true')
     expect(map!.getAttribute('tabindex')).toBe('0')
+    // The runtime mounts its viewer in the overlay over the map, opening at the configured centre.
+    expect(runtimeConfigs).toHaveLength(1)
+    expect(runtimeConfigs[0].container.classList.contains('audiom-runtime-overlay')).toBe(true)
+    expect(runtimeConfigs[0].start).toEqual([-77.45, 38.77])
+    // The map controls drive the Esri view once it exists.
+    expect(container.querySelector('button[aria-label="Zoom in"]')).not.toBeNull()
+    expect(container.querySelector('button[aria-label="Recenter map on avatar"]')).not.toBeNull()
     expect(publishedMapViews).toEqual([expect.objectContaining({
       mapWidgetId: 'audiom-bundled',
       isActive: true,

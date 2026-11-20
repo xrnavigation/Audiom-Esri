@@ -1,4 +1,4 @@
-import { applyConfiguredRules, resolveRulesFileUrl, rulesUrlForLayer, standingPitch } from '../../src/runtime/rulesStyle'
+import { applyConfiguredRules, resolveRulesFileUrl, rulesUrlForLayer } from '../../src/runtime/rulesStyle'
 
 describe('rules file resolution', () => {
   it('resolves a root path against the Audiom origin, not the widget page', () => {
@@ -41,17 +41,19 @@ describe('rules file resolution', () => {
         { attributes: { OBJECTID: 2, USE_TYPE: 'Level', NAME: 'Level 1' } }
       ]
     }
+    const asked: string[] = []
     await applyConfiguredRules([layer], [{
       url: layer.url,
       rulesFileUrl: 'http://localhost:3002/rules/esri-indoor.json'
-    }], {
-      loadRules: async () => ({ version: 2, rules: [] }),
-      applyRules: (rules, attributes) => attributes.map((item) => (
+    }], async (rulesUrl, evaluated, attributes) => {
+      asked.push(`${rulesUrl} ${evaluated.title}`)
+      return attributes.map((item) => (
         item.USE_TYPE === 'Office'
           ? { ...item, fill: '#e7ecef', stroke: '#6c757d', 'fill-pattern': 'dot-pattern', ruleName: 'Office', ruleType: 'office' }
           : null
       ))
     })
+    expect(asked).toEqual(['http://localhost:3002/rules/esri-indoor.json Units'])
     expect(layer.rulesRef).toBe('http://localhost:3002/rules/esri-indoor.json')
     expect(layer.features).toHaveLength(1)
     expect(layer.features[0].attributes.fill).toBe('#e7ecef')
@@ -59,11 +61,17 @@ describe('rules file resolution', () => {
     expect(layer.features[0].attributes['fill-pattern']).toBe('dot-pattern')
   })
 
-  it('keeps the painted statistic when census rules only name the tract', () => {
-    const place = { name: 'Census Tract 201', ruleName: 'Census Tract 201', ruleType: 'geographic' }
-    expect(standingPitch(3006, place, true)).toBe(3006)
-    expect(standingPitch(undefined, place, true)).toBeUndefined()
-    expect(standingPitch(12, { name: 'RR', ruleName: 'Restroom', ruleType: 'restroom' }, false)).toBeUndefined()
+  it('leaves the layer alone when the rules cannot be evaluated', async () => {
+    const features = [{ attributes: { OBJECTID: 1, USE_TYPE: 'Office' } }]
+    const layer = { id: 'units', title: 'Units', features }
+    const failure = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    await applyConfiguredRules([layer], [{
+      id: 'units',
+      rulesFileUrl: 'https://audiom.net/rules/missing.json'
+    }], async () => { throw new Error('Audiom rules 404') })
+    failure.mockRestore()
+    expect(layer.features).toBe(features)
+    expect((layer as { rulesRef?: string }).rulesRef).toBeUndefined()
   })
 
   it('keeps geometry that is not an own enumerable property', async () => {
@@ -82,15 +90,12 @@ describe('rules file resolution', () => {
     await applyConfiguredRules([layer], [{
       id: 'tracts',
       rulesFileUrl: 'https://audiom-staging.herokuapp.com/rules/census.json'
-    }], {
-      loadRules: async () => ({ version: 2, rules: [] }),
-      applyRules: (_rules, attributes) => attributes.map((item) => ({
-        ...item,
-        ruleName: item.NAME,
-        ruleType: 'geographic',
-        name: item.NAME
-      }))
-    })
+    }], async (_rulesUrl, _layer, attributes) => attributes.map((item) => ({
+      ...item,
+      ruleName: item.NAME,
+      ruleType: 'geographic',
+      name: item.NAME
+    })))
     expect(layer.features[0].geometry).toEqual({ rings })
     expect(layer.features[0].attributes.ruleType).toBe('geographic')
   })

@@ -15,18 +15,16 @@ import {
 import MessagePopup, { MessageType } from './components/MessagePopup'
 import { JimuConfig } from '../utils/JimuConfig'
 
-import { bundledFocusTarget, bundledStatus, paintAudiomStyles, primeBundledAudio, restoreAudiomStyles, startBundledRuntime, unlockBundledAudio, type BundledRuntimeHandle } from './bundledRuntime'
+import { bundledStatus, paintAudiomStyles, restoreAudiomStyles, startBundledRuntime, type BundledRuntimeHandle, type PointFeature, type RuntimeStyle } from './bundledRuntime'
 import { VectorStyleMode } from './audiomSymbols'
-import { snapshotFeaturesFromMapView, type SnapshotMapTypeHint } from './mapSnapshot'
-import { resolveRulesFileUrl, soundPlaceForGraphic, spokenPlaceTitle, standingPitch } from './rulesStyle'
+import { snapshotFeaturesFromMapView, type MapSnapshot, type SnapshotMapTypeHint } from './mapSnapshot'
+import { resolveRulesFileUrl } from './rulesStyle'
 import { bundledSoundpackName, resolveSoundpackFallbackUrl, resolveSoundpackUrl } from './soundpackUrl'
-import { compiledAudiomEntry, loadAudiomEntry } from './audiomProgram'
-import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { StepSize, StepSizeUnit } from '../../../../shared/audiom-client/StepSize'
-
-/** Must match Audiom-Front-End EMBED_PAINT_EVENT. The widget cannot import that module. */
-const EMBED_PAINT_EVENT = 'audiom-embed-paint'
+import { MapControls, type MapControlLabels, type MapControlView } from './mapControls'
+import defaultMessages from './translations/default'
+import { guardFloorClicks, onEsriLayerChange, setEsriFloor, setEsriLayerVisible, type EsriFloorView } from './esriLayerSync'
 import {
   AUDIOM_COMPASS_RADIUS,
   AUDIOM_COMPASS_SIZE,
@@ -54,44 +52,12 @@ import { viewpointReadyForItem } from './mapViewpoint'
 
 const { useState, useEffect, useRef, useCallback } = React
 
-/** Audiom feature name + "statistic: value" at a point, read from the world. */
-function audiomPopupLines (world: unknown, longitude: number, latitude: number): string[] {
-  return compiledAudiomEntry()?.popupContentAt?.(world, longitude, latitude) ?? []
-}
-
 /**
  * Indoor and Travel name the plot. The statistic line is heatmap content,
  * and it is also content a rules file adds. With no rules file those modes
  * show the name only.
  */
-function bundledRulesUrl (config: {
-  sourceConfigs?: ReadonlyArray<{ rulesFileUrl?: string }>
-  baseUrl?: string
-  assetBaseUrl?: string
-}): string {
-  const raw = (config.sourceConfigs || [])
-    .map((source) => source.rulesFileUrl)
-    .find((url) => url?.trim())
-  return resolveRulesFileUrl(raw, [
-    config.baseUrl,
-    config.assetBaseUrl,
-    DEFAULT_CONFIG.baseUrl,
-    DEFAULT_ASSET_BASE_URL
-  ])
-}
-
-function heatmapSources (
-  world: unknown,
-  sources: ReadonlyArray<{ mapType?: string }> | undefined
-): boolean {
-  const typed = (sources || []).filter((source) => source.mapType)
-  if (typed.some((source) => source.mapType === MapType.Heatmap)) return true
-  const mapType = (world as { metadata?: { mapType?: string } } | null | undefined)?.metadata?.mapType
-  return mapType === MapType.Heatmap
-}
-
 function includeStatistic (
-  world: unknown,
   sources: ReadonlyArray<{ mapType?: string, rulesFileUrl?: string }> | undefined
 ): boolean {
   const typed = (sources || []).filter((source) => source.mapType)
@@ -112,14 +78,29 @@ function numericAttribute (value: unknown): number | undefined {
   return undefined
 }
 
-/** The selected statistic as "label: value", read from the clicked graphic. */
-function statisticLine (world: unknown, point: FeatureClickPoint): string {
-  const stats = (world as { statistics?: { field?: string, label?: string } } | null | undefined)?.statistics
+function statisticText (label: string, value: number): string {
+  const shown = Number.isInteger(value) ? value : Number(value.toFixed(2))
+  return `${label}: ${shown}`
+}
+
+/** The legend's statistic as "label: value", read from the clicked graphic. */
+function statisticLine (style: RuntimeStyle | null | undefined, point: FeatureClickPoint): string {
+  const stats = style?.statistic
   const field = stats?.field
   const value = numericAttribute(field && point.attributes ? point.attributes[field] : undefined)
   if (value == null) return ''
-  const shown = Number.isInteger(value) ? value : Number(value.toFixed(2))
-  return `${stats?.label ?? field}: ${shown}`
+  return statisticText(stats?.label || field || '', value)
+}
+
+/** The tooltip lines the audio map gives a point: the first feature's name, then its statistic. */
+function pointLines (features: readonly PointFeature[], withStatistic: boolean): string[] {
+  const feature = features.find((item) => item.name) ?? features[0]
+  if (!feature) return []
+  const lines = feature.name ? [feature.name] : []
+  if (withStatistic && feature.statistic) {
+    lines.push(statisticText(feature.statistic.label || feature.statistic.field, feature.statistic.value))
+  }
+  return lines
 }
 
 /** React's onWheel is passive, so preventDefault there only logs a warning. */
@@ -161,41 +142,22 @@ function bindMapWheel (node: HTMLElement | null): () => void {
 const PAINT_STYLE_MODES = new Set<string>(Object.values(VectorStyleMode))
 
 /**
- * The legend writes vectorStyleMode on the singleton the menus inject.
- * The session world keeps a copy of that store only when it was constructed
- * with it. Read the injected store first so a toggle is the mode that paints.
+ * The legend's colours/patterns mode, from onStyleChanged. Default is
+ * colors, matching the viewer's SettingsStore, until the runtime reports.
  */
-function paintStyleMode (
-  program: {
-    world?: {
-      settings?: { vectorStyleMode?: VectorStyleMode }
-      rootStore?: { settings?: { vectorStyleMode?: VectorStyleMode } }
-    }
-  } | null
-): VectorStyleMode {
-  const world = program?.world
-  const mode = world?.rootStore?.settings?.vectorStyleMode
-    || world?.settings?.vectorStyleMode
+function paintStyleMode (style: RuntimeStyle | null | undefined): VectorStyleMode {
+  const mode = style?.styleMode
   return mode && PAINT_STYLE_MODES.has(mode) ? mode : VectorStyleMode.Colors
 }
 
-/**
- * Object labels default on, matching MapStateStore. The display-options
- * toggle writes the injected map state. A missing store still shows names.
- */
-function paintShowLabels (program: { world?: object } | null): boolean {
-  const world = program?.world as {
-    mapState?: { showObjectLabels?: boolean }
-    rootStore?: { mapState?: { showObjectLabels?: boolean } }
-  } | undefined
-  const mapState = world?.rootStore?.mapState || world?.mapState
-  return mapState?.showObjectLabels !== false
+/** Object labels default on, matching the viewer's MapStateStore. */
+function paintShowLabels (style: RuntimeStyle | null | undefined): boolean {
+  return style?.labels !== false
 }
 
 /** The floor the legend selected. Null until a building level exists. */
-function paintLabelLevel (program: { world?: object } | null): number | null {
-  const world = program?.world as { avatar?: { buildingLevel?: number | null } } | undefined
-  const level = world?.avatar?.buildingLevel
+function paintLabelLevel (style: RuntimeStyle | null | undefined): number | null {
+  const level = style?.floor
   return typeof level === 'number' && Number.isFinite(level) ? level : null
 }
 
@@ -483,7 +445,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
       if (extent[0] === extent[2] || extent[1] === extent[3]) return
       if (bundledMapItemIdRef.current !== itemId) return
       navigationExtent.current = { itemId, extent }
-      bundledHandleRef.current?.program?.setNavigationExtent?.(extent)
+      void bundledHandleRef.current?.setNavigationExtent(extent).catch(logRuntimeFailure)
     })
   }, [])
   // Bundled mode draws EsriMapSurface. It has no JimuMapView. Building the
@@ -506,16 +468,23 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   const soundpackFallbackUrl = runtimeLocation === RuntimeLocation.Bundled
     ? resolveSoundpackFallbackUrl(soundpackName, sanitizedConfig.assetBaseUrl)
     : undefined
+  const embedOverlay = useRef<HTMLDivElement>(null)
+  const widgetBox = useRef<HTMLDivElement>(null)
+  const [runtimeStyle, setRuntimeStyle] = useState<RuntimeStyle | null>(null)
   const bundledHandle = useBundledRuntime(
     runtimeLocation === RuntimeLocation.Bundled && Boolean(bundledMapItemId),
     props.id,
+    embedOverlay,
     jimuMapView,
     setRuntimeStatus,
     mapSurface,
     setAvatar,
+    setRuntimeStyle,
     sanitizedConfig.centerLongitude,
     sanitizedConfig.centerLatitude,
     stepSizeMeters(sanitizedConfig.stepSize, sanitizedConfig.stepSizeUnit),
+    sanitizedConfig.assetBaseUrl?.trim() || DEFAULT_ASSET_BASE_URL,
+    props.locale,
     soundpackUrl,
     soundpackFallbackUrl,
     (sanitizedConfig.sourceConfigs || []).map((source) => ({
@@ -540,17 +509,9 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     sanitizedConfig.showMapLabels !== false
   )
   bundledHandleRef.current = bundledHandle
-  const embedOverlay = useRef<HTMLDivElement>(null)
-  const followGeneration = useRef(0)
-  const headerHeight = useHeaderHeight(embedOverlay)
+  const popupGeneration = useRef(0)
   const showMapControls = sanitizedConfig.showMapControls !== false
-  useAudiomEmbed(
-    embedOverlay,
-    mapSurface,
-    bundledHandle,
-    runtimeLocation === RuntimeLocation.Bundled,
-    showMapControls
-  )
+  useEsriLegendSync(mapSurface?.view as unknown as EsriFloorView | undefined, runtimeStyle, runtimeLocation === RuntimeLocation.Bundled)
   // Only the bundled map is an Esri map other widgets can select. Standalone
   // embed is an iframe and must not publish a view. The data source id is
   // captured with the view; recreating the JimuMapView would destroy it.
@@ -568,78 +529,44 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapSurface, props.id, props.widgetId, runtimeLocation])
   const showPopup = (point: FeatureClickPoint | null) => {
+    const generation = ++popupGeneration.current
     if (!point) {
       setFeaturePopup(null)
       return
     }
-    const world = bundledHandle?.program?.world
-    const withStatistic = includeStatistic(world, sanitizedConfig.sourceConfigs)
-    // The rules file's name expression is the tooltip. Esri's popup title is only
-    // the fallback when that file did not name the plot.
-    const fromRules = world
-      ? audiomPopupLines(world, point.longitude, point.latitude)
-      : []
-    const lines = fromRules.length ? [...fromRules] : []
-    const name = point.name?.trim()
-    if (!lines.length && name) lines.push(name)
-    const stat = withStatistic && !fromRules.length ? statisticLine(world, point) : ''
-    if (stat) lines.push(stat)
-    const resolved = lines
-    if (!resolved.length) {
-      setFeaturePopup(null)
+    const withStatistic = includeStatistic(sanitizedConfig.sourceConfigs)
+    // Esri's popup title and the painted statistic are the fallback when the
+    // audio map names nothing at this point.
+    const fallback = (): string[] => {
+      const lines: string[] = []
+      const name = point.name?.trim()
+      if (name) lines.push(name)
+      const stat = withStatistic ? statisticLine(bundledHandle?.style, point) : ''
+      if (stat) lines.push(stat)
+      return lines
+    }
+    const open = (lines: string[]) => {
+      if (generation !== popupGeneration.current) return
+      setFeaturePopup(lines.length
+        ? { lines, longitude: point.longitude, latitude: point.latitude }
+        : null)
+    }
+    if (!bundledHandle) {
+      open(fallback())
       return
     }
-    setFeaturePopup({ lines: resolved, longitude: point.longitude, latitude: point.latitude })
+    // The rules file's name expression is the tooltip, as the audio map has it.
+    void bundledHandle.describePoint(point.longitude, point.latitude).then((features) => {
+      const lines = pointLines(features, withStatistic)
+      open(lines.length ? lines : fallback())
+    }, () => { open(fallback()) })
   }
-  // Follow already hit-tested the painted graphic. Speech must say the
-  // same lines the tooltip shows: name, then statistic. A click only opens
-  // the popup. Coordinates are the screen-reader status, not this utterance.
+  // A move shows the tooltip for where the indicator landed. The runtime
+  // speaks the step itself, with the statistic's pitch on a heatmap.
   const followPopup = (point: FeatureClickPoint | null) => {
-    // The load report sets openPopup false. Do not speak that plot, and do
-    // not record it for the first step. A real move sets the flag true.
+    // The load report sets openPopup false. A real move sets the flag true.
     if (point?.openPopup === false) return
     showPopup(point)
-    const world = bundledHandle?.program?.world
-    const withStatistic = includeStatistic(world, sanitizedConfig.sourceConfigs)
-    const lines: string[] = []
-    const name = point?.name?.trim()
-    if (name) lines.push(name)
-    if (point && withStatistic) {
-      const stat = statisticLine(world, point)
-      if (stat) lines.push(stat)
-    }
-    const field = (world as { statistics?: { field?: string } } | null | undefined)?.statistics?.field
-    const statistic = withStatistic
-      ? numericAttribute(field && point?.attributes ? point.attributes[field] : undefined)
-      : undefined
-    const title = lines.length ? lines.join('. ') : null
-    const heatmap = heatmapSources(world, sanitizedConfig.sourceConfigs)
-    const announce = (
-      place: Record<string, unknown> | null,
-      alreadySpoken: boolean
-    ) => {
-      const ruled = spokenPlaceTitle(place)
-      if (ruled && point && world && !audiomPopupLines(world, point.longitude, point.latitude).length) {
-        showPopup({ ...point, name: ruled })
-      }
-      const nextTitle = ruled || title
-      // The hit already named this tract. Waiting on the rules file left the
-      // step saying Empty Space, and a second call must not chime again.
-      if (alreadySpoken && (!ruled || (title && title.startsWith(ruled)))) return
-      const pitch = heatmap
-        ? statistic
-        : standingPitch(statistic, place, false)
-      bundledHandle?.program?.announceStanding?.(nextTitle, alreadySpoken ? undefined : pitch, place)
-    }
-    // Speak from the hit. The rules file can rename the tooltip, but it must
-    // not hold the tone for the old 800 ms fallback.
-    announce(null, false)
-    const rulesUrl = bundledRulesUrl(sanitizedConfig)
-    const generation = ++followGeneration.current
-    void soundPlaceForGraphic(point?.attributes, rulesUrl).then((place) => {
-      if (generation !== followGeneration.current) return
-      announce(place, true)
-    }).catch((): void => undefined)
   }
 
   // Integrated runtime is Bundled only. Legacy and Standalone take the iframe below.
@@ -658,7 +585,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
         aria-label={title}
         style={styles.container}
       >
-        <div style={styles.container}>
+        <div ref={widgetBox} style={styles.container}>
           {needsMapSource ? (
             <p role="status" style={styles.mapSourcePrompt}>{SET_MAP_SOURCE_MESSAGE}</p>
           ) : (
@@ -671,26 +598,24 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
             latitude={sanitizedConfig.centerLatitude}
             zoom={sanitizedConfig.zoom}
             onViewSettled={onViewSettled}
-            headerHeight={headerHeight}
             avatar={avatar}
             onMove={(direction) => {
-              // Unlock in this turn, but do not wait for it. Waiting held
-              // the indicator until the audio context resumed.
-              void bundledHandle?.program?.unlockAudio?.()
-              void bundledHandle?.runtime.moveAvatar(direction)
+              // The resume starts inside this key press; the step does not wait for it.
+              void bundledHandle?.resumeAudio()
+              void bundledHandle?.move(direction).catch(logRuntimeFailure)
             }}
-            onDrop={(longitude, latitude) => bundledHandle?.dropAvatar?.(longitude, latitude) ?? Promise.resolve(false)}
-            onSelect={() => { void bundledHandle?.runtime.focusRuntime(bundledFocusTarget) }}
+            onDrop={(longitude, latitude) =>
+              bundledHandle?.drop(longitude, latitude).catch((error: unknown) => {
+                logRuntimeFailure(error)
+                return false
+              }) ?? Promise.resolve(false)}
+            onSelect={() => { void bundledHandle?.focusMap().catch(logRuntimeFailure) }}
             onFeatureClick={showPopup}
             onFeatureFollow={followPopup}
-            onFeatureFollowPrepare={() => { bundledHandle?.program?.expectPaintedHit?.() }}
             onPopupAnchor={(longitude, latitude) => {
               setFeaturePopup((current) => current ? { ...current, longitude, latitude } : current)
             }}
-            onUnlock={() => {
-              primeBundledAudio(bundledHandle)
-              return unlockBundledAudio(bundledHandle)
-            }}
+            onUnlock={() => bundledHandle?.resumeAudio() ?? Promise.resolve(false)}
             popup={featurePopup}
             onPopupClose={() => { setFeaturePopup(null) }}
             onSurface={setMapSurface}
@@ -698,8 +623,20 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
           )}
           <div
             ref={embedOverlay}
+            className="audiom-runtime-overlay"
             style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, overflow: 'visible', zIndex: STACK.embed, pointerEvents: 'none' }}
           />
+          <style>{RUNTIME_OVERLAY_CSS}</style>
+          {!needsMapSource && (
+            <MapControls
+              view={mapSurface?.view as MapControlView | undefined}
+              labels={mapControlLabels(props.intl)}
+              indicator={avatar}
+              fullscreenTarget={widgetBox.current}
+              themeSource={embedOverlay.current}
+              show={showMapControls}
+            />
+          )}
         </div>
         {!needsMapSource && (
         <p className="sr-only" role="status">
@@ -735,28 +672,85 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   )
 }
 /**
- * The embed paints its header into the overlay after mount. Measure that
- * bar so the Esri map starts below it instead of showing through the bar.
+ * The map buttons' names in the app's locale, from this widget's
+ * runtime/translations (manifest translatedLocales). English when the
+ * locale has no file, or when no intl is given.
  */
-function useHeaderHeight (overlay: { current: HTMLDivElement | null }): number {
-  const [height, setHeight] = useState(0)
+function mapControlLabels (
+  intl: { formatMessage?: (descriptor: { id: string, defaultMessage: string }) => string } | undefined
+): MapControlLabels {
+  const read = (id: keyof MapControlLabels): string =>
+    intl?.formatMessage?.({ id, defaultMessage: defaultMessages[id] }) || defaultMessages[id]
+  return {
+    zoomIn: read('zoomIn'),
+    zoomOut: read('zoomOut'),
+    resetBearing: read('resetBearing'),
+    enterFullscreen: read('enterFullscreen'),
+    exitFullscreen: read('exitFullscreen'),
+    recenterMap: read('recenterMap')
+  }
+}
+
+/** A refused call is the runtime's answer, not a widget crash. Log it and go on. */
+function logRuntimeFailure (error: unknown): void {
+  // eslint-disable-next-line no-console
+  console.error('Audiom runtime call failed', error)
+}
+
+/**
+ * The runtime's viewer sits in the overlay over the Esri map. The overlay
+ * lets clicks through to the map; the viewer's own controls take them.
+ */
+const RUNTIME_OVERLAY_CSS = `
+.audiom-runtime-overlay button,
+.audiom-runtime-overlay a,
+.audiom-runtime-overlay input,
+.audiom-runtime-overlay select,
+.audiom-runtime-overlay textarea,
+.audiom-runtime-overlay [role="dialog"],
+.audiom-runtime-overlay [role="menu"],
+.audiom-runtime-overlay [tabindex],
+.audiom-runtime-overlay aside { pointer-events: auto; }
+`
+
+/**
+ * The legend is the source of truth for the Esri map: the layers the user
+ * turned off are hidden, and the selected floor is the floor drawn. The
+ * runtime reports both in onStyleChanged.
+ */
+function useEsriLegendSync (
+  view: EsriFloorView | undefined,
+  style: RuntimeStyle | null,
+  enabled: boolean
+): void {
+  const styleRef = useRef(style)
+  styleRef.current = style
+  const floor = style?.floor ?? null
+  const hiddenKey = (style?.hiddenSources || []).join('\u0000')
+  const shownSources = useRef<Set<string>>(new Set())
   useEffect(() => {
-    const node = overlay.current
-    if (!node) return
-    const measure = () => {
-      const header = node.querySelector('.audiomHeader')
-      setHeight(header ? Math.ceil(header.getBoundingClientRect().height) : 0)
+    if (!enabled || !view || !styleRef.current) return
+    const hidden = new Set(styleRef.current.hiddenSources)
+    for (const id of hidden) setEsriLayerVisible(view.map, id, false)
+    // A source the user turned back on is shown again.
+    for (const id of shownSources.current) {
+      if (!hidden.has(id)) setEsriLayerVisible(view.map, id, true)
     }
-    measure()
-    const observer = new MutationObserver(measure)
-    observer.observe(node, { childList: true, subtree: true })
-    window.addEventListener('resize', measure)
+    shownSources.current = hidden
+  }, [view, hiddenKey, enabled])
+  useEffect(() => {
+    if (!enabled || !view || !styleRef.current) return
+    const apply = () => { void setEsriFloor(view, floor) }
+    apply()
+    // A web map that finishes loading its layers later gets the floor too.
+    const stopLayers = onEsriLayerChange(view, apply)
+    // A click must not draw a floor or a layer the legend hides, or select it.
+    const stopClicks = guardFloorClicks(view)
     return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', measure)
+      stopLayers()
+      stopClicks()
     }
-  }, [overlay])
-  return height
+  }, [view, floor, enabled])
 }
 
 
@@ -815,7 +809,6 @@ function EsriMapSurface (props: {
   /** False while the saved center belongs to a different item. */
   viewpointReady?: boolean
   onViewSettled?: (view: MountedMapSurface['view']) => void
-  headerHeight?: number
   avatar?: ReportedAvatar | null
   onMove?: (direction: string) => void
   onDrop?: (longitude: number, latitude: number) => Promise<boolean>
@@ -824,7 +817,6 @@ function EsriMapSurface (props: {
   onSelect?: () => void
   onFeatureClick?: (point: FeatureClickPoint | null) => void
   onFeatureFollow?: (point: FeatureClickPoint | null) => void
-  onFeatureFollowPrepare?: () => void
   /** Move an open tooltip to the new step before the hit test returns. */
   onPopupAnchor?: (longitude: number, latitude: number) => void
   onUnlock?: () => void | Promise<boolean>
@@ -1073,7 +1065,6 @@ function EsriMapSurface (props: {
     if (!avatar || !surface || !onFollow) return
     const view = surface.view
     if (!view.hitTest) return
-    props.onFeatureFollowPrepare?.()
     const previous = followed.current
     // The runtime reports the load position before the map can be hit-tested.
     // Recording that report makes the first real drop look like the same
@@ -1184,7 +1175,7 @@ function EsriMapSurface (props: {
     }).catch(() => { emit() })
   }
   return (
-    <div style={{ position: 'absolute', zIndex: STACK.map, top: props.headerHeight || 0, right: 0, bottom: 0, left: 0 }}>
+    <div style={{ position: 'absolute', zIndex: STACK.map, top: 0, right: 0, bottom: 0, left: 0 }}>
       <div
         id={AUDIOM_MAP_ELEMENT_ID}
         ref={container}
@@ -1224,7 +1215,6 @@ function EsriMapSurface (props: {
             heading: 0
           }
           const viewPoint = dropViewPoint(surface, point)
-          props.onFeatureFollowPrepare?.()
           const dropped = onDrop(geographic.longitude, geographic.latitude)
           const hit = viewPoint && surface?.view.hitTest
             ? surface.view.hitTest(viewPoint).then(async (result) => {
@@ -1563,80 +1553,6 @@ function movementDirection (key: string): string | null {
   return null
 }
 
-/**
- * Audiom's own React root, beside the Esri map node. Esri replaces children
- * of the map div, so this overlay is a sibling. The menu mounts as soon as
- * the surface exists; the session is passed in when the program starts.
- * Argument order matches the call site: overlay, surface, handle, enabled.
- * Swapping overlay and enabled makes the ref look like a boolean, so the
- * menu, header, and legend never mount.
- */
-function useAudiomEmbed (
-  overlay: { current: HTMLDivElement | null },
-  surface: MountedMapSurface | null,
-  handle: BundledRuntimeHandle | null,
-  enabled: boolean,
-  showMapControls: boolean
-): boolean {
-  const [mounted, setMounted] = useState(false)
-  const setControls = useRef<((container: HTMLElement, show: boolean) => void) | null>(null)
-  const showMapControlsRef = useRef(showMapControls)
-  showMapControlsRef.current = showMapControls
-  useEffect(() => {
-    const node = overlay.current
-    // The menu does not wait on the program. A failed program used to skip
-    // this effect entirely, which is why the button never appeared.
-    if (!enabled || !node || !surface) {
-      setMounted(false)
-      return
-    }
-    let cancelled = false
-    let release: (() => void) | undefined
-    // The program chunk is not in the widget file. Waiting for it here
-    // does not block the widget module, which is what froze the tab.
-    void loadAudiomEntry().then((compiled) => {
-      if (cancelled) return
-      try {
-        const session = handle?.program as { world?: unknown } | null
-        if (!compiled?.mountAudiomEmbed) {
-          throw new Error('Audiom menu entry has no mountAudiomEmbed')
-        }
-        setControls.current = compiled.setEmbedMapControls ?? null
-        const controller = compiled.mountAudiomEmbed(node, {
-          session: session?.world ? session as { world: unknown } : null,
-          view: surface.view,
-          project: projectEmbedPoint,
-          controllerOptions: { welcome: false },
-          showMapControls: showMapControlsRef.current
-        })
-        release = () => {
-          controller?.release()
-          compiled.unmountAudiomEmbed?.(node)
-        }
-        if (!cancelled) setMounted(true)
-      } catch (error) {
-        // The embed is optional; the hand-rolled compass stays if it fails.
-        // Surface the reason instead of swallowing it.
-        // eslint-disable-next-line no-console
-        console.error('Audiom embed failed to mount', error)
-        if (!cancelled) setMounted(false)
-      }
-    }).catch((): void => undefined)
-    return () => {
-      cancelled = true
-      release?.()
-      setControls.current = null
-      setMounted(false)
-    }
-  }, [enabled, surface, handle, overlay])
-  useEffect(() => {
-    const node = overlay.current
-    if (!mounted || !node) return
-    setControls.current?.(node, showMapControls)
-  }, [showMapControls, mounted, overlay])
-  return mounted
-}
-
 /** The slice of a view extent the navigation wall needs. */
 interface ViewExtent {
   xmin?: number
@@ -1681,25 +1597,6 @@ async function geographicExtentOf (
   }
 }
 
-function projectEmbedPoint (
-  view: { toScreen?: (point: unknown) => { x?: number, y?: number } | null, container?: HTMLElement },
-  longitude: number,
-  latitude: number
-): Promise<{ x: number, y: number } | null> {
-  // The popup layer is a sibling of the map and starts at the same top as
-  // the view. toScreen is already in that box. Do not shift it into
-  // #audiom-embed: that node includes the header, so the popup lands under it.
-  if (!view.toScreen) return Promise.resolve(null)
-  const projected = view.toScreen({
-    type: 'point',
-    longitude,
-    latitude,
-    spatialReference: { wkid: Wkid.Wgs84 }
-  })
-  if (projected?.x == null || projected.y == null) return Promise.resolve(null)
-  return Promise.resolve({ x: projected.x, y: projected.y })
-}
-
 /**
  * The center a bundled session may be born at. 0,0 is the unset default,
  * not a place, so it must not become the projection origin. A later pan
@@ -1713,13 +1610,18 @@ function sessionOriginKey (longitude?: number, latitude?: number): string {
 function useBundledRuntime (
   enabled: boolean,
   instanceId: string,
+  /** The overlay the runtime mounts its viewer into. */
+  overlay: { current: HTMLDivElement | null },
   jimuMapView: JimuMapView | undefined,
   onStatus: (status: string) => void,
   surface: MountedMapSurface | null,
   onAvatar: (position: ReportedAvatar | null) => void,
+  onStyle: (style: RuntimeStyle | null) => void,
   longitude?: number,
   latitude?: number,
   moveDistance?: number,
+  assetBase?: string,
+  locale?: string,
   soundpackUrl?: string,
   soundpackFallbackUrl?: string,
   mapTypes?: readonly SnapshotMapTypeHint[],
@@ -1753,6 +1655,9 @@ function useBundledRuntime (
     `${item.id || item.title || item.url || ''}:${item.enabled === false ? '0' : item.enabled === true ? '1' : ''}`
   ).join('|')
   const loadedSnapshot = useRef<MapSnapshot | null>(null)
+  // Repaint the loaded snapshot with the legend's current style. Set by the
+  // snapshot effect; called on onStyleChanged and on the labels setting.
+  const repaint = useRef<(() => void) | null>(null)
   // The Map Type effect republishes this snapshot into a new session. A map
   // switch must drop it first, or Data Sources keeps the previous item's layers.
   const snapshotItemId = useRef(mapItemId)
@@ -1803,93 +1708,75 @@ function useBundledRuntime (
       longitude: longitudeRef.current,
       latitude: latitudeRef.current
     }
-    let cancelled = false
-    let next: BundledRuntimeHandle | null = null
-    // The program is a chunk. Starting before it loads used the empty
-    // fallback and left the widget with no session.
-    void loadAudiomEntry().then(() => {
-      if (cancelled) return
-      next = startBundledRuntime(
-        mapItemId ? `${instanceId}:${mapItemId}` : instanceId,
-        jimuMapView,
-        onStatus,
-        null,
-        {
-          longitude: longitudeRef.current,
-          latitude: latitudeRef.current,
-          moveDistance: moveDistanceRef.current,
-          soundpackUrl,
-          soundpackFallbackUrl
-        }
-      )
-      next.bindSurface?.(surface)
-      next.onReported = (state) => {
-        const position = {
-          longitude: state.position.longitude,
-          latitude: state.position.latitude,
-          heading: state.orientation
-        }
-        reportedRef.current = position
-        // A new runtime starts at the configured point. That is not a step.
-        onAvatar(position)
-      }
-      setHandle(next)
-    }).catch((): void => undefined)
+    const container = overlay.current
+    if (!container) return
+    const next = startBundledRuntime({
+      instanceId: mapItemId ? `${instanceId}:${mapItemId}` : instanceId,
+      container,
+      onStatus,
+      // The map opens at the configured centre, not the centre of the data.
+      start: { longitude: longitudeRef.current, latitude: latitudeRef.current },
+      stepSize: moveDistanceRef.current,
+      assetBase,
+      soundpackUrl,
+      soundpackFallbackUrl,
+      locale
+    })
+    next.bindSurface(surface)
+    next.onReported = (position) => {
+      reportedRef.current = position
+      onAvatar(position)
+    }
+    next.onStyle = (style) => {
+      onStyle(style)
+      repaint.current?.()
+    }
+    setHandle(next)
     return () => {
-      cancelled = true
-      if (!next) return
-      next.onReported = undefined
       restoreAudiomStyles(jimuMapView)
       setReported(null)
       onAvatar(null)
-      // runtime.dispose() does not stop the session. The old encounter
-      // player and tones keep going on the shared engine unless the
-      // program itself is disposed.
-      next.program?.dispose()
-      void next.runtime.dispose()
+      onStyle(null)
+      // Destroyed tears the viewer down, with its sounds.
+      void next.dispose().catch(logRuntimeFailure)
     }
-  }, [enabled, instanceId, mapItemId, originKey, jimuMapView, onStatus, onAvatar, soundpackUrl, soundpackFallbackUrl])
-  // The view can settle before the session exists. Apply that extent once
-  // the program is there, so the new map's bounding box is not the old one.
+    // locale and assetBase are read when the runtime starts; changing them is not a restart.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, instanceId, mapItemId, originKey, jimuMapView, onStatus, onAvatar, onStyle, soundpackUrl, soundpackFallbackUrl, overlay])
+  // The view can settle before the runtime exists. Apply that extent once
+  // it is there, so the new map's fence is not the old one.
   useEffect(() => {
     const settled = navigationExtent?.current
-    if (!handle?.program?.setNavigationExtent || !settled || !mapItemId) return
+    if (!handle || !settled || !mapItemId) return
     if (settled.itemId !== mapItemId) return
-    handle.program.setNavigationExtent(settled.extent)
+    void handle.setNavigationExtent(settled.extent).catch(logRuntimeFailure)
   }, [handle, mapItemId, navigationExtent])
-  // Step size is not a session restart. The start effect reads it once;
-  // a later settings write has to reach the live avatar or the next
-  // arrow key still uses the distance from when the map loaded.
+  // Step size is not a session restart. The start reads it once; a later
+  // settings write has to reach the live avatar or the next arrow key still
+  // uses the distance from when the map loaded.
   useEffect(() => {
-    if (!handle?.program?.setMoveDistance) return
+    if (!handle) return
     if (moveDistance == null || !Number.isFinite(moveDistance) || moveDistance <= 0) return
-    handle.program.setMoveDistance(moveDistance)
+    void handle.setStepSize(moveDistance).catch(logRuntimeFailure)
   }, [handle, moveDistance])
   useEffect(() => {
-    handle?.bindSurface?.(surface)
+    handle?.bindSurface(surface)
   }, [handle, surface])
-  // A typed Center is a new place. placeAt keeps the session's origin, so
-  // the report stays in degrees instead of becoming meters in the ocean.
-  // The point the session was born at is not a move: a pan writes that
-  // same center back, and following it would drag the indicator.
+  // A typed Center is a new place: restore the avatar there. The point the
+  // session was born at is not a move: a pan writes that same center back,
+  // and following it would drag the indicator.
   useEffect(() => {
-    if (!handle?.program?.placeAt) return
+    if (!handle) return
     if (!hasMapCenter(longitude, latitude)) return
     const born = bornCenter.current
     if (born && born.longitude === longitude && born.latitude === latitude) return
-    const placed = handle.program.placeAt(longitude, latitude)
     bornCenter.current = { longitude, latitude }
-    const position = {
-      longitude: placed.position.longitude,
-      latitude: placed.position.latitude,
-      heading: placed.orientation
-    }
-    reportedRef.current = position
-    onAvatar(position)
-  }, [handle, longitude, latitude, onAvatar])
+    // The runtime reports the restored position through onAvatarChanged.
+    void handle.place(longitude as number, latitude as number).catch(logRuntimeFailure)
+  }, [handle, longitude, latitude])
   // The indicator starts at the set map's center. A pan must not move it.
-  // A typed center does, through placeAt above. Drag, keyboard, and the
-  // menu report through onReported rather than through this config.
+  // A typed center does, through place above. Drag and keyboard report
+  // through onReported rather than through this config.
   useEffect(() => {
     const drawn = surface?.view?.map || jimuMapView?.view?.map
     const map = drawn as {
@@ -1899,7 +1786,7 @@ function useBundledRuntime (
         on?: (eventName: string, handler: () => void) => { remove?: () => void }
       }
     } | undefined
-    if (!handle?.program || !map) return
+    if (!handle || !map) return
     let cancelled = false
     let layerHandle: { remove?: () => void } | undefined
     const drawnView = (surface?.view || jimuMapView?.view) as { extent?: ViewExtent, map?: unknown, graphics?: unknown } | undefined
@@ -1907,33 +1794,17 @@ function useBundledRuntime (
     // above every layer. map alone is the fallback for the layer walk.
     const view = { map, view: drawnView }
     const paintChoice = async (snapshot: MapSnapshot) => {
-      const program = handle.program as {
-        world?: {
-          statistics?: { field?: string, fields?: Array<{ field?: string }> }
-          settings?: { vectorStyleMode?: VectorStyleMode }
-          rootStore?: { settings?: { vectorStyleMode?: VectorStyleMode } }
-        }
-      } | null
+      const style = handle.style
       // The legend's field. A placeholder such as casesPerOneMillion is not in
       // the catalog, so it is not a selection. Count only columns the dropdown
       // lists. The first of those is ramp 0 on the first paint and after a
       // statistic change.
-      const statistics = program?.world?.statistics
-      const queried = (snapshot as MapSnapshot & {
-        queriedLayers?: Array<{
-          fields?: Array<{ name?: string, type?: string }>
-          features?: Array<{ attributes?: Record<string, unknown> }>
-        }>
-      }).queriedLayers
-      const known = statistics?.fields?.map((item) => item.field)
-      const varying = catalogFields(queried)
-      const published = (known?.length ? known : varying).filter((name) => varying.includes(name))
-      const chosen = published.includes(statistics?.field || '')
-        ? statistics?.field
+      const published = catalogFields(snapshot.queriedLayers)
+      const chosen = published.includes(style?.statistic?.field || '')
+        ? style?.statistic?.field
         : published[0]
-      // The legend toggles the injected store, not a private world copy.
-      // Default is colors, matching SettingsStore, not both.
-      const mode = paintStyleMode(program)
+      // Default is colors, matching the viewer's SettingsStore, not both.
+      const mode = paintStyleMode(style)
       // The embedded map counts the statistic's place in the dropdown.
       // The first statistic is ramp 0. A property-key index paints another ramp.
       const catalogIndex = chosen ? published.indexOf(chosen) : -1
@@ -1945,8 +1816,8 @@ function useBundledRuntime (
         chosen,
         paletteIndex,
         snapshot.sources.length === 1 ? snapshot.sources[0].mapType : undefined,
-        showMapLabelsRef.current && paintShowLabels(program),
-        paintLabelLevel(program)
+        showMapLabelsRef.current && paintShowLabels(style),
+        paintLabelLevel(style)
       )
     }
     const apply = async () => {
@@ -1965,7 +1836,7 @@ function useBundledRuntime (
         ? { longitude: standingLongitude as number, latitude: standingLatitude as number }
         : undefined
       const snapshot = await snapshotFeaturesFromMapView(
-        view, instanceId, mapTypesRef.current, undefined, indicator
+        view, instanceId, mapTypesRef.current, undefined, indicator, handle.evaluate
       )
       // A switch drops this query. Publishing it would put the previous
       // item's layers back into Data Sources after the new map had loaded.
@@ -1982,26 +1853,23 @@ function useBundledRuntime (
         ? settled.extent
         : await geographicExtentOf(drawnView)
       if (!stillThisMap()) return
-      if (extent) (snapshot as MapSnapshot & { extent?: [number, number, number, number] }).extent = extent
-      const program = handle.program as {
-        applySnapshot?: (snapshot: MapSnapshot) => Promise<unknown>
-      } | null
+      // The runtime keeps the fence across snapshots, and applies it when
+      // its map opens.
+      if (extent) await handle.setNavigationExtent(extent)
       // Paint before publish. The publish can reject, and waiting on it left
       // the host renderer in place so the first load had no Audiom colors.
-      // The mode is already on the settings store, so this paint honors it.
       await paintChoice(snapshot)
       if (!stillThisMap()) return
-      if (program?.applySnapshot) await program.applySnapshot(snapshot)
-      else await handle.runtime.replaceSources(snapshot, 1)
+      await handle.replaceSources(snapshot)
       if (!stillThisMap()) return
       // A viewpoint that settled while the query was running replaces the
       // extent captured at the start of that query.
       const latestExtent = navigationExtent?.current
-      if (latestExtent && latestExtent.itemId === mapItemId) {
-        handle.program?.setNavigationExtent?.(latestExtent.extent)
+      if (latestExtent && latestExtent.itemId === mapItemId && latestExtent.extent !== extent) {
+        await handle.setNavigationExtent(latestExtent.extent)
       }
-      // Publish can replace the placeholder field with the legend's statistic.
-      // Paint that field too. A failed paint keeps the renderer just applied.
+      // The first map reports the legend's statistic. Paint that field too.
+      // A failed paint keeps the renderer just applied.
       await paintChoice(snapshot)
     }
     void apply().catch((error: unknown) => {
@@ -2018,7 +1886,7 @@ function useBundledRuntime (
     })
     // The legend changes the statistic and the pattern/color mode. Repaint
     // the snapshot already loaded. Querying again is what made recolor slow.
-    const onPaint = () => {
+    repaint.current = () => {
       const loaded = loadedSnapshot.current
       if (!loaded) return
       void paintChoice(loaded).catch((error: unknown) => {
@@ -2026,11 +1894,10 @@ function useBundledRuntime (
         console.error('Audiom repaint failed', error)
       })
     }
-    window.addEventListener(EMBED_PAINT_EVENT, onPaint)
     return () => {
       cancelled = true
       layerHandle?.remove?.()
-      window.removeEventListener(EMBED_PAINT_EVENT, onPaint)
+      repaint.current = null
     }
   }, [handle, jimuMapView, surface, instanceId, rulesKey, visibilityKey])
   // The snapshot effect must not depend on this switch. Toggling it only
@@ -2039,7 +1906,7 @@ function useBundledRuntime (
   useEffect(() => {
     if (sawMapLabels.current === showMapLabels) return
     sawMapLabels.current = showMapLabels
-    window.dispatchEvent(new Event(EMBED_PAINT_EVENT))
+    repaint.current?.()
   }, [showMapLabels])
   // Map Type is audio and the legend, not a new query. Retag the snapshot
   // already loaded and publish that. Querying the service again is the
@@ -2047,7 +1914,7 @@ function useBundledRuntime (
   const mapTypeKey = (mapTypes || []).map((item) => `${item.id || ''}:${item.mapType || ''}`).join('|')
   useEffect(() => {
     const loaded = loadedSnapshot.current
-    if (!handle?.program || !mapTypeKey || !loaded) return
+    if (!handle || !mapTypeKey || !loaded) return
     // Handle identity changes on a map switch. The snapshot above is the
     // previous item until the new query lands; publishing it restores the
     // old Data Sources on the new map.
@@ -2056,44 +1923,33 @@ function useBundledRuntime (
     const retagged: MapSnapshot = {
       ...loaded,
       sources: loaded.sources.map((source) => {
-        const hint = hints.find((item) => item.id === source.sourceId) ||
+        const hint = hints.find((item) => item.id === source.id) ||
           (hints.length === 1 ? hints[0] : undefined)
-        const raw = hint?.mapType === 'standard' ? 'travel' : hint?.mapType
-        const next = raw === 'heatmap' || raw === 'indoor' || raw === 'travel'
-          ? raw
-          : 'travel'
+        const raw = hint?.mapType
+        // The contract names Travel `standard`.
+        const next = raw === 'heatmap' || raw === 'indoor' ? raw : 'standard'
         return next === source.mapType ? source : { ...source, mapType: next }
       })
     }
     loadedSnapshot.current = retagged
-    const program = handle.program as {
-      applySnapshot?: (snapshot: MapSnapshot) => Promise<unknown>
-      world?: {
-        statistics?: { field?: string }
-        settings?: { vectorStyleMode?: VectorStyleMode }
-        rootStore?: { settings?: { vectorStyleMode?: VectorStyleMode } }
-      }
-    } | null
+    const style = handle.style
     const drawn = drawnMapRef.current
     const paint = drawn
       ? paintAudiomStyles(
         { map: drawn },
         retagged,
-        paintStyleMode(program),
-        program?.world?.statistics?.field,
+        paintStyleMode(style),
+        style?.statistic?.field,
         undefined,
         retagged.sources.length === 1 ? retagged.sources[0].mapType : undefined,
-        showMapLabelsRef.current && paintShowLabels(program),
-        paintLabelLevel(program)
+        showMapLabelsRef.current && paintShowLabels(style),
+        paintLabelLevel(style)
       )
       : Promise.resolve()
-    const publish = program?.applySnapshot
-      ? program.applySnapshot(retagged)
-      : handle.runtime.replaceSources(retagged, 1)
     const publishedItemId = mapItemId
     void paint.then(() => {
       if (snapshotItemId.current !== publishedItemId) return undefined
-      return publish
+      return handle.replaceSources(retagged)
     }).catch((error: unknown) => {
       // eslint-disable-next-line no-console
       console.error('Audiom map type update failed', error)

@@ -1,0 +1,1 @@
+System.register([],function(e){return{execute:function(){e({zoomIn:"Ingrandisci",zoomOut:"Riduci",resetBearing:"Reimposta orientamento a nord",enterFullscreen:"Entra a schermo intero",exitFullscreen:"Esci da schermo intero",recenterMap:"Ricentra mappa sull'avatar"})}}});

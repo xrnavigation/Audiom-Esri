@@ -1,17 +1,37 @@
-import {
-  GeometryFamily,
-  LayerDisposition,
-  type MapSnapshot,
-  type RecordSnapshot,
-  type SourceSnapshot,
-  SourceStatus
-} from '../../../../shared/audiom-runtime/src/types'
+import type { HostRecord, SourceSnapshot } from '@xrnavigation/audiom-runtime/contract'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { isDataSourceLayerType, isRasterLayerType } from '../utils/mapEnums'
 import { DISPLAY_NAME_FIELDS } from './featureFields'
 import { graphicName, loadMapModules } from './esriMapSurface'
-import { applyConfiguredRules } from './rulesStyle'
+import { applyConfiguredRules, rulesUrlForLayer } from './rulesStyle'
 import { isWebMercatorWkid, webMercatorToLonLat, Wkid } from './spatialReference'
+
+/** One source of the runtime contract's snapshot. */
+export type SnapshotSource = SourceSnapshot['sources'][number]
+type RecordGeometry = HostRecord['geometry']
+
+/** Rule outputs per attribute row for a source's rules file and map type: the runtime's evaluateRecords. */
+export type EvaluateRecords = (
+  rulesUrl: string,
+  mapType: SnapshotSource['mapType'],
+  attributes: Array<Record<string, unknown>>
+) => Promise<Array<Record<string, unknown> | null>>
+
+/**
+ * The runtime snapshot, plus what only the widget reads: the queried layer
+ * copies the paint uses, and the configured sources whose eye is off.
+ * Send `{ sources }` alone; the contract rejects any other key.
+ */
+export interface MapSnapshot extends SourceSnapshot {
+  /** Configured sources with the eye off: in the legend, not navigable. */
+  unavailable: string[]
+  queriedLayers?: SnapshotLayer[]
+}
+
+/** Every record in the snapshot, across its sources. */
+export function snapshotRecords (snapshot: SourceSnapshot): HostRecord[] {
+  return snapshot.sources.flatMap((source) => source.records)
+}
 
 /** Same fallback as Audiom-Front-End esriLayerSync. A mismatch misses the eye toggle. */
 export const FALLBACK_LAYER_SOURCE_ID = 'layer'
@@ -120,11 +140,11 @@ export interface SnapshotMapView {
   }
 }
 
-const FAMILY_BY_TYPE: Record<string, GeometryFamily> = {
-  point: GeometryFamily.Point,
-  multipoint: GeometryFamily.MultiPoint,
-  polyline: GeometryFamily.LineString,
-  polygon: GeometryFamily.Polygon
+const FAMILY_BY_TYPE: Record<string, SnapshotSource['geometryFamily']> = {
+  point: 'point',
+  multipoint: 'point',
+  polyline: 'line',
+  polygon: 'polygon'
 }
 
 const FEATURE_LIMIT = 200
@@ -159,10 +179,10 @@ export function snapshotFromMapView (
   dataSourceId: string,
   mapTypes?: readonly SnapshotMapTypeHint[]
 ): MapSnapshot {
-  const sources: SourceSnapshot[] = []
-  const records: RecordSnapshot[] = []
+  const sources: SnapshotSource[] = []
+  const unavailable: string[] = []
   const layers = jimuMapView?.view?.map?.allLayers || jimuMapView?.map?.allLayers
-  if (!layers) return { sources, records, dataSourceId }
+  if (!layers) return { sources, unavailable }
   const listed: SnapshotLayer[] = []
   layers.forEach((layer) => listed.push(layer))
   const floorFields = floorFieldsFromSnapshots(listed)
@@ -185,43 +205,52 @@ export function snapshotFromMapView (
         (typeof layer.queryFeatures === 'function' && typeof layer.createQuery === 'function')
       )
     const hidden = hint ? hint.enabled === false : layer.visible === false
-    const outOfScale = layer.scaleVisible === false
     // A configured or visible operational layer is a data source even before
     // its features are queried. Rule colors are painted later and must not
-    // hide the layer.
-    const bound = supported && !hidden
-    sources.push({
-      sourceId,
-      displayName: hint?.title || layer.title || sourceId,
-      geometryFamily: FAMILY_BY_TYPE[layer.geometryType || ''] || null,
-      mapType: mapTypeForLayer(layer, mapTypes),
-      rulesRef: layer.rulesRef?.trim() || null,
-      disposition: bound ? LayerDisposition.Bound : LayerDisposition.VisualOnly,
-      // The service total, when the geometry page was dropped. The loop below
-      // raises it if more records were actually emitted.
+    // hide the layer. A configuration with its eye off stays a bound source,
+    // so the legend counts it; the runtime is told it is unavailable.
+    const bound = hint ? true : supported && !hidden
+    const rulesUrl = rulesUrlForLayer(layer, mapTypes)
+    const records: HostRecord[] = []
+    // The contract's types are read-only; recordCount is raised below.
+    const source: { -readonly [K in keyof SnapshotSource]: SnapshotSource[K] } = {
+      id: sourceId,
+      name: hint?.title || layer.title || sourceId,
+      geometryFamily: FAMILY_BY_TYPE[layer.geometryType || ''] || 'none',
+      mapType: contractMapType(mapTypeForLayer(layer, mapTypes)),
+      rulesRef: rulesUrl ? { type: 'url', url: rulesUrl } : null,
+      disposition: bound ? 'bound' : 'visualOnly',
+      // The service total, when the geometry page was dropped. Raised below
+      // if more records were actually emitted.
       recordCount: layer.serviceFeatureCount || 0,
-      status: SourceStatus.Complete
-    })
+      status: { type: 'complete' },
+      records
+    }
+    sources.push(source)
+    // Out of scale stays navigable. A closed eye does not.
+    if (hint && hint.enabled === false) unavailable.push(sourceId)
     const features = (layer as SnapshotLayer & { features?: SnapshotFeature[] }).features
     if (!features?.length) return
     // A hidden configuration is still a layer with features. Dropping them
     // made the legend count 0. The eye, not this count, decides navigation.
     if ((!supported || hidden) && !hint) return
-    // Out of scale stays navigable. A closed eye does not.
-    const navigable = hint ? hint.enabled !== false : supported && (bound || outOfScale)
     const cap = isFloorLayer(layer, floorFields)
       ? INDOOR_FEATURE_CAP
       : Math.min(HEATMAP_FEATURE_CAP, Math.max(features.length, FEATURE_LIMIT))
     for (const feature of features.slice(0, cap)) {
-      const record = featureRecord(dataSourceId, sourceId, layer, feature, navigable)
+      const record = featureRecord(dataSourceId, sourceId, layer, feature, Boolean(rulesUrl))
       if (record) records.push(record)
     }
+    source.recordCount = Math.max(source.recordCount, records.length)
   })
-  for (const source of sources) {
-    const emitted = records.filter((record) => record.sourceId === source.sourceId).length
-    source.recordCount = Math.max(source.recordCount, emitted)
-  }
-  return { sources, records, dataSourceId }
+  return { sources, unavailable }
+}
+
+/** The contract names Travel `standard`. */
+function contractMapType (mapType: string): SnapshotSource['mapType'] {
+  if (mapType === MapType.Heatmap) return 'heatmap'
+  if (mapType === MapType.Indoor) return 'indoor'
+  return 'standard'
 }
 
 /**
@@ -347,7 +376,9 @@ export async function snapshotFeaturesFromMapView (
   dataSourceId: string,
   mapTypes?: readonly SnapshotMapTypeHint[],
   viewExtent?: unknown,
-  indicator?: { longitude: number, latitude: number }
+  indicator?: { longitude: number, latitude: number },
+  /** Rule outputs for the paint copies. Absent: the copies stay unstamped. */
+  evaluate?: EvaluateRecords
 ): Promise<MapSnapshot> {
   const map = jimuMapView?.view?.map?.allLayers ? jimuMapView?.view?.map : jimuMapView?.map
   const layers = map?.allLayers
@@ -407,13 +438,19 @@ export async function snapshotFeaturesFromMapView (
   // Before rules. The augmenter appends levelName, and the Levels dropdown
   // reads levelOrdinal. Units only have a LEVEL_ID guid until this join.
   stampIndoorLevels(loaded, mapTypes)
-  // After the query. Applying earlier stamps copies the query then replaces.
-  await applyConfiguredRules(loaded, mapTypes)
   const view = {
     map: { allLayers: { forEach: (fn: (layer: SnapshotLayer) => void) => { loaded.forEach(fn) } } }
   }
+  // The records carry the service attributes. The runtime evaluates each
+  // source's rules file itself (rulesRef), so they must not be stamped first.
   const snapshot = snapshotFromMapView({ map: view.map }, dataSourceId, mapTypes)
-  ;(snapshot as MapSnapshot & { queriedLayers?: SnapshotLayer[] }).queriedLayers = loaded
+  // After the snapshot. The paint reads rule colors from these copies.
+  if (evaluate) {
+    await applyConfiguredRules(loaded, mapTypes, (rulesUrl, layer, attributes) =>
+      evaluate(rulesUrl, contractMapType(mapTypeForLayer(layer as SnapshotLayer, mapTypes)), attributes)
+    )
+  }
+  snapshot.queriedLayers = loaded
   return snapshot
 }
 
@@ -1094,8 +1131,9 @@ function featureRecord (
   layerId: string,
   layer: SnapshotLayer,
   feature: SnapshotFeature,
-  navigable: boolean
-): RecordSnapshot | null {
+  /** The source has a rules file, which the runtime evaluates on these attributes. */
+  hasRules: boolean
+): HostRecord | null {
   const geometry = serializeGeometry(layer.geometryType, feature.geometry)
   // A meter ring is not a plot. Audiom would treat it as longitude and the
   // indicator would never be inside it.
@@ -1103,7 +1141,11 @@ function featureRecord (
   const attributes = feature.attributes || {}
   const objectId = layer.objectIdField ? attributes[layer.objectIdField] : attributes.OBJECTID ?? attributes.objectid
   const recordId = objectId != null ? String(objectId) : `${layerId}-${recordsFallbackId(feature)}`
-  const styled = styleAttributes(attributes)
+  // A rules file reads the service columns as the service wrote them, so a
+  // ruled record keeps every scalar column unconverted.
+  const styled: Record<string, StyleValue> = hasRules
+    ? { ...styleAttributes(attributes), ...serviceAttributes(attributes) }
+    : styleAttributes(attributes)
   // A rules file already named the plot, including level suffixes. Do not
   // replace that with the raw popup title. The type-column fallback below is
   // not a rules file.
@@ -1130,12 +1172,25 @@ function featureRecord (
   // this layer has no use type, so the step must not say "Levels: Level 1".
   if (layer.floorCatalog) styled.ruleType = 'level'
   return {
-    key: { dataSourceId, layerId, recordId },
-    sourceId: layerId,
+    key: { mainDataSourceId: dataSourceId, backingLayerId: layerId, recordId },
     attributes: styled,
-    geometry,
-    navigable
+    geometry
   }
+}
+
+/**
+ * Text, boolean and finite number columns as the service sent them. A parcel
+ * minstep or maxstep is not an Audiom step bound; styleAttributes renames it.
+ */
+function serviceAttributes (attributes: Record<string, unknown>): Record<string, StyleValue> {
+  const kept: Record<string, StyleValue> = {}
+  for (const [key, value] of Object.entries(attributes)) {
+    if (key === 'minstep' || key === 'maxstep') continue
+    if (value === null) kept[key] = null
+    else if (typeof value === 'string' || typeof value === 'boolean') kept[key] = value
+    else if (typeof value === 'number' && Number.isFinite(value)) kept[key] = value
+  }
+  return kept
 }
 
 let fallbackSerial = 0
@@ -1246,23 +1301,30 @@ function putStyle (kept: Record<string, StyleValue>, name: string, value: unknow
   else if (typeof value === 'boolean') kept[name] = Boolean(value)
 }
 
+type Position = [number, number]
+
+/** The contract's positions are [longitude, latitude]. Esri can add z and m. */
+function position (value: number[]): Position {
+  return [value[0], value[1]]
+}
+
 function serializeGeometry (
   geometryType: string | undefined,
   geometry: SnapshotFeature['geometry']
-): RecordSnapshot['geometry'] {
+): RecordGeometry {
   if (!geometry) return null
   const point = pointCoordinates(geometry)
   if ((geometryType === 'point' || geometry.type === 'point') && point) {
-    return { type: GeometryFamily.Point, coordinates: point }
+    return { type: 'Point', coordinates: position(point) }
   }
   if ((geometryType === 'polyline' || geometry.paths) && geometry.paths?.length) {
-    const paths = geometry.paths.filter((path) => path.length > 1)
+    const paths = geometry.paths.filter((path) => path.length > 1).map((path) => path.map(position))
     if (!paths.length) return null
-    if (paths.length === 1) return { type: GeometryFamily.LineString, coordinates: paths[0] }
-    return { type: GeometryFamily.MultiLineString, coordinates: paths }
+    if (paths.length === 1) return { type: 'LineString', coordinates: paths[0] }
+    return { type: 'MultiLineString', coordinates: paths }
   }
   if ((geometryType === 'polygon' || geometry.rings) && geometry.rings?.length) {
-    const rings = geometry.rings.filter((ring) => ring.length > 2)
+    const rings = geometry.rings.filter((ring) => ring.length > 2).map((ring) => ring.map(position))
     if (!rings.length) return null
     return ringsToPolygon(rings)
   }
@@ -1276,9 +1338,9 @@ function serializeGeometry (
  * Outer rings are clockwise; holes are counter-clockwise and nest in the outer
  * ring that contains them. Audiom rewinds the result, so only topology matters.
  */
-function ringsToPolygon (rings: number[][][]): RecordSnapshot['geometry'] {
-  const outers: number[][][][] = []
-  const holes: number[][][] = []
+function ringsToPolygon (rings: Position[][]): RecordGeometry {
+  const outers: Position[][][] = []
+  const holes: Position[][] = []
   for (const ring of rings) {
     if (ringIsClockwise(ring)) outers.push([ring])
     else holes.push(ring)
@@ -1286,16 +1348,16 @@ function ringsToPolygon (rings: number[][][]): RecordSnapshot['geometry'] {
   if (!outers.length) {
     // No clockwise ring means the winding is non-standard. Keep every ring as
     // its own part so coverage is never dropped and no step says Empty Space.
-    if (rings.length === 1) return { type: GeometryFamily.Polygon, coordinates: [rings[0]] }
-    return { type: GeometryFamily.MultiPolygon, coordinates: rings.map((ring) => [ring]) }
+    if (rings.length === 1) return { type: 'Polygon', coordinates: [rings[0]] }
+    return { type: 'MultiPolygon', coordinates: rings.map((ring) => [ring]) }
   }
   for (const hole of holes) {
     const owner = outers.find((polygon) => pointInRing(hole[0], polygon[0]))
     if (owner) owner.push(hole)
     else outers.push([hole])
   }
-  if (outers.length === 1) return { type: GeometryFamily.Polygon, coordinates: outers[0] }
-  return { type: GeometryFamily.MultiPolygon, coordinates: outers }
+  if (outers.length === 1) return { type: 'Polygon', coordinates: outers[0] }
+  return { type: 'MultiPolygon', coordinates: outers }
 }
 
 /** Shoelace sign. Esri outer rings wind clockwise. */
@@ -1438,7 +1500,7 @@ async function projectLoadedFeatures (layers: SnapshotLayer[]): Promise<void> {
 }
 
 
-function geometryIsGeographic (geometry: NonNullable<RecordSnapshot['geometry']>): boolean {
+function geometryIsGeographic (geometry: NonNullable<RecordGeometry>): boolean {
   const nested = geometry.coordinates as unknown
   const positions: number[][] = []
   const walk = (value: unknown): void => {

@@ -1,0 +1,1 @@
+System.register([],function(e){return{execute:function(){e({zoomIn:"Увеличить",zoomOut:"Уменьшить",resetBearing:"Сбросить направление на север",enterFullscreen:"Войти в полноэкранный режим",exitFullscreen:"Выйти из полноэкранного режима",recenterMap:"Перецентрировать карту на аватаре"})}}});

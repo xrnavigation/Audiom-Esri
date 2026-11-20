@@ -1,190 +1,358 @@
-import {
-  CONTRACT_VERSION,
-  type AppliedResult,
-  type AvatarState,
-  type CanonicalKey,
-  type ContractError,
-  FocusTarget,
-  type FocusResult,
-  type SelectionResult,
-  type Viewpoint
-} from '../../../../shared/audiom-runtime/src/types'
+import type {
+  HostRecord,
+  Message,
+  RuntimeHost,
+  SourceSnapshot
+} from '@xrnavigation/audiom-runtime/contract'
 import {
   createInProcessRuntime,
-  type InProcessRuntime
-} from '../../../../shared/audiom-runtime/src/factory'
-import { embedLabelStyle } from './embedLabelPlacement'
+  type InProcessRuntime,
+  type InProcessRuntimeConfig
+} from '@xrnavigation/audiom-runtime/in-process'
+import { labelStyle } from '@xrnavigation/audiom-runtime/labels'
 import { AUDIOM_LABEL_LAYER_ID, labelsForFeatures, labelSymbolPaint, thinLabels, type LabelFeature, type LabelGraphicSpec, type ScreenLabel } from './audiomLabels'
 import { applyAudiomLabels, applyAudiomSymbols, restoreAudiomLabels, restoreAudiomSymbols, VectorStyleMode, type LabelLayer, type SymbolLayer, type SymbolModules } from './audiomSymbols'
-import { FALLBACK_LAYER_SOURCE_ID, snapshotFeaturesFromMapView, type SnapshotLayer, type SnapshotMapView } from './mapSnapshot'
-import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
+import { FALLBACK_LAYER_SOURCE_ID, snapshotRecords, type MapSnapshot, type SnapshotLayer, type SnapshotMapView } from './mapSnapshot'
 import { AUDIOM_AVATAR_LAYER_ID } from './chrome'
 import { showAvatar, type MountedMapSurface } from './esriMapSurface'
 import { lonLatToWebMercator, Wkid } from './spatialReference'
-import { audiomProgramError, createAudiomProgram, type AudiomProgram } from './audiomProgram'
+import { loadRulesFile } from './rulesStyle'
+import type { ReportedAvatar } from './reportedAvatar'
+import { RUNTIME_LOCALES, RUNTIME_TRANSLATIONS, runtimeLocale } from './runtimeLocales'
+
+/** The contract version this host implements. 1.1 adds host movement, styles, and the fence. */
+export const HOST_CONTRACT_VERSION = '1.1'
+
+type SnapshotSource = SourceSnapshot['sources'][number]
+type Direction = 'up' | 'down' | 'left' | 'right'
+const DIRECTIONS: readonly Direction[] = ['up', 'down', 'left', 'right']
+type Extent = [number, number, number, number]
+
+/** What the runtime's legend shows, from onStyleChanged. The paint follows it. */
+export interface RuntimeStyle {
+  statistic: { field: string, label: string } | null
+  styleMode: VectorStyleMode
+  labels: boolean
+  floor: number | null
+  /** Sources the user turned off in the legend. */
+  hiddenSources: string[]
+}
+
+/** A feature the audio map has at a point: the tooltip's name and statistic. */
+export interface PointFeature {
+  name: string
+  statistic: { field: string, label: string, value: number } | null
+}
+
+export interface BundledRuntimeOptions {
+  instanceId: string
+  /** The element the runtime mounts its viewer into, over the Esri map. */
+  container: HTMLElement
+  onStatus: (status: string) => void
+  /** The configured map centre. The map opens there instead of at the data's centre. */
+  start?: { longitude?: number, latitude?: number }
+  /** Meters per step. */
+  stepSize?: number
+  /** Where the viewer's logo and other assets are served. */
+  assetBase?: string
+  soundpackUrl?: string
+  /** The sibling `/default` pack for cues the primary pack does not ship. */
+  soundpackFallbackUrl?: string
+  /** The Experience Builder locale, such as `en-us`. */
+  locale?: string
+}
 
 export interface BundledRuntimeHandle {
   runtime: InProcessRuntime
-  appliedSources: number
   lastError: string
-  avatar: AvatarState | null
+  /** Number of sources in the last snapshot the runtime applied. */
+  appliedSources: number
+  avatar: ReportedAvatar | null
   /** True only after Audiom reports a position. The widget never invents one. */
   reported: boolean
   /** Called only when Audiom reports a new avatar state. */
-  onReported?: (state: AvatarState) => void
+  onReported?: (avatar: ReportedAvatar) => void
   /** True when Audiom asked the host to unlock audio. */
   activationRequired: boolean
-  /** The compiled Audiom program, when it loaded. */
-  program: AudiomProgram | null
-  /** The map mounted after this runtime started. Go pans this view. */
-  bindSurface?: (surface: MountedMapSurface | null) => void
-  /**
-   * Drop the navigation indicator. True when Audiom accepted the point.
-   * A blocked drop leaves the avatar where it was.
-   */
-  dropAvatar?: (longitude: number, latitude: number) => Promise<boolean>
+  /** The legend's style, once the runtime has opened its map. */
+  style: RuntimeStyle | null
+  onStyle?: (style: RuntimeStyle) => void
+  /** Resolves once the runtime accepted this host's hello. */
+  ready: Promise<void>
+  /** The map mounted after this runtime started. The indicator is drawn on it. */
+  bindSurface: (surface: MountedMapSurface | null) => void
+  /** One arrow-key step (up, down, left, right). True when the avatar moved or turned. */
+  move: (direction: string) => Promise<boolean>
+  /** Drop the indicator. False when a wall or the fence refused the point. */
+  drop: (longitude: number, latitude: number) => Promise<boolean>
+  /** Put the indicator at a typed centre. Not a user drop: no fence, no landing tone. */
+  place: (longitude: number, latitude: number) => Promise<void>
+  /** Resume audio. Call it inside the user's key press or click. */
+  resumeAudio: () => Promise<boolean>
+  describePoint: (longitude: number, latitude: number) => Promise<PointFeature[]>
+  /** Rule outputs per attribute row, null where the rules exclude it. */
+  evaluate: (
+    rulesUrl: string,
+    mapType: SnapshotSource['mapType'],
+    attributes: Array<Record<string, unknown>>
+  ) => Promise<Array<Record<string, unknown> | null>>
+  replaceSources: (snapshot: MapSnapshot) => Promise<void>
+  setStepSize: (meters: number) => Promise<void>
+  /** [west, south, east, north]; null fences navigation to the data again. */
+  setNavigationExtent: (extent: Extent | null) => Promise<void>
+  focusMap: () => Promise<void>
+  dispose: () => Promise<void>
 }
 
-const applied = (revision = 0): AppliedResult => ({ applied: true, revision })
+type JsonValue = string | number | boolean | null
 
-/** Runs the runtime package in this widget. The Esri map stays the map. */
-export function startBundledRuntime (
-  instanceId: string,
-  jimuMapView: SnapshotMapView | undefined,
-  onStatus: (status: string) => void,
-  surface: MountedMapSurface | null = null,
-  origin?: { longitude?: number, latitude?: number, moveDistance?: number, soundpackUrl?: string, soundpackFallbackUrl?: string }
-): BundledRuntimeHandle {
-  const handle: BundledRuntimeHandle = {
-    runtime: null as unknown as InProcessRuntime,
-    appliedSources: 0,
+/** The contract copies plain JSON only. Drop what JSON would lose. */
+function jsonAttributes (attributes: Record<string, unknown>): Record<string, JsonValue> {
+  const kept: Record<string, JsonValue> = {}
+  for (const [key, value] of Object.entries(attributes)) {
+    if (value === null) kept[key] = null
+    else if (typeof value === 'string' || typeof value === 'boolean') kept[key] = value
+    else if (typeof value === 'number' && Number.isFinite(value)) kept[key] = value
+  }
+  return kept
+}
+
+function errorMessage (error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * Run the published Audiom runtime in this widget. The runtime mounts its
+ * viewer (menus, legend, speech) into `container`; the Esri map stays the
+ * visual map, and the widget drives the avatar through the contract.
+ */
+export function startBundledRuntime (options: BundledRuntimeOptions): BundledRuntimeHandle {
+  const { instanceId, onStatus } = options
+  const sessionId = `${instanceId}-session`
+  // One sequence for this host's calls and its event results. Each side of
+  // the runtime only needs its own messages to increase.
+  let sequence = 0
+  const message = <T>(payload: T): Message<T> => ({
+    sessionId,
+    hostViewGeneration: 0,
+    sequence: sequence++,
+    payload
+  })
+  const applied = () => Promise.resolve(message({ status: 'applied' as const }))
+  let stateRevision = 0
+  // The map is mounted after this runtime starts. The indicator is drawn on
+  // the surface that exists at report time.
+  let drawnSurface: MountedMapSurface | null = null
+
+  const handle = {
     lastError: '',
+    appliedSources: 0,
     avatar: null,
     reported: false,
     activationRequired: false,
-    program: null
-  }
-  let program: AudiomProgram | null = null
-  // The map is mounted after this runtime starts. Go reads the surface that
-  // exists at report time, not the null passed into startBundledRuntime.
-  let drawnSurface = surface
-  const host = {
-    onAvatarChanged (state: AvatarState) {
-      handle.avatar = state
+    style: null
+  } as unknown as BundledRuntimeHandle
+
+  const host: RuntimeHost = {
+    onAvatarChanged: ({ payload }) => {
+      const avatar = {
+        longitude: payload.position[0],
+        latitude: payload.position[1],
+        heading: payload.orientation
+      }
+      handle.avatar = avatar
       handle.reported = true
-      handle.onReported?.(state)
-      const mapSurface = drawnSurface
-      void showAvatar(mapSurface, {
-        longitude: state.position.longitude,
-        latitude: state.position.latitude,
-        heading: state.orientation
-      })
+      handle.onReported?.(avatar)
       // The indicator is a geographic point. Panning or zooming the map
       // must not move it, and a report must not recenter the map on it.
-      // Audiom's marker only changes on drag, keyboard, or menu movement.
-      return Promise.resolve(applied())
+      void showAvatar(drawnSurface, avatar)
+      return applied()
     },
-    requestSelection () {
-      const result: SelectionResult = { accepted: true, revision: 1 }
-      return Promise.resolve(result)
+    // The widget has no selection of its own. Accept, as before.
+    requestSelection: ({ payload }) =>
+      Promise.resolve(message({ status: 'accepted' as const, selectionRevision: payload.baseRevision })),
+    requestViewpoint: ({ payload }) => {
+      onStatus(`Viewpoint ${payload.center[0]}, ${payload.center[1]}`)
+      return applied()
     },
-    requestViewpoint (viewpoint: Viewpoint) {
-      onStatus(`Viewpoint ${viewpoint.center.longitude}, ${viewpoint.center.latitude}`)
-      return Promise.resolve(applied())
-    },
-    requestHostFocus () {
-      const result: FocusResult = { focused: true, blocked: false }
-      return Promise.resolve(result)
-    },
-    onFocusChanged () { return Promise.resolve(applied()) },
-    onActivationRequired () {
+    requestHostFocus: () => Promise.resolve(message({ status: 'focused' as const })),
+    onFocusChanged: () => applied(),
+    onActivationRequired: () => {
       handle.activationRequired = true
       onStatus('Select the map to turn sound on')
-      return Promise.resolve(applied())
+      return applied()
     },
-    onFeatureEntered (keys: CanonicalKey[]) {
-      onStatus(keys.length ? `Entered ${keys.length}` : 'Entered')
-      return Promise.resolve(applied())
+    onFeatureEntered: () => {
+      onStatus('Entered')
+      return applied()
     },
-    onFeatureExited () { return Promise.resolve(applied()) },
-    onRuntimeStatus (status: string) {
-      onStatus(status)
-      return Promise.resolve(applied())
+    onFeatureExited: () => applied(),
+    onRuntimeStatus: ({ payload }) => {
+      onStatus(payload.status)
+      return applied()
     },
-    onRuntimeError (error: ContractError) {
-      handle.lastError = error.message
-      onStatus(error.message)
-      return Promise.resolve(applied())
+    onRuntimeError: ({ payload }) => {
+      handle.lastError = payload.message
+      onStatus(payload.message)
+      return applied()
+    },
+    onStyleChanged: ({ payload }) => {
+      const style: RuntimeStyle = {
+        statistic: payload.statistic,
+        styleMode: payload.styleMode as VectorStyleMode,
+        labels: payload.labels,
+        floor: payload.floor,
+        hiddenSources: [...payload.hiddenSources]
+      }
+      handle.style = style
+      handle.onStyle?.(style)
+      return applied()
     }
   }
+
+  const start = options.start
+  const startPoint: [number, number] | undefined =
+    start && Number.isFinite(start.longitude) && Number.isFinite(start.latitude)
+      ? [start.longitude as number, start.latitude as number]
+      : undefined
+  const locale = runtimeLocale(options.locale)
+  const resolveRules: InProcessRuntimeConfig['resolveRules'] = async (rulesRef) => {
+    if (rulesRef.type !== 'url') {
+      throw new Error('This widget has no Audiom account for managed rules')
+    }
+    return await loadRulesFile(rulesRef.url) as Awaited<ReturnType<InProcessRuntimeConfig['resolveRules']>>
+  }
+  handle.runtime = createInProcessRuntime({
+    sessionId,
+    container: options.container,
+    // LngLat is a branded [lng, lat] tuple; the brand has no runtime form.
+    start: startPoint as unknown as InProcessRuntimeConfig['start'],
+    resolveRules,
+    options: {
+      instanceId,
+      assetBase: options.assetBase,
+      soundpack: options.soundpackUrl,
+      // Absent, the runtime looks for /default on this page's own origin.
+      defaultSoundpack: options.soundpackFallbackUrl ?? options.soundpackUrl,
+      customStepSize: options.stepSize,
+      hideWelcome: true,
+      locale,
+      locales: RUNTIME_LOCALES,
+      translationResources: RUNTIME_TRANSLATIONS
+    }
+  }, host)
+
+  const fail = (error: unknown) => {
+    handle.lastError = errorMessage(error)
+    onStatus(handle.lastError)
+  }
+  // Hello before the first snapshot: the runtime sends onStyleChanged only
+  // to a host that said hello with 1.1 before its map opened.
+  handle.ready = handle.runtime.hello(message({
+    product: 'Experience Builder',
+    version: (window as { jimuConfig?: { exbVersion?: string } }).jimuConfig?.exbVersion || 'unknown',
+    contractVersion: HOST_CONTRACT_VERSION,
+    capabilities: ['existing-map']
+  })).then(() => undefined)
+  handle.ready.catch(fail)
+
   handle.bindSurface = (next) => {
     drawnSurface = next
   }
-  handle.dropAvatar = async (longitude, latitude) => {
-    const dropped = program?.dropAvatar?.(longitude, latitude) ?? null
-    if (!dropped) return false
-    await handle.runtime.notifyAvatarChanged(dropped)
-    return true
+  handle.move = async (direction) => {
+    if (!DIRECTIONS.includes(direction as Direction)) return false
+    const result = await handle.runtime.moveAvatar(message({
+      move: { type: 'step', direction: direction as Direction }
+    }))
+    return result.payload.status === 'moved'
   }
-  program = createAudiomProgram({
-    instanceId,
-    longitude: origin?.longitude,
-    latitude: origin?.latitude,
-    moveDistance: origin?.moveDistance,
-    soundpackUrl: origin?.soundpackUrl,
-    soundpackFallbackUrl: origin?.soundpackFallbackUrl
-  }, host)
-  handle.program = program
-  if (program) {
-    handle.runtime = program.runtime
-  } else {
-    handle.lastError = audiomProgramError() || 'Audiom program failed to load'
-    // eslint-disable-next-line no-console
-    console.error('Audiom program failed to load:', handle.lastError)
-    handle.runtime = createInProcessRuntime({
-      sessionId: `${instanceId}-session`,
-      instanceId,
-      moveAvatar () {
-        return null
-      }
-    }, host)
-    onStatus(handle.lastError)
+  handle.drop = async (longitude, latitude) => {
+    const result = await handle.runtime.moveAvatar(message({
+      move: { type: 'drop', position: [longitude, latitude] }
+    }))
+    return result.payload.status === 'moved'
   }
-  void handle.runtime.hello({
-    product: 'Experience Builder',
-    version: '1.18',
-    contractVersion: CONTRACT_VERSION,
-    capabilities: ['existing-map']
-  }).then(async () => {
-    const start = program?.avatarState?.()
-    if (start) await handle.runtime.notifyAvatarChanged(start)
-    if (program?.loadSoundpack) {
-      try {
-        await program.loadSoundpack()
-        if (program.audioLocked?.()) {
-          handle.activationRequired = true
-          onStatus('Select the map to turn sound on')
-        }
-      } catch (error) {
-        // A missing pack must not cancel the feature snapshot below.
-        // eslint-disable-next-line no-console
-        console.error('Audiom soundpack failed', error)
-      }
+  handle.place = async (longitude, latitude) => {
+    await handle.runtime.restoreAvatar(message({
+      position: [longitude, latitude],
+      orientation: handle.avatar?.heading ?? 0
+    }))
+  }
+  handle.resumeAudio = () => {
+    // No await before this call: the runtime starts the resume inside it,
+    // while the user's gesture still counts.
+    let pending: Promise<unknown>
+    try {
+      pending = handle.runtime.resumeAudio(message({}))
+    } catch {
+      return Promise.resolve(false)
     }
-    const snapshot = await snapshotFeaturesFromMapView(jimuMapView, instanceId)
-    // This hello view is not the drawn map. An empty replace lands after the
-    // widget's plots and the next step then says Empty Space.
-    if (!snapshot.sources.length) return applied(0)
-    // Do not paint here. This path has no field and no property order, so
-    // it colored the map with a different ramp than the legend.
-    return handle.runtime.replaceSources(snapshot, 1)
-  }).then((result) => {
-    handle.appliedSources = result.revision
-    onStatus(program ? 'Using the existing map' : handle.lastError)
-  }).catch((error: unknown) => {
-    handle.lastError = error instanceof Error ? error.message : 'Runtime failed'
-    onStatus(handle.lastError)
-  })
+    return pending.then(() => {
+      handle.activationRequired = false
+      return true
+    }, () => false)
+  }
+  handle.describePoint = async (longitude, latitude) => {
+    const result = await handle.runtime.describePoint(message({ position: [longitude, latitude] }))
+    return result.payload.features.map((feature) => ({
+      name: feature.name,
+      statistic: feature.statistic
+    }))
+  }
+  handle.evaluate = async (rulesUrl, mapType, attributes) => {
+    const records: HostRecord[] = attributes.map((row, index) => ({
+      key: { mainDataSourceId: instanceId, backingLayerId: 'paint', recordId: String(index) },
+      attributes: jsonAttributes(row),
+      geometry: null
+    }))
+    const result = await handle.runtime.evaluateRecords(message({
+      rulesRef: { type: 'url', url: rulesUrl },
+      mapType,
+      records
+    }))
+    return result.payload.outputs
+  }
+  handle.replaceSources = async (snapshot) => {
+    await handle.ready
+    stateRevision += 1
+    const revision = stateRevision
+    await handle.runtime.replaceSources(message({
+      snapshot: { sources: snapshot.sources },
+      stateRevision: revision
+    }))
+    handle.appliedSources = snapshot.sources.length
+    // A configuration whose eye is off is in the legend but not navigable.
+    await handle.runtime.setEffectiveState(message({
+      state: {
+        sources: snapshot.sources.map((source) => ({
+          id: source.id,
+          available: !snapshot.unavailable.includes(source.id),
+          inScale: true
+        })),
+        floor: null,
+        time: null
+      },
+      stateRevision: revision
+    }))
+  }
+  handle.setStepSize = async (meters) => {
+    await handle.runtime.setStepSize(message({ meters }))
+  }
+  handle.setNavigationExtent = async (extent) => {
+    await handle.runtime.setNavigationExtent(message({ extent }))
+  }
+  handle.focusMap = async () => {
+    await handle.runtime.focusRuntime(message({ target: 'map' }))
+  }
+  handle.dispose = async () => {
+    handle.onReported = undefined
+    handle.onStyle = undefined
+    await handle.runtime.setHostLifecycle(message({
+      widgetState: 'destroyed',
+      viewState: 'inactive',
+      authState: 'anonymous'
+    }))
+  }
   return handle
 }
 
@@ -195,10 +363,8 @@ export function bundledStatus (
   if (handle?.lastError) return handle.lastError
   if (waiting) return 'Waiting for the existing map'
   if (!handle) return 'Starting Audiom'
-  return `Using the existing map (${handle.runtime.snapshot?.sources.length ?? 0} layers)`
+  return `Using the existing map (${handle.appliedSources} layers)`
 }
-
-export const bundledFocusTarget = FocusTarget.Map
 
 /**
  * Paint Audiom fill, stroke, width, opacity, dash, and pattern onto layers
@@ -219,7 +385,7 @@ export async function paintAudiomStyles (
 ): Promise<void> {
   const layers = jimuMapView?.view?.map?.allLayers || jimuMapView?.map?.allLayers
   if (!layers || !snapshot) return
-  const queried = (snapshot as MapSnapshot & { queriedLayers?: SnapshotLayer[] }).queriedLayers || []
+  const queried = snapshot.queriedLayers || []
   const specs: LabelGraphicSpec[] = []
   layers.forEach((layer) => {
     const sourceId = layer.id || layer.title || FALLBACK_LAYER_SOURCE_ID
@@ -239,7 +405,7 @@ export async function paintAudiomStyles (
   // room name and a geographic shape. A site record has neither a use type
   // nor a rules name, so it is not a caption.
   if (showLabels && !specs.length) {
-    specs.push(...labelsForFeatures(snapshot.records.filter((record) => {
+    specs.push(...labelsForFeatures(snapshotRecords(snapshot).filter((record) => {
       const attributes = record.attributes
       return attributes.ruleType || attributes.ruleName || attributes.USE_TYPE ||
         attributes.use_type || attributes.levelOrdinal != null
@@ -300,7 +466,7 @@ export async function paintAudiomStyles (
     }
     const extents = (matched as { fieldExtents?: Record<string, { min: number, max: number }> } | undefined)?.fieldExtents
     const source = snapshot.sources.find((item) =>
-      item.sourceId === sourceId || item.sourceId === layer.id || item.displayName === layer.title
+      item.id === sourceId || item.id === layer.id || item.name === layer.title
     )
     const layerType = source?.mapType || mapType
     const rulesApplied = Boolean(matched?.rulesRef)
@@ -677,7 +843,7 @@ function styleFromEmbed (specs: readonly LabelGraphicSpec[], zoom: number, mode:
   const styled: LabelGraphicSpec[] = []
   for (const spec of specs) {
     const properties = spec.properties || { name: spec.text }
-    const embed = embedLabelStyle(properties, zoom, mode)
+    const embed = labelStyle(properties, zoom, mode as Parameters<typeof labelStyle>[2])
     if (!embed) continue
     styled.push({
       ...spec,
@@ -823,26 +989,4 @@ export function restoreAudiomStyles (jimuMapView: SnapshotMapView | undefined): 
     restoreAudiomLabels(layer as LabelLayer)
   })
   removeAudiomLabels(jimuMapView)
-}
-
-/**
- * Start Audiom's browser resume during the key or click. The widget must
- * call this before awaiting unlockBundledAudio. A resume that starts after
- * that await is no longer inside the gesture, and the step tone stays silent.
- */
-export function primeBundledAudio (handle: BundledRuntimeHandle | null | undefined): void {
-  handle?.program?.primeAudio?.()
-}
-
-/**
- * Resume Audiom's audio from a user gesture. False when no soundpack is loaded.
- * The compiled session returns a Promise; comparing that to true is always false,
- * so the click never counted as an unlock.
- */
-export function unlockBundledAudio (handle: BundledRuntimeHandle | null | undefined): Promise<boolean> {
-  const pending = handle?.program?.unlockAudio?.()
-  return Promise.resolve(pending).then((unlocked) => {
-    if (unlocked && handle) handle.activationRequired = false
-    return unlocked === true
-  }).catch(() => false)
 }

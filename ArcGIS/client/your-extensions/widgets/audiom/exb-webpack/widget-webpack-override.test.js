@@ -1,6 +1,6 @@
 /**
  * The overlay's paths are relative to client/webpack, where setup_arcgis.py
- * copies it. Run from ArcGIS/client:
+ * copies it. Run from ArcGIS/client after npm ci in widgets/audiom:
  *   node your-extensions/widgets/audiom/exb-webpack/widget-webpack-override.test.js
  */
 const assert = require('assert')
@@ -10,43 +10,18 @@ const path = require('path')
 
 const source = path.join(__dirname, 'widget-webpack-override.js')
 const installed = path.resolve(__dirname, '../../../../webpack/widget-webpack-override.js')
-const fakeFrontEnd = fs.mkdtempSync(path.join(require('os').tmpdir(), 'audiom-overlay-'))
-const fakeRuntime = path.join(fakeFrontEnd, 'runtime')
-fs.mkdirSync(path.join(fakeFrontEnd, 'src', 'runtime'), { recursive: true })
-fs.mkdirSync(path.join(fakeFrontEnd, 'node_modules', '@xrnavigation', 'layerloader', 'dist', 'browser', 'rules'), { recursive: true })
-fs.mkdirSync(fakeRuntime, { recursive: true })
-fs.writeFileSync(path.join(fakeFrontEnd, 'src', 'runtime', 'exbEntry.ts'), 'export {}\n')
-fs.writeFileSync(path.join(fakeRuntime, 'factory.ts'), 'export {}\n')
-fs.writeFileSync(
-  path.join(fakeFrontEnd, 'node_modules', '@xrnavigation', 'layerloader', 'dist', 'browser', 'rules', 'mapboxRuleProcessor.js'),
-  'export {}\n'
-)
-process.env.AUDIOM_FRONTEND_ROOT = fakeFrontEnd
-process.env.AUDIOM_RUNTIME_ROOT = fakeRuntime
 process.env.NODE_ENV = 'production'
 fs.copyFileSync(source, installed)
 const overlay = require(installed)
 
-const hostCss = {
-  test: (file) => /\.css$/.test(String(file)),
-  use: [
-    'style-loader',
-    { loader: 'css-loader', options: { modules: true } },
-    'sass-loader'
-  ]
+function externalFor (config, request) {
+  return new Promise((resolve, reject) => {
+    config.externals[0]({ request }, (err, result) => {
+      if (err) reject(err)
+      else resolve(result)
+    })
+  })
 }
-const config = {
-  resolve: { extensions: ['.js'] },
-  module: { rules: [hostCss] }
-}
-
-overlay([config])
-
-const moduleCss = 'D:/Audiom-Front-End/src/components/Tabs/tabs.module.css'
-const plainCss = 'D:/Audiom-Front-End/src/runtime/layout.css'
-const worktreeCss = 'D:/Audiom-Front-End-exb/src/runtime/mapNavigationControls.css'
-const otherCss = 'D:/widgets/other/style.css'
-const frontEndTs = 'D:/Audiom-Front-End/src/modules/audioEngine.ts'
 
 function matches (rule, file) {
   if (!rule || rule.test == null) return false
@@ -55,75 +30,78 @@ function matches (rule, file) {
   return false
 }
 
-assert.strictEqual(matches(hostCss, moduleCss), false, 'host css rule must not also compile Front-End modules')
-assert.strictEqual(matches(hostCss, plainCss), false, 'plain Front-End css stays on the unhashed rule')
-assert.strictEqual(matches(hostCss, worktreeCss), false, 'worktree map-control css must not be hashed')
-assert.strictEqual(matches(hostCss, otherCss), true, 'other widgets keep the host css rule')
-
-const plainRule = config.module.rules.find((rule) => (
-  rule.use && matches(rule, worktreeCss) && matches(rule, plainCss)
-))
-assert.ok(plainRule, 'worktree plain css needs the unhashed Front-End rule')
-const plainLoader = plainRule.use.find((item) => item && item.loader === 'css-loader')
-assert.strictEqual(plainLoader.options.modules, false)
-
-const moduleRule = config.module.rules.find((rule) => (
-  rule.use && matches(rule, moduleCss) && !matches(rule, plainCss)
-))
-assert.ok(moduleRule, 'Front-End module css needs its own rule')
-const cssLoader = moduleRule.use.find((item) => item && item.loader === 'css-loader')
-assert.strictEqual(cssLoader.options.modules.namedExport, false)
-assert.strictEqual(cssLoader.options.modules.exportLocalsConvention, 'as-is')
-assert.notStrictEqual(cssLoader.options.modules.auto, false)
-
-const eager = config.module.rules.find((rule) => (
-  rule.parser && rule.parser.dynamicImportMode === 'eager'
-))
-assert.ok(eager, 'Front-End dynamic imports must be inlined')
-assert.strictEqual(eager.parser.dynamicImportMode, 'eager')
-assert.strictEqual(eager.parser.javascript, undefined)
-assert.strictEqual(matches(eager, frontEndTs), true)
-assert.strictEqual(matches(eager, 'D:/widgets/other/src/runtime/widget.tsx'), false)
-
-const development = {
-  resolve: { extensions: ['.js'] },
-  module: { rules: [] }
-}
-process.env.NODE_ENV = 'development'
-overlay([development])
-assert.strictEqual(
-  development.module.rules.some((rule) => rule.parser && rule.parser.dynamicImportMode === 'eager'),
-  false,
-  'development must not inline Front-End imports; that file freezes the builder tab'
-)
-process.env.NODE_ENV = 'production'
-
-function loadOverlay (env) {
-  const childEnv = Object.assign({}, process.env, env)
-  if (!Object.prototype.hasOwnProperty.call(env, 'AUDIOM_FRONTEND_ROOT')) {
-    delete childEnv.AUDIOM_FRONTEND_ROOT
+async function main () {
+  // The host claims react and react-dom, as Experience Builder 1.18 does.
+  const hostExternals = function ({ request }, callback) {
+    if (request === 'react' || request === 'react-dom') return callback(null, 'system jimu-core/' + request)
+    callback()
   }
-  if (!Object.prototype.hasOwnProperty.call(env, 'AUDIOM_RUNTIME_ROOT')) {
-    delete childEnv.AUDIOM_RUNTIME_ROOT
+  const config = {
+    resolve: { extensions: ['.js'] },
+    module: { rules: [] },
+    externals: hostExternals
   }
-  return spawnSync(process.execPath, ['-e', 'require(' + JSON.stringify(installed) + ')'], {
-    cwd: path.resolve(__dirname, '../../../..'),
-    env: childEnv,
-    encoding: 'utf8'
-  })
+  overlay([config])
+
+  const alias = config.resolve.alias
+  assert.strictEqual(alias['@xrnavigation/layerloader$'], path.join(__dirname, 'layerloader-rules.js'))
+  assert.ok(fs.existsSync(alias['@xrnavigation/layerloader$']), 'the layerloader shim is used from its source folder')
+  assert.strictEqual(alias['react/jsx-runtime'], path.resolve(__dirname, '../../../../webpack/host-jsx-runtime.js'))
+  assert.strictEqual(alias['audiom-front-end/runtime/exbEntry'], undefined, 'no Front-End entry is compiled')
+
+  assert.strictEqual(await externalFor(config, 'react'), 'system jimu-core/react')
+  assert.strictEqual(await externalFor(config, 'react-dom/client'), 'system jimu-core/react-dom',
+    'react-dom/client must be the host React DOM, not the peer copy npm installs')
+  assert.strictEqual(await externalFor(config, 'hls.js'), 'commonjs hls.js')
+  assert.strictEqual(await externalFor(config, 'react/jsx-runtime'), undefined)
+  assert.strictEqual(await externalFor(config, 'mobx'), undefined)
+
+  // A release that externalizes react-dom/client itself keeps its own answer.
+  const newer = {
+    resolve: {},
+    module: { rules: [] },
+    externals: [function ({ request }, callback) {
+      if (request === 'react-dom/client') return callback(null, 'system jimu-core/react-dom-client')
+      callback()
+    }]
+  }
+  overlay([newer])
+  assert.strictEqual(await externalFor(newer, 'react-dom/client'), 'system jimu-core/react-dom-client')
+
+  const eager = config.module.rules.find((rule) => rule.parser && rule.parser.dynamicImportMode === 'eager')
+  assert.ok(eager, 'the published build inlines dynamic imports')
+  assert.strictEqual(eager.parser.javascript, undefined)
+  assert.strictEqual(matches(eager, 'D:/client/your-extensions/widgets/audiom/src/runtime/widget.tsx'), true)
+  assert.strictEqual(matches(eager, 'D:/client/your-extensions/widgets/audiom/node_modules/@xrnavigation/audiom-runtime/dist/in-process.js'), true)
+  assert.strictEqual(matches(eager, 'D:/client/your-extensions/widgets/other/src/runtime/widget.tsx'), false)
+  assert.ok(config.module.rules.some((rule) => rule.parser && rule.parser.url === false && matches(rule, 'x/dotpad/DotPadSDK-3.0.2.js')))
+
+  const development = { resolve: {}, module: { rules: [] } }
+  process.env.NODE_ENV = 'development'
+  overlay([development])
+  assert.strictEqual(
+    development.module.rules.some((rule) => rule.parser && rule.parser.dynamicImportMode === 'eager'),
+    false,
+    'development must not inline imports; that file freezes the builder tab'
+  )
+  process.env.NODE_ENV = 'production'
+
+  // Without the installed package the build stops and says what to run.
+  const modules = path.resolve(__dirname, '../node_modules')
+  const hidden = modules + '.hidden-for-test'
+  fs.renameSync(modules, hidden)
+  try {
+    const missing = spawnSync(process.execPath, ['-e', 'require(' + JSON.stringify(installed) + ')'], { encoding: 'utf8' })
+    assert.notStrictEqual(missing.status, 0)
+    assert.match((missing.stderr || '') + (missing.stdout || ''), /Run npm ci in ArcGIS\/client\/your-extensions\/widgets\/audiom/)
+  } finally {
+    fs.renameSync(hidden, modules)
+  }
+
+  console.log('widget-webpack-override tests passed')
 }
 
-const local = loadOverlay({})
-const localOutput = (local.stdout || '') + (local.stderr || '')
-assert.strictEqual(local.status, 0, localOutput)
-assert.doesNotMatch(localOutput, /Set AUDIOM_FRONTEND_ROOT/)
-
-const named = fs.mkdtempSync(path.join(require('os').tmpdir(), 'audiom-overlay-missing-'))
-const namedLoad = loadOverlay({
-  AUDIOM_FRONTEND_ROOT: named,
-  AUDIOM_RUNTIME_ROOT: fakeRuntime
+main().catch((error) => {
+  console.error(error)
+  process.exit(1)
 })
-assert.notStrictEqual(namedLoad.status, 0, 'a named checkout without the entry must fail the build')
-assert.match((namedLoad.stderr || '') + (namedLoad.stdout || ''), /Audiom Front-End entry is missing/)
-
-console.log('widget-webpack-override tests passed')

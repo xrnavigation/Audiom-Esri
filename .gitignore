@@ -9,6 +9,8 @@ arcgis-experience-builder-*.zip
 ArcGIS/client/*
 !ArcGIS/client/start-client.bat
 !ArcGIS/client/your-extensions/
+# The widget's installed packages (npm ci in widgets/audiom).
+ArcGIS/client/your-extensions/widgets/audiom/node_modules/
 
 !ArcGIS/server/
 ArcGIS/server/*

@@ -1,7 +1,10 @@
-import { LayerDisposition } from '../../../../shared/audiom-runtime/src/types'
-import { snapshotFeaturesFromMapView, snapshotFromMapView } from '../../src/runtime/mapSnapshot'
+import { snapshotFeaturesFromMapView, snapshotFromMapView, snapshotRecords, type MapSnapshot } from '../../src/runtime/mapSnapshot'
 import { setMapModuleLoader } from '../../src/runtime/esriMapSurface'
-import { startBundledRuntime } from '../../src/runtime/bundledRuntime'
+
+/** Every record across the snapshot's sources, with the source each came from. */
+function records (snapshot: MapSnapshot) {
+  return snapshotRecords(snapshot).map((record) => ({ ...record, sourceId: record.key.backingLayerId }))
+}
 
 describe('map snapshot', () => {
   it('describes the existing map without creating a page', () => {
@@ -16,12 +19,13 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    expect(snapshot.sources.map((source) => source.displayName)).toEqual(['Rooms'])
+    expect(snapshot.sources.map((source) => source.name)).toEqual(['Rooms'])
     expect(snapshot.sources.map((source) => source.disposition)).toEqual([
-      LayerDisposition.Bound
+      'bound'
     ])
-    expect(snapshot.records).toHaveLength(0)
-    expect(snapshot.sources[0].mapType).toBe('travel')
+    expect(records(snapshot)).toHaveLength(0)
+    // The contract names Travel `standard`.
+    expect(snapshot.sources[0].mapType).toBe('standard')
   })
 
   it('marks a configured service as a heatmap', () => {
@@ -118,10 +122,12 @@ describe('map snapshot', () => {
       { id: 'sites', title: 'Sites', url: 'https://services.example/FeatureServer/4', enabled: false, mapType: 'indoor' }
     ])
 
-    expect(snapshot.sources.map((source) => source.displayName).sort()).toEqual(['Levels', 'Sites', 'Units'])
-    expect(snapshot.sources.find((source) => source.displayName === 'Levels')?.disposition).toBe(LayerDisposition.Bound)
-    expect(snapshot.sources.find((source) => source.displayName === 'Units')?.disposition).toBe(LayerDisposition.Bound)
-    expect(snapshot.sources.find((source) => source.displayName === 'Sites')?.disposition).toBe(LayerDisposition.VisualOnly)
+    expect(snapshot.sources.map((source) => source.name).sort()).toEqual(['Levels', 'Sites', 'Units'])
+    expect(snapshot.sources.find((source) => source.name === 'Levels')?.disposition).toBe('bound')
+    expect(snapshot.sources.find((source) => source.name === 'Units')?.disposition).toBe('bound')
+    // A configuration with its eye off stays in the legend; the runtime is told it is unavailable.
+    expect(snapshot.sources.find((source) => source.name === 'Sites')?.disposition).toBe('bound')
+    expect(snapshot.unavailable).toEqual(['sites'])
     expect(units.visible).toBe(true)
   })
 
@@ -148,9 +154,11 @@ describe('map snapshot', () => {
       { id: 'sites', title: 'Sites', enabled: false, mapType: 'indoor' }
     ])
 
-    expect(snapshot.sources[0].disposition).toBe(LayerDisposition.VisualOnly)
+    expect(snapshot.sources[0].disposition).toBe('bound')
     expect(snapshot.sources[0].recordCount).toBe(1)
-    expect(snapshot.records[0].navigable).toBe(false)
+    expect(records(snapshot)).toHaveLength(1)
+    // Not navigable: sent as available false in setEffectiveState.
+    expect(snapshot.unavailable).toEqual(['sites'])
   })
 
   it('queries an enabled indoor layer that is hidden until it loads', async () => {
@@ -197,9 +205,9 @@ describe('map snapshot', () => {
       { id: 'units', title: 'Units', enabled: true, mapType: 'indoor' }
     ])
 
-    expect(snapshot.sources.map((source) => source.displayName)).toEqual(['Units'])
-    expect(snapshot.sources[0].disposition).toBe(LayerDisposition.Bound)
-    expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Lobby'])
+    expect(snapshot.sources.map((source) => source.name)).toEqual(['Units'])
+    expect(snapshot.sources[0].disposition).toBe('bound')
+    expect(records(snapshot).map((record) => record.attributes.name)).toEqual(['Lobby'])
     expect(units.visible).toBe(true)
   })
 
@@ -233,12 +241,12 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    expect(snapshot.records).toHaveLength(1)
-    expect(snapshot.records[0].navigable).toBe(true)
-    expect(snapshot.records[0].key.recordId).toBe('7')
-    expect(snapshot.records[0].geometry?.type).toBe('Polygon')
-    expect(snapshot.records[0].attributes['fill-pattern']).toBe('grid-pattern')
-    expect(snapshot.sources.find((source) => source.sourceId === 'closed')?.disposition).toBe(LayerDisposition.VisualOnly)
+    expect(records(snapshot)).toHaveLength(1)
+    expect(snapshot.unavailable).toEqual([])
+    expect(records(snapshot)[0].key.recordId).toBe('7')
+    expect(records(snapshot)[0].geometry?.type).toBe('Polygon')
+    expect(records(snapshot)[0].attributes['fill-pattern']).toBe('grid-pattern')
+    expect(snapshot.sources.find((source) => source.id === 'closed')?.disposition).toBe('visualOnly')
   })
 
   it('lists a visible feature that has no Audiom rule colors', () => {
@@ -263,11 +271,11 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    expect(snapshot.sources[0].disposition).toBe(LayerDisposition.Bound)
-    expect(snapshot.records).toHaveLength(1)
-    expect(snapshot.records[0].navigable).toBe(true)
-    expect(snapshot.records[0].attributes.name).toBe('Library')
-    expect(snapshot.records[0].attributes.fill).toBeUndefined()
+    expect(snapshot.sources[0].disposition).toBe('bound')
+    expect(records(snapshot)).toHaveLength(1)
+    expect(snapshot.unavailable).toEqual([])
+    expect(records(snapshot)[0].attributes.name).toBe('Library')
+    expect(records(snapshot)[0].attributes.fill).toBeUndefined()
   })
 
   it('keeps the category Audiom uses to find a step sound', () => {
@@ -297,10 +305,10 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    expect(snapshot.records[0].attributes.name).toBe('Boston Common')
-    expect(snapshot.records[0].attributes.ruleType).toBe('park')
-    expect(snapshot.records[0].attributes.ruleName).toBe('Park')
-    expect(snapshot.records[0].attributes.soundPriority).toBe(2)
+    expect(records(snapshot)[0].attributes.name).toBe('Boston Common')
+    expect(records(snapshot)[0].attributes.ruleType).toBe('park')
+    expect(records(snapshot)[0].attributes.ruleName).toBe('Park')
+    expect(records(snapshot)[0].attributes.soundPriority).toBe(2)
   })
 
   it('uses a plain layer type column when Audiom has no category', () => {
@@ -325,8 +333,8 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    expect(snapshot.records[0].attributes.name).toBe('Boston Common')
-    expect(snapshot.records[0].attributes.ruleType).toBe('park')
+    expect(records(snapshot)[0].attributes.name).toBe('Boston Common')
+    expect(records(snapshot)[0].attributes.ruleType).toBe('park')
   })
 
   it('stores the tooltip title when the name is not in a column called name', () => {
@@ -352,8 +360,8 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    expect(snapshot.records).toHaveLength(1)
-    expect(snapshot.records[0].attributes.name).toBe('CITY OF MANASSAS PARK')
+    expect(records(snapshot)).toHaveLength(1)
+    expect(records(snapshot)[0].attributes.name).toBe('CITY OF MANASSAS PARK')
   })
 
   it('does not speak the floor catalog as Levels: Level 1', () => {
@@ -379,9 +387,9 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    expect(snapshot.records[0].attributes.name).toBe('Level 1')
-    expect(snapshot.records[0].attributes.ruleType).toBe('level')
-    expect(snapshot.records[0].attributes.name).not.toContain('Levels:')
+    expect(records(snapshot)[0].attributes.name).toBe('Level 1')
+    expect(records(snapshot)[0].attributes.ruleType).toBe('level')
+    expect(records(snapshot)[0].attributes.name).not.toContain('Levels:')
   })
 
   it('waits for a layer to load before querying its features', async () => {
@@ -445,7 +453,7 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    expect(snapshot.records.map((record) => record.attributes.name).sort()).toEqual(['Cafe', 'Library'])
+    expect(records(snapshot).map((record) => record.attributes.name).sort()).toEqual(['Cafe', 'Library'])
   })
 
   it('reads Esri layer fields from the prototype and queries sublayers', async () => {
@@ -508,7 +516,7 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    expect(snapshot.records.map((record) => record.attributes.name).sort()).toEqual(['Lot 8', 'Museum'])
+    expect(records(snapshot).map((record) => record.attributes.name).sort()).toEqual(['Lot 8', 'Museum'])
   })
 
   it('lists the map layers and omits the avatar graphics layer', async () => {
@@ -546,7 +554,7 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    expect(snapshot.sources.map((source) => source.displayName)).toEqual(['Places'])
+    expect(snapshot.sources.map((source) => source.name)).toEqual(['Places'])
     expect(snapshot.sources[0].disposition).toBe('bound')
   })
 
@@ -587,8 +595,8 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    expect(snapshot.sources.map((source) => source.displayName)).toEqual(['Parcels'])
-    expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Lot 2'])
+    expect(snapshot.sources.map((source) => source.name)).toEqual(['Parcels'])
+    expect(records(snapshot).map((record) => record.attributes.name)).toEqual(['Lot 2'])
   })
 
   it('projects the layer spatial reference to longitude and latitude', async () => {
@@ -636,7 +644,7 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    const coordinates = snapshot.records[0].geometry?.coordinates as number[][][]
+    const coordinates = records(snapshot)[0].geometry?.coordinates as number[][][]
     expect(coordinates[0][0]).toEqual([-77.449, 38.769])
     setMapModuleLoader(null)
   })
@@ -678,7 +686,7 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    const coordinates = snapshot.records[0].geometry?.coordinates as number[][][]
+    const coordinates = records(snapshot)[0].geometry?.coordinates as number[][][]
     expect(coordinates[0][0][0]).toBeCloseTo(-77.345, 2)
     expect(coordinates[0][0][1]).toBeCloseTo(38.708, 2)
     setMapModuleLoader(null)
@@ -714,7 +722,7 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Parcel 9'])
+    expect(records(snapshot).map((record) => record.attributes.name)).toEqual(['Parcel 9'])
   })
 
   it('includes the tract under the indicator when it is not in the view page', async () => {
@@ -753,7 +761,7 @@ describe('map snapshot', () => {
       }
     }, 'map-1', undefined, undefined, { longitude: -77.47, latitude: 38.75 })
 
-    expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Parcel 1', 'Parcel 9'])
+    expect(records(snapshot).map((record) => record.attributes.name)).toEqual(['Parcel 1', 'Parcel 9'])
   })
 
   it('keeps every part of a multipart polygon so each piece can be entered', async () => {
@@ -788,7 +796,7 @@ describe('map snapshot', () => {
       }
     }, 'map-1')
 
-    const geometry = snapshot.records[0].geometry
+    const geometry = records(snapshot)[0].geometry
     expect(geometry?.type).toBe('MultiPolygon')
     expect((geometry?.coordinates as number[][][][]).length).toBe(2)
   })
@@ -869,8 +877,8 @@ describe('map snapshot', () => {
     }, 'map-1')
 
     expect(loaded).toBe(false)
-    expect(snapshot.sources.map((source) => source.displayName)).toEqual(['Places'])
-    expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Library'])
+    expect(snapshot.sources.map((source) => source.name)).toEqual(['Places'])
+    expect(records(snapshot).map((record) => record.attributes.name)).toEqual(['Library'])
   })
 
   it('skips a layer whose load never resolves without failing the snapshot', async () => {
@@ -915,8 +923,8 @@ describe('map snapshot', () => {
       await jest.advanceTimersByTimeAsync(8000)
       const snapshot = await pending
 
-      expect(snapshot.sources.map((source) => source.displayName).sort()).toEqual(['Places'])
-      expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Library'])
+      expect(snapshot.sources.map((source) => source.name).sort()).toEqual(['Places'])
+      expect(records(snapshot).map((record) => record.attributes.name)).toEqual(['Library'])
       expect(warn).toHaveBeenCalledWith('Audiom skipped a layer that did not finish loading', 'World_Hillshade')
       expect(error).not.toHaveBeenCalledWith('Audiom could not load layer', 'World_Hillshade', expect.anything())
     } finally {
@@ -969,7 +977,7 @@ describe('map snapshot', () => {
     }, 'map-1')
 
     expect(queried).toBe(false)
-    expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Library'])
+    expect(records(snapshot).map((record) => record.attributes.name)).toEqual(['Library'])
   })
 
   it('joins indoor LEVEL_ID to the Levels layer and pages past the first room', async () => {
@@ -1036,8 +1044,8 @@ describe('map snapshot', () => {
     }, 'map-1')
 
     expect(unitStarts).toEqual([0, 1])
-    const restroom = snapshot.records.find((record) => record.attributes.name === 'Restroom')
-    const office = snapshot.records.find((record) => record.attributes.name === 'Office 201')
+    const restroom = records(snapshot).find((record) => record.attributes.name === 'Restroom')
+    const office = records(snapshot).find((record) => record.attributes.name === 'Office 201')
     expect(restroom?.attributes.levelOrdinal).toBe(0)
     expect(restroom?.attributes.levelName).toBe('Level 1')
     expect(office?.attributes.levelName).toBe('Level 1')
@@ -1109,7 +1117,7 @@ describe('map snapshot', () => {
       { id: 'units', title: 'Units', enabled: true, mapType: 'indoor' }
     ])
 
-    expect([...new Set(snapshot.records.map((record) => record.attributes.levelOrdinal))].sort()).toEqual([0, 1, 2])
+    expect([...new Set(records(snapshot).map((record) => record.attributes.levelOrdinal))].sort()).toEqual([0, 1, 2])
   })
 
   it('stamps floors when the floor clause was already cleared', async () => {
@@ -1174,9 +1182,9 @@ describe('map snapshot', () => {
       { id: 'units', title: 'Units', enabled: true, mapType: 'indoor' }
     ])
 
-    const levelRows = snapshot.records.filter((record) => record.sourceId === 'levels')
+    const levelRows = records(snapshot).filter((record) => record.sourceId === 'levels')
     expect(levelRows.map((record) => record.attributes.levelOrdinal).sort()).toEqual([0, 1])
-    expect(snapshot.records.find((record) => record.attributes.name === 'Room 0-0')?.attributes.levelName).toBe('Level 1')
+    expect(records(snapshot).find((record) => record.attributes.name === 'Room 0-0')?.attributes.levelName).toBe('Level 1')
   })
 
   it('counts every unit when the floor clause matches nothing and rings are meters', async () => {
@@ -1218,9 +1226,9 @@ describe('map snapshot', () => {
       }, 'map-1', [
         { id: 'units', title: 'Units', enabled: true, mapType: 'indoor' }
       ])
-      expect(snapshot.sources.find((source) => source.sourceId === 'units')?.recordCount).toBe(239)
-      expect(snapshot.records).toHaveLength(1)
-      const office = snapshot.records[0]
+      expect(snapshot.sources.find((source) => source.id === 'units')?.recordCount).toBe(239)
+      expect(records(snapshot)).toHaveLength(1)
+      const office = records(snapshot)[0]
       expect(office.attributes.name).toBe('Office')
       expect(Math.abs((office.geometry?.coordinates as number[][][])[0][0][0] + 117)).toBeLessThan(1)
     } finally {
@@ -1266,7 +1274,7 @@ describe('map snapshot', () => {
     ])
     expect(tracts.definitionExpression).toBe(where)
     expect(counted).toEqual([where])
-    expect(snapshot.records[0]?.attributes.name).toBe('Tract 1')
+    expect(records(snapshot)[0]?.attributes.name).toBe('Tract 1')
   })
 
   it('pages a filtered heatmap past the service page so later tracts are not empty', async () => {
@@ -1316,7 +1324,7 @@ describe('map snapshot', () => {
       { id: 'tracts', title: 'Tract', enabled: true, mapType: 'heatmap' }
     ])
     expect(starts).toEqual([0, 1])
-    expect(snapshot.records.map((record) => record.attributes.name)).toEqual(['Tract 1', 'Tract 2'])
+    expect(records(snapshot).map((record) => record.attributes.name)).toEqual(['Tract 1', 'Tract 2'])
   })
 
   it('keeps the Hawaii filter when the source omits Map Type and defaults to indoor', async () => {
@@ -1374,14 +1382,85 @@ describe('map snapshot', () => {
     expect(county.definitionExpression).toBe(where)
   })
 
-  it('starts the bundled runtime against that snapshot', async () => {
-    const statuses: string[] = []
-    const handle = startBundledRuntime('widget-1', {
-      map: { allLayers: { forEach (fn) { fn({ id: 'rooms', title: 'Rooms', type: 'feature' }) } } }
-    }, (status) => statuses.push(status))
+  it('writes the runtime contract snapshot: keys, rules reference and two-number positions', () => {
+    const snapshot = snapshotFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'units',
+              title: 'Units',
+              type: 'feature',
+              visible: true,
+              geometryType: 'polygon',
+              features: [{
+                attributes: { OBJECTID: 4, NAME: '201A', USE_TYPE: 'Office', ZIP: '02134', minstep: 3 },
+                geometry: { rings: [[[-117.2, 34.05, 12], [-117.19, 34.05, 12], [-117.19, 34.06, 12], [-117.2, 34.05, 12]]] }
+              }]
+            })
+          }
+        }
+      }
+    }, 'map-1', [
+      { id: 'units', title: 'Units', mapType: 'indoor', rulesFileUrl: 'https://audiom.net/rules/esri-indoor.json' }
+    ])
 
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(handle.runtime.snapshot?.sources[0].displayName).toBe('Rooms')
-    await handle.runtime.dispose()
+    expect(Object.keys(snapshot.sources[0]).sort()).toEqual([
+      'disposition', 'geometryFamily', 'id', 'mapType', 'name', 'recordCount', 'records', 'rulesRef', 'status'
+    ])
+    expect(snapshot.sources[0]).toEqual(expect.objectContaining({
+      id: 'units',
+      geometryFamily: 'polygon',
+      mapType: 'indoor',
+      rulesRef: { type: 'url', url: 'https://audiom.net/rules/esri-indoor.json' },
+      status: { type: 'complete' }
+    }))
+    const [record] = snapshotRecords(snapshot)
+    expect(record.key).toEqual({ mainDataSourceId: 'map-1', backingLayerId: 'units', recordId: '4' })
+    expect(record.geometry?.coordinates).toEqual([[[-117.2, 34.05], [-117.19, 34.05], [-117.19, 34.06], [-117.2, 34.05]]])
+    // The runtime evaluates the rules file on the service's own columns.
+    expect(record.attributes.USE_TYPE).toBe('Office')
+    expect(record.attributes.ZIP).toBe('02134')
+    expect(record.attributes.minstep).toBeUndefined()
+    expect(record.attributes._minstep).toBe(3)
+  })
+
+  it('stamps rule outputs on the paint copies, not on the records the runtime evaluates', async () => {
+    const asked: Array<{ url: string, mapType: string, rows: number }> = []
+    const snapshot = await snapshotFeaturesFromMapView({
+      map: {
+        allLayers: {
+          forEach (fn) {
+            fn({
+              id: 'units',
+              title: 'Units',
+              type: 'feature',
+              visible: true,
+              geometryType: 'polygon',
+              createQuery () { return {} },
+              queryFeatures () {
+                return Promise.resolve({
+                  features: [{
+                    attributes: { OBJECTID: 1, NAME: '201A', USE_TYPE: 'Office' },
+                    geometry: { rings: [[[-117.2, 34.05], [-117.19, 34.05], [-117.19, 34.06], [-117.2, 34.05]]] }
+                  }]
+                })
+              }
+            })
+          }
+        }
+      }
+    }, 'map-1', [
+      { id: 'units', title: 'Units', enabled: true, mapType: 'indoor', rulesFileUrl: 'https://audiom.net/rules/esri-indoor.json' }
+    ], undefined, undefined, async (url, mapType, attributes) => {
+      asked.push({ url, mapType, rows: attributes.length })
+      return attributes.map(() => ({ fill: '#e7ecef', ruleType: 'office' }))
+    })
+
+    expect(asked).toEqual([{ url: 'https://audiom.net/rules/esri-indoor.json', mapType: 'indoor', rows: 1 }])
+    expect(records(snapshot)[0].attributes.fill).toBeUndefined()
+    const painted = snapshot.queriedLayers?.[0].features?.[0].attributes
+    expect(painted?.fill).toBe('#e7ecef')
+    expect(snapshot.queriedLayers?.[0].rulesRef).toBe('https://audiom.net/rules/esri-indoor.json')
   })
 })

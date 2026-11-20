@@ -1,0 +1,8 @@
+{
+	"id": "published-audiom-runtime",
+	"category": "Changed",
+	"summary": "The bundled widget runs the published Audiom runtime package instead of compiling a Front-End branch.",
+	"details": "The widget depends on @xrnavigation/audiom-runtime 0.3.2 from GitHub Packages and talks to it through runtime contract 1.1: arrow keys, marker drops, sound unlock, tooltips, the legend's styles, layer toggles and floor, step size, the navigation fence and the configured centre. Zoom, compass, fullscreen and recenter buttons are drawn by the widget over the Esri map. The vendored runtime copy and the Front-End checkout in CI are gone.",
+	"breaking": true,
+	"migration": "Run npm ci in ArcGIS/client/your-extensions/widgets/audiom with a token that can read @xrnavigation packages before starting or building the client. A sibling Audiom-Front-End checkout is no longer used."
+}

@@ -140,13 +140,20 @@ volumes:
 
 ## Bundled widget build
 
-Bundled mode compiles the Audiom Front-End program into the widget. Experience Builder does not load the widget `webpack.config.js`. After every extract, `utils/setup_arcgis.py` copies `client/your-extensions/widgets/audiom/exb-webpack/` onto `client/webpack/`. Edit the overlay there, not the extracted copy.
+Bundled mode runs the published Audiom runtime, `@xrnavigation/audiom-runtime` from GitHub Packages, inside the widget. Its version is in `client/your-extensions/widgets/audiom/package.json`. Install it before starting or building the client:
 
-Place `Audiom-Front-End` next to this repo and run `npm ci` in it. No environment variable is required for that layout. The overlay reads `node_modules` from that checkout and compiles `src/runtime/exbEntry.ts` when the checkout contains it. If that file is missing there, an existing checkout at `Audiom-Front-End-exb` beside it is used when it already has the file. The overlay does not check out a branch. `AUDIOM_FRONTEND_ROOT` is only for a checkout that is not the sibling, which is how CI lays the workspace out. A missing entry still lets the client start; bundled mode has no program until that file exists. Development leaves Front-End `import()` calls as chunks so the builder tab does not freeze parsing one inlined program. The published build still inlines them. Locally it compiles the sibling `Audiom-Runtime` checkout when that exists, otherwise the vendored copy in `client/your-extensions/shared/audiom-runtime`. Do not install the public `@xrnavigation/audiom-runtime` SDK for this. That package is a different API and the same name.
+```bash
+cd ./ArcGIS/client/your-extensions/widgets/audiom
+npm ci
+```
 
-Restart the Experience Builder client after the overlay is copied. `webpack --watch` loads this file once at startup and will keep compiling the widget without the Front-End entry until it is restarted.
+`npm ci` there needs read access to `@xrnavigation` packages on GitHub Packages: an `.npmrc` (gitignored) with `@xrnavigation:registry=https://npm.pkg.github.com` and `//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}`, and `NODE_AUTH_TOKEN` set to a GitHub token with `read:packages` (for example `gh auth token`).
 
-CI checks out the Front-End branch named by `AUDIOM_FRONTEND_REF` in `.github/workflows/build-audiom-widget.yaml`. The `AUDIOM_FRONTEND_TOKEN` secret must be able to read `Coughlan-Lab/Audiom-Front-End` and `@xrnavigation` packages.
+Experience Builder does not load the widget `webpack.config.js`. After every extract, `utils/setup_arcgis.py` copies `client/your-extensions/widgets/audiom/exb-webpack/` onto `client/webpack/`. Edit the overlay there, not the extracted copy. The overlay stops the build when the runtime package is not installed. Development leaves the runtime's `import()` calls as chunks so the builder tab does not freeze parsing one inlined program; the published build inlines them.
+
+Restart the Experience Builder client after the overlay is copied. `webpack --watch` loads this file once at startup.
+
+CI installs the widget's packages with the `AUDIOM_FRONTEND_TOKEN` secret, which must be able to read `@xrnavigation` packages on GitHub Packages.
 
 ## Publishing Widgets
 
