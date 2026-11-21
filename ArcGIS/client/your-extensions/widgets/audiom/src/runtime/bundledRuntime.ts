@@ -14,7 +14,7 @@ import {
   type InProcessRuntime
 } from '../../../../shared/audiom-runtime/src/factory'
 import { embedLabelStyle } from './embedLabelPlacement'
-import { AUDIOM_LABEL_LAYER_ID, labelsForFeatures, labelSymbolPaint, thinLabels, type LabelFeature, type LabelGraphicSpec, type ScreenLabel } from './audiomLabels'
+import { AUDIOM_LABEL_LAYER_ID, labelsForFeatures, labelSymbolPaint, queriedLabelsMatchLevel, thinLabels, type LabelFeature, type LabelGraphicSpec, type ScreenLabel } from './audiomLabels'
 import { applyAudiomLabels, applyAudiomSymbols, restoreAudiomLabels, restoreAudiomSymbols, VectorStyleMode, type LabelLayer, type SymbolLayer, type SymbolModules } from './audiomSymbols'
 import { FALLBACK_LAYER_SOURCE_ID, snapshotFeaturesFromMapView, type SnapshotLayer, type SnapshotMapView } from './mapSnapshot'
 import type { MapSnapshot } from '../../../../shared/audiom-runtime/src/types'
@@ -230,36 +230,50 @@ export async function paintAudiomStyles (
       title === 'sites' || title === 'facilities' || title === 'levels' || title === 'details'
     if (!match && !catalog) return
     applyAudiomLabels(layer as LabelLayer, mode, false, { floorCatalog: catalog })
-    if (!showLabels || !match || catalog) return
+    // A hidden layer is not on screen. Its names must not stay in the overlay
+    // after the eye moves to the next layer.
+    if (!showLabels || !match || catalog || layer.visible === false) return
     specs.push(...labelsForFeatures(match.features, level ?? null, {
-      roomLayer: title === 'units' || title.includes('unit')
+      roomLayer: title === 'units' || title.includes('unit'),
+      strictLevel: level != null
     }))
   })
   // The query copy can lose its rings. Ruled or unit records still have the
   // room name and a geographic shape. A site record has neither a use type
   // nor a rules name, so it is not a caption.
   if (showLabels && !specs.length) {
+    const visibleIds = new Set<string>()
+    layers.forEach((layer) => {
+      if (layer.visible === false) return
+      visibleIds.add(layer.id || layer.title || FALLBACK_LAYER_SOURCE_ID)
+    })
     specs.push(...labelsForFeatures(snapshot.records.filter((record) => {
+      if (record.sourceId && !visibleIds.has(record.sourceId)) return false
       const attributes = record.attributes
       return attributes.ruleType || attributes.ruleName || attributes.USE_TYPE ||
         attributes.use_type || attributes.levelOrdinal != null
     }).map((record) => ({
       attributes: record.attributes,
       geometry: record.geometry ?? undefined
-    })), level ?? null))
+    })), level ?? null, { strictLevel: level != null }))
   }
-  // The snapshot often has no rings. The Units layer on the view does, and
-  // its floor filter is the level actually drawn. Prefer that.
-  if (showLabels) {
-    const live = await labelsFromMap(jimuMapView, level ?? null)
+  // The snapshot often has no rings. The Units layer on the view does.
+  // Query the selected floor by id. The layer-view filter is still the
+  // previous floor until that filter is written, and using it left the
+  // overlay one switch behind.
+  const drawn = labelView(jimuMapView)
+  if (drawn) drawn.__audiomLabelLevel = level ?? null
+  const token = claimLabelDraw(drawn)
+  const labels = (async () => {
+    const live = showLabels ? await labelsFromMap(jimuMapView, level ?? null) : null
+    if (!labelDrawCurrent(labelView(jimuMapView), token)) return
     if (live) specs.splice(0, specs.length, ...live)
-  }
+    await drawAudiomLabels(jimuMapView, specs, mode, showLabels)
+  })()
   bindLabelZoom(jimuMapView, (requery) => {
-    void refreshRoomLabels(jimuMapView, mode, showLabels, level ?? null, requery)
+    const current = labelView(jimuMapView)?.__audiomLabelLevel ?? level ?? null
+    void refreshRoomLabels(jimuMapView, mode, showLabels, current, requery)
   })
-  // Labels do not wait on the fill symbols. A symbol-module failure must
-  // not leave the room names off the map.
-  const labels = drawAudiomLabels(jimuMapView, specs, mode, showLabels)
   let modules: SymbolModules
   try {
     const loaded = await import('jimu-core').then((jimu) =>
@@ -362,7 +376,7 @@ interface LabelZoomView {
   stationary?: boolean
   toScreen?: (point: unknown) => { x: number, y: number } | null
   watch?: (property: string, callback: (value: unknown) => void) => { remove?: () => void }
-  whenLayerView?: (layer: unknown) => Promise<{ filter?: { where?: string } }>
+  whenLayerView?: (layer: unknown) => Promise<FloorLayerView | undefined>
   map?: {
     allLayers?: {
       forEach: (fn: (layer: RoomQueryLayer) => void) => void
@@ -375,6 +389,9 @@ interface LabelZoomView {
   __audiomLabelLater?: boolean
   __audiomRoomFeatures?: LabelFeature[]
   __audiomFloorFiltered?: boolean
+  __audiomFloorIds?: string[]
+  __audiomLabelLevel?: number | null
+  __audiomLabelRepaintTimer?: number
 }
 
 interface RoomQueryLayer {
@@ -382,8 +399,52 @@ interface RoomQueryLayer {
   title?: string
   type?: string
   visible?: boolean
+  watch?: (property: string, callback: () => void) => { remove?: () => void }
   createQuery?: () => RoomQuery
   queryFeatures?: (query: RoomQuery) => Promise<{ features?: LabelFeature[] }>
+}
+
+interface FloorLayerView {
+  filter?: { where?: string }
+  watch?: (property: string, callback: () => void) => { remove?: () => void }
+  __audiomFilterWatch?: boolean
+}
+
+/** Must match the widget and the embed. A floor or layer switch asks for a new paint. */
+const LABEL_REPAINT_EVENT = 'audiom-embed-paint'
+
+function claimLabelDraw (view: LabelZoomView | undefined): number {
+  if (!view) return 0
+  const token = (view.__audiomLabelToken || 0) + 1
+  view.__audiomLabelToken = token
+  return token
+}
+
+function labelDrawCurrent (view: LabelZoomView | undefined, token: number): boolean {
+  return !view || view.__audiomLabelToken === token
+}
+
+function requestLabelRepaint (view: LabelZoomView | undefined): void {
+  if (!view || typeof window === 'undefined') return
+  window.clearTimeout(view.__audiomLabelRepaintTimer || 0)
+  view.__audiomLabelRepaintTimer = window.setTimeout(() => {
+    window.dispatchEvent(new Event(LABEL_REPAINT_EVENT))
+  }, 60)
+}
+
+function watchFloorFilter (view: LabelZoomView | undefined, layerView: FloorLayerView | undefined): void {
+  if (!view || !layerView || layerView.__audiomFilterWatch || typeof layerView.watch !== 'function') return
+  layerView.__audiomFilterWatch = true
+  layerView.watch('filter', () => requestLabelRepaint(view))
+}
+
+function sqlString (value: string): string {
+  return `'${value.replace(/'/g, "''")}'`
+}
+
+function floorWhereFor (ids: readonly string[]): string {
+  if (ids.length === 1) return `LEVEL_ID = ${sqlString(ids[0])}`
+  return `LEVEL_ID IN (${ids.map(sqlString).join(', ')})`
 }
 
 interface RoomQuery {
@@ -410,9 +471,11 @@ function roomLayerTitle (title: string | undefined): boolean {
 }
 
 /**
- * Room captions from the layer that is on screen. The floor filter is the
- * level the map is drawing, so other floors do not stack on the same rooms.
- * Null when this map has no Units layer and the snapshot path should run.
+ * Room captions from the layer that is on screen. The selected floor's ids
+ * are the query. The layer-view filter is still the previous floor when the
+ * legend switches, and reading it left the overlay one layer behind.
+ * Null when this map has no Units layer and the snapshot path should run,
+ * or when the only rows in hand are still that previous floor.
  */
 async function labelsFromMap (
   jimuMapView: SnapshotMapView | undefined,
@@ -430,8 +493,10 @@ async function labelsFromMap (
     if (roomLayerTitle(layer.title) && layer.visible !== false) rooms.push(layer)
   })
   if (!rooms.length) return null
+  const started = view.__audiomLabelToken || 0
   const levelName = new Map<string, string>()
   const levelOrdinal = new Map<string, number>()
+  const levelIdRaw = new Map<string, string>()
   for (const catalog of catalogs) {
     try {
       const query = catalog.createQuery?.()
@@ -442,8 +507,10 @@ async function labelsFromMap (
       const result = await catalog.queryFeatures?.(query)
       for (const feature of result?.features || []) {
         const attributes = feature.attributes || {}
-        const id = textAttribute(attributes.LEVEL_ID).toUpperCase()
+        const rawId = textAttribute(attributes.LEVEL_ID)
+        const id = rawId.toUpperCase()
         if (!id) continue
+        if (!levelIdRaw.has(id)) levelIdRaw.set(id, rawId)
         const name = textAttribute(attributes.NAME)
         if (name) levelName.set(id, name)
         const order = attributes.VERTICAL_ORDER
@@ -453,44 +520,80 @@ async function labelsFromMap (
       // A missing catalog still leaves the room NAME as the caption.
     }
   }
-  const zoom = readLabelZoom(jimuMapView)
-  const features: LabelFeature[] = []
-  let floorFiltered = false
+  let viewFilter = ''
   for (const layer of rooms) {
-    try {
-      const layerView = view.whenLayerView ? await view.whenLayerView(layer) : undefined
-      const floorWhere = layerView?.filter?.where
-      if (floorWhere) floorFiltered = true
-      const query = layer.createQuery?.()
-      if (!query) continue
-      query.where = floorWhere || '1=1'
-      query.returnGeometry = true
-      query.outFields = ['*']
-      query.outSpatialReference = { wkid: Wkid.Wgs84 }
-      const result = await layer.queryFeatures?.(query)
-      for (const feature of result?.features || []) {
-        const attributes = { ...(feature.attributes || {}) }
-        const id = textAttribute(attributes.LEVEL_ID).toUpperCase()
-        if (!attributes.levelName && id && levelName.has(id)) attributes.levelName = levelName.get(id)
-        if (attributes.levelOrdinal == null && id && levelOrdinal.has(id)) {
-          attributes.levelOrdinal = levelOrdinal.get(id)
-        }
-        features.push({ attributes, geometry: feature.geometry })
-      }
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Audiom room labels skipped', layer.title || layer.id, error)
-    }
+    const layerView = view.whenLayerView ? await view.whenLayerView(layer) : undefined
+    watchFloorFilter(view, layerView)
+    if (!viewFilter && layerView?.filter?.where) viewFilter = layerView.filter.where
   }
+  const selectedIds = level == null ? [] : [...levelOrdinal.entries()]
+    .filter(([, order]) => order === level)
+    .map(([id]) => levelIdRaw.get(id) || id)
+  const stamp = (rows: LabelFeature[]): LabelFeature[] => {
+    for (const feature of rows) {
+      const attributes = feature.attributes || {}
+      const id = textAttribute(attributes.LEVEL_ID).toUpperCase()
+      if (!attributes.levelName && id && levelName.has(id)) attributes.levelName = levelName.get(id)
+      if (attributes.levelOrdinal == null && id && levelOrdinal.has(id)) {
+        attributes.levelOrdinal = levelOrdinal.get(id)
+      }
+      feature.attributes = attributes
+    }
+    return rows
+  }
+  const queryRooms = async (where: string): Promise<LabelFeature[]> => {
+    const collected: LabelFeature[] = []
+    for (const layer of rooms) {
+      try {
+        const query = layer.createQuery?.()
+        if (!query) continue
+        query.where = where
+        query.returnGeometry = true
+        query.outFields = ['*']
+        query.outSpatialReference = { wkid: Wkid.Wgs84 }
+        const result = await layer.queryFeatures?.(query)
+        for (const feature of result?.features || []) {
+          collected.push({
+            attributes: { ...(feature.attributes || {}) },
+            geometry: feature.geometry
+          })
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Audiom room labels skipped', layer.title || layer.id, error)
+      }
+    }
+    return stamp(collected)
+  }
+  let features: LabelFeature[] = []
+  let floorFiltered = false
+  if (selectedIds.length) {
+    features = await queryRooms(floorWhereFor(selectedIds))
+    floorFiltered = features.length > 0
+  }
+  // An id query that missed (another floor field, or a floor with no rooms)
+  // may still use the view filter. A filter that names the previous floor
+  // must not replace the labels for the floor just selected.
+  if (!features.length) {
+    const fromView = await queryRooms(viewFilter || '1=1')
+    if (level != null && !queriedLabelsMatchLevel(fromView, level)) return null
+    features = fromView
+    floorFiltered = Boolean(viewFilter)
+  }
+  // A newer switch claimed the draw. Caching this result would put the
+  // previous floor back on the next zoom.
+  if ((view.__audiomLabelToken || 0) !== started) return null
   view.__audiomRoomFeatures = features
   view.__audiomFloorFiltered = floorFiltered
+  view.__audiomFloorIds = selectedIds
   return placeRoomFeatures(view, level)
 }
 
 function placeRoomFeatures (view: LabelZoomView, level: number | null): LabelGraphicSpec[] {
   return labelsForFeatures(view.__audiomRoomFeatures || [], view.__audiomFloorFiltered ? null : level, {
     roomLayer: true,
-    strictLevel: true
+    strictLevel: true,
+    floorIds: view.__audiomFloorIds
   })
 }
 
@@ -518,10 +621,9 @@ async function refreshRoomLabels (
     await drawAudiomLabels(jimuMapView, placeRoomFeatures(view, level), mode, true)
     return
   }
-  const token = (view.__audiomLabelToken || 0) + 1
-  view.__audiomLabelToken = token
+  const token = claimLabelDraw(view)
   const live = await labelsFromMap(jimuMapView, level)
-  if (view.__audiomLabelToken !== token || live == null) return
+  if (!labelDrawCurrent(view, token) || live == null) return
   await drawAudiomLabels(jimuMapView, live, mode, showLabels)
 }
 
@@ -555,6 +657,14 @@ function bindLabelZoom (
     queriedZoom = view.zoom
     schedule(true)
   })
+  // The eye can move without a zoom. Names follow the layer that is visible
+  // now, not the one that was visible when the last query started.
+  const visibleHandles: Array<{ remove?: () => void }> = []
+  view.map?.allLayers?.forEach((layer) => {
+    if (!layer || layer.id === AUDIOM_LABEL_LAYER_ID || layer.id === AUDIOM_AVATAR_LAYER_ID) return
+    if (typeof layer.watch !== 'function') return
+    visibleHandles.push(layer.watch('visible', () => requestLabelRepaint(view)))
+  })
   // The first extent is not the settled view. Place again once it is.
   // Rebinding the zoom watch must not cancel these.
   if (!view.__audiomLabelLater) {
@@ -568,6 +678,7 @@ function bindLabelZoom (
       window.clearTimeout(timer)
       zoomHandle?.remove?.()
       stillHandle?.remove?.()
+      visibleHandles.forEach((handle) => handle.remove?.())
     }
   }
 }
@@ -576,8 +687,10 @@ function clearLabelZoom (jimuMapView: SnapshotMapView | undefined): void {
   const view = labelView(jimuMapView)
   view?.__audiomLabelZoom?.remove?.()
   if (view) {
+    window.clearTimeout(view.__audiomLabelRepaintTimer || 0)
     view.__audiomLabelZoom = undefined
     view.__audiomLabelRedraw = undefined
+    view.__audiomLabelRepaintTimer = undefined
   }
 }
 
