@@ -18,7 +18,6 @@ The Audiom widget is packaged for the following ArcGIS Experience Builder versio
 
 | ArcGIS Enterprise | Build Manifest |
 | :--- | :--- |
-| 12.2 | **[Experience Builder 1.22 build manifest](./builder-versions/1.22/audiom/manifest.json)**<br>|
 | 12.1 | [Experience Builder 1.21 build manifest](./builder-versions/1.21/audiom/manifest.json)<br>**[Experience Builder 1.20 build manifest](./builder-versions/1.20/audiom/manifest.json)** |
 | 12.0 | [Experience Builder 1.19 build manifest](./builder-versions/1.19/audiom/manifest.json)<br>**[Experience Builder 1.18 build manifest](./builder-versions/1.18/audiom/manifest.json)** |
 | 11.5 | **[Experience Builder 1.17 build manifest](./builder-versions/1.17/audiom/manifest.json)** |
