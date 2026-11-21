@@ -8,6 +8,7 @@
  * sync lifecycle, which is the riskiest area.
  */
 import { React, getAppStore } from 'jimu-core'
+import { fireEvent } from '@testing-library/react'
 
 jest.mock('jimu-arcgis', () => ({
   __esModule: true,
@@ -460,5 +461,30 @@ describe('Audiom setting panel', () => {
     expect(replaced?.sourceConfigs?.map((source: { name?: string }) => source.name)).toEqual(['New Places'])
     applied.unmount()
     state.appStateInBuilder = previous
+  })
+
+  it('opens the preview with the host experience when the app id is an item id', () => {
+    const itemId = 'cbd2f9848c4849c89dae5fcb6a31dc45'
+    const experienceUrl = `https://experience.arcgis.com/experience/${itemId}`
+    const store = getAppStore() as unknown as { getState: () => { appId?: string | null } }
+    const state = store.getState()
+    const previous = state.appId
+    state.appId = itemId
+    const open = jest.spyOn(window, 'open').mockImplementation(() => null)
+    try {
+      const Setting = wrapWidgetSetting(_Setting, {
+        config: makeImmutableConfig() as any,
+        onSettingChange: jest.fn()
+      } as any)
+      const { getByRole } = render(<Setting widgetId="audiom-set-experience" />)
+      fireEvent.click(getByRole('button', { name: 'Preview in Audiom' }))
+      expect(open).toHaveBeenCalled()
+      expect(String(open.mock.calls[0][0])).toContain(
+        `experience=${encodeURIComponent(experienceUrl)}`
+      )
+    } finally {
+      state.appId = previous
+      open.mockRestore()
+    }
   })
 })

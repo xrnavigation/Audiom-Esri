@@ -3,6 +3,7 @@ import {
   combineTimeFilters,
   getSourcesFromConfig,
   audiomConfigToEmbedConfig,
+  experienceUrlFromAppId,
   isAudiomConfigValid,
   withoutFloorFilter,
   floorFieldsFromLayers,
@@ -181,6 +182,36 @@ describe('getSourcesFromConfig', () => {
   })
 })
 
+const TREE_ITEM_ID = 'cbd2f9848c4849c89dae5fcb6a31dc45'
+const TREE_EXPERIENCE_URL = `https://experience.arcgis.com/experience/${TREE_ITEM_ID}`
+
+describe('experienceUrlFromAppId', () => {
+  it('returns the ArcGIS Online experience URL for a 32-character item id', () => {
+    expect(experienceUrlFromAppId(TREE_ITEM_ID)).toBe(TREE_EXPERIENCE_URL)
+  })
+
+  it('keeps an uppercase item id in the URL', () => {
+    const id = TREE_ITEM_ID.toUpperCase()
+    expect(experienceUrlFromAppId(id)).toBe(`https://experience.arcgis.com/experience/${id}`)
+  })
+
+  it.each([
+    ['1'],
+    ['2'],
+    [''],
+    ['https://example.com/config.json'],
+    ['cbd2f9848c4849c89dae5fcb6a31dc4'],
+    ['cbd2f9848c4849c89dae5fcb6a31dc4g']
+  ])('returns nothing for %j', (appId) => {
+    expect(experienceUrlFromAppId(appId)).toBeUndefined()
+  })
+
+  it('returns nothing when the app id is missing', () => {
+    expect(experienceUrlFromAppId(undefined)).toBeUndefined()
+    expect(experienceUrlFromAppId(null)).toBeUndefined()
+  })
+})
+
 describe('audiomConfigToEmbedConfig', () => {
   it('produces an embed config with safe defaults when fields are missing', () => {
     const cfg = makeConfig({
@@ -240,6 +271,28 @@ describe('audiomConfigToEmbedConfig', () => {
     const cfg = makeConfig({ visualBaseLayers: [] })
     const embed = audiomConfigToEmbedConfig(cfg, undefined)
     expect(embed).toBeDefined()
+  })
+
+  it('puts a passed experience URL on the embed query', () => {
+    const cfg = makeConfig()
+    const embed = audiomConfigToEmbedConfig(cfg, undefined, TREE_EXPERIENCE_URL)
+    expect(embed.additionalParams?.experience).toBe(TREE_EXPERIENCE_URL)
+    expect(embed.toQueryParams().experience).toBe(TREE_EXPERIENCE_URL)
+    expect(embed.toUrl(cfg.baseUrl)).toContain(
+      `experience=${encodeURIComponent(TREE_EXPERIENCE_URL)}`
+    )
+  })
+
+  it('omits experience when no URL is passed', () => {
+    const embed = audiomConfigToEmbedConfig(makeConfig(), undefined)
+    expect(embed.additionalParams?.experience).toBeUndefined()
+    expect(embed.toQueryParams().experience).toBeUndefined()
+    expect(embed.toUrl()).not.toContain('experience=')
+  })
+
+  it('omits experience when the URL is empty', () => {
+    const embed = audiomConfigToEmbedConfig(makeConfig(), undefined, '')
+    expect(embed.toQueryParams().experience).toBeUndefined()
   })
 })
 

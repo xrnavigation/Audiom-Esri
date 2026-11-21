@@ -94,7 +94,19 @@ function formatTimeExtent(timeExtent: { start?: Date, end?: Date }): string | un
   return DateTimeInterval.create(start, end).toOgcDateTimeParam()
 }
 
-export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapView | undefined): AudiomEmbedConfig {
+/** Portal item ids are 32 hexadecimal characters. Developer Edition ids are not. */
+const EXPERIENCE_ITEM_ID = /^[0-9a-fA-F]{32}$/;
+
+/**
+ * ArcGIS Online experience URL for a portal item id.
+ * A Developer Edition id, a missing id, or a downloaded app is not an item id.
+ */
+export function experienceUrlFromAppId(appId: string | null | undefined): string | undefined {
+  if (!appId || !EXPERIENCE_ITEM_ID.test(appId)) return undefined;
+  return `https://experience.arcgis.com/experience/${appId}`;
+}
+
+export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapView | undefined, experienceUrl?: string): AudiomEmbedConfig {
   logger.debug('audiomConfigToEmbedConfig - useExistingMap:', config.useExistingMap);
 
   const sources = resolveSources(config, jmv);
@@ -117,6 +129,7 @@ export function audiomConfigToEmbedConfig(config: IAudiomConfig, jmv: JimuMapVie
           position: layer.position ? GeoQuad.parse(layer.position) : undefined,
         }))
       : undefined,
+    additionalParams: experienceUrl ? { experience: experienceUrl } : undefined,
   });
 }
 

@@ -252,6 +252,60 @@ describe('Audiom runtime widget', () => {
     setMapModuleLoader(null)
   })
 
+  it('does not reload the point module or reinstall view watches while idle', async () => {
+    let pointLoads = 0
+    let watchCalls = 0
+    setMapModuleLoader(async (modules) => {
+      if (modules[0] === 'esri/Graphic') {
+        pointLoads += 1
+        // A restarting effect would import again on every flush. Stop that
+        // chain so the assertion can fail instead of hanging the test.
+        if (pointLoads > 4) return new Promise(() => { /* leave the restart pending so the test can fail */ })
+        return [
+          class Graphic {},
+          class Point { constructor (public props: unknown) {} }
+        ]
+      }
+      if (modules[0] === 'esri/layers/GraphicsLayer') {
+        return [class GraphicsLayer { constructor (public properties: unknown) {} }]
+      }
+      return [
+        class Map { constructor (public properties: unknown) {} },
+        class MapView {
+          constructor (properties: { container: HTMLElement }) {
+            properties.container.dataset.mapMounted = 'true'
+          }
+          toScreen () { return { x: 40, y: 50 } }
+          watch () {
+            watchCalls += 1
+            return { remove () {} }
+          }
+          on () { return { remove () {} } }
+          destroy () {}
+        }
+      ]
+    })
+    const Widget = wrapWidget(_Widget, {
+      config: makeImmutableConfig({
+        runtimeLocation: RuntimeLocation.Bundled,
+        mapItemId: 'item-idle',
+        centerLongitude: -77.45,
+        centerLatitude: 38.77
+      }) as any
+    })
+    const { container, unmount } = render(<Widget widgetId="audiom-idle" />)
+    for (let flush = 0; flush < 6; flush += 1) {
+      await React.act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+    }
+    expect(container.querySelector('button')).not.toBeNull()
+    expect(pointLoads).toBe(1)
+    expect(watchCalls).toBe(3)
+    unmount()
+    setMapModuleLoader(null)
+  })
+
   it('does not mount a newly selected map at the previous center, then moves to the new viewpoint', async () => {
     const created: Array<{ center?: [number, number], zoom?: number }> = []
     const goTo = jest.fn(() => Promise.resolve())
@@ -411,5 +465,56 @@ describe('Audiom runtime widget', () => {
     const { container } = render(<Widget widgetId="audiom-8" />)
     const src = container.querySelector('iframe')!.getAttribute('src')!
     expect(src).not.toContain('<script>')
+  })
+
+  it('sends the host experience on the iframe when the app id is an item id', () => {
+    const itemId = 'cbd2f9848c4849c89dae5fcb6a31dc45'
+    const experienceUrl = `https://experience.arcgis.com/experience/${itemId}`
+    const store = getAppStore() as unknown as { getState: () => { appId?: string | null } }
+    const state = store.getState()
+    const previous = state.appId
+    state.appId = itemId
+    try {
+      const Widget = wrapWidget(_Widget, { config: makeImmutableConfig() as any })
+      const { container } = render(<Widget widgetId="audiom-experience" />)
+      const src = container.querySelector('iframe')!.getAttribute('src')!
+      expect(src).toContain(`experience=${encodeURIComponent(experienceUrl)}`)
+    } finally {
+      state.appId = previous
+    }
+  })
+
+  it('omits experience when the app id is a Developer Edition number', () => {
+    const store = getAppStore() as unknown as { getState: () => { appId?: string | null } }
+    const state = store.getState()
+    const previous = state.appId
+    state.appId = '1'
+    try {
+      const Widget = wrapWidget(_Widget, { config: makeImmutableConfig() as any })
+      const { container } = render(<Widget widgetId="audiom-dev-edition" />)
+      const src = container.querySelector('iframe')!.getAttribute('src')!
+      expect(src).not.toContain('experience=')
+    } finally {
+      state.appId = previous
+    }
+  })
+
+  it('still draws no iframe in bundled mode when the app id is an item id', () => {
+    const store = getAppStore() as unknown as { getState: () => { appId?: string | null } }
+    const state = store.getState()
+    const previous = state.appId
+    state.appId = 'cbd2f9848c4849c89dae5fcb6a31dc45'
+    try {
+      const Widget = wrapWidget(_Widget, {
+        config: makeImmutableConfig({
+          runtimeLocation: RuntimeLocation.Bundled,
+          mapItemId: ''
+        }) as any
+      })
+      const { container } = render(<Widget widgetId="audiom-bundled-experience" />)
+      expect(container.querySelector('iframe')).toBeNull()
+    } finally {
+      state.appId = previous
+    }
   })
 })
