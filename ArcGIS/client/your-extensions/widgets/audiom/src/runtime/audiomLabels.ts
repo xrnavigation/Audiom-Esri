@@ -89,6 +89,12 @@ export interface LabelOptions {
   roomLayer?: boolean
   /** Do not label every floor when the selected level matches nothing. */
   strictLevel?: boolean
+  /**
+   * Floor ids the map is drawing, such as LEVEL_ID. The overlay must not
+   * wait on the layer-view filter: that filter is still the previous floor
+   * when the legend switches, so the names would stay one layer behind.
+   */
+  floorIds?: readonly string[]
 }
 
 function useTypeOf (attributes: Record<string, unknown>): string {
@@ -264,16 +270,28 @@ export function labelAnchor (geometry: LabelGeometry | null | undefined): { x: n
   return null
 }
 
+function floorIdOf (attributes: Record<string, unknown> | null | undefined): string {
+  const raw = attributes?.LEVEL_ID ?? attributes?.levelId ?? attributes?.level_id
+  if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw)
+  return typeof raw === 'string' ? raw.trim().toUpperCase() : ''
+}
+
 function captionsFor (
   features: readonly LabelFeature[],
   level: number | null,
   options?: LabelOptions
 ): LabelGraphicSpec[] {
   const active = level != null && Number.isFinite(level) ? level : null
+  const floorIds = options?.floorIds?.length
+    ? new Set(options.floorIds.map((id) => id.trim().toUpperCase()).filter(Boolean))
+    : null
   const specs: LabelGraphicSpec[] = []
   const seen = new Set<string>()
   for (const feature of features) {
-    if (active != null) {
+    if (floorIds) {
+      const floorId = floorIdOf(feature.attributes)
+      if (floorId && !floorIds.has(floorId)) continue
+    } else if (active != null) {
       const ordinal = featureLevel(feature.attributes)
       if (ordinal != null && ordinal !== active) continue
     }
@@ -292,6 +310,22 @@ function captionsFor (
 }
 
 /**
+ * A live query still holding the previous floor must not become the overlay.
+ * Rows with no ordinal cannot be checked. An empty result is this floor.
+ */
+export function queriedLabelsMatchLevel (
+  features: readonly LabelFeature[],
+  level: number | null
+): boolean {
+  if (level == null || !Number.isFinite(level)) return true
+  for (const feature of features) {
+    const ordinal = featureLevel(feature.attributes)
+    if (ordinal != null && ordinal !== level) return false
+  }
+  return true
+}
+
+/**
  * Captions for one layer. A selected floor wins when it has rooms. A level
  * that matches nothing does not blank the map, unless the caller already
  * limited the query to the drawn floor.
@@ -303,7 +337,9 @@ export function labelsForFeatures (
 ): LabelGraphicSpec[] {
   const list = features || []
   const selected = captionsFor(list, level, options)
-  if (options?.strictLevel || selected.length || level == null) return selected
+  // A floor-id filter already names the drawn layer. Falling back to every
+  // room would put the previous layer's names back on screen.
+  if (options?.floorIds?.length || options?.strictLevel || selected.length || level == null) return selected
   return captionsFor(list, null, options)
 }
 

@@ -1,0 +1,6 @@
+{
+	"id": "overlay-labels-layer-switch",
+	"category": "Fixed",
+	"summary": "Room-name overlay labels follow the layer or floor just selected, instead of staying one switch behind.",
+	"details": "The overlay queried the layer-view floor filter before that filter was updated, so each switch painted the previous layer's names. Labels are queried by the selected floor's ids, hidden layers are omitted, and a stale query cannot replace the overlay."
+}

@@ -1,4 +1,4 @@
-import { featureLevel, labelAnchor, labelsForFeatures, labelText, thinLabels, toLonLat } from '../../src/runtime/audiomLabels'
+import { featureLevel, labelAnchor, labelsForFeatures, labelText, queriedLabelsMatchLevel, thinLabels, toLonLat } from '../../src/runtime/audiomLabels'
 
 describe('audiom label text', () => {
   it('uses the rules name the embed prints, not the campus title', () => {
@@ -107,6 +107,25 @@ describe('audiom label placement', () => {
       { text: 'Hall', x: 2, y: 2, screenX: 200, screenY: 10, priority: 2, size: 12, padding: 12 }
     ])
     expect(placed.map((item) => item.text)).toEqual(['Lobby', 'Hall'])
+  })
+
+  it('does not treat the previous floor as the floor just selected', () => {
+    const previous = [
+      { attributes: { name: 'Layer 1', levelOrdinal: 0, LEVEL_ID: '{L1}' }, geometry: { x: -71, y: 42 } }
+    ]
+    const current = [
+      { attributes: { name: 'Layer 2', levelOrdinal: 1, LEVEL_ID: '{L2}' }, geometry: { x: -71.1, y: 42.1 } }
+    ]
+    const both = [...previous, ...current]
+    expect(queriedLabelsMatchLevel(previous, 1)).toBe(false)
+    expect(queriedLabelsMatchLevel(current, 1)).toBe(true)
+    expect(queriedLabelsMatchLevel([], 1)).toBe(true)
+    // Switching to layer 2 while the live query is still layer 1 keeps layer 2.
+    expect(labelsForFeatures(both, 1, { strictLevel: true, roomLayer: true }).map((item) => item.text)).toEqual(['Layer 2'])
+    expect(labelsForFeatures(both, 1, { floorIds: ['{L2}'], roomLayer: true }).map((item) => item.text)).toEqual(['Layer 2'])
+    // The next switch must not fall back to every room, which is how layer 2
+    // stayed on screen after the user had already moved to layer 3.
+    expect(labelsForFeatures(both, 2, { strictLevel: true, roomLayer: true })).toEqual([])
   })
 
   it('keeps a travel feature that has no floor', () => {
