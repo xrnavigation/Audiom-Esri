@@ -295,6 +295,17 @@ export function getMapImageryLayers(map: __esri.Map | null | undefined): MapImag
   return layers;
 }
 
+/**
+  Returns the total number of imagery layers from the current map.
+ */
+export function getMapImageryLayerCount(map: __esri.Map | null | undefined): number {
+  if (!map?.allLayers) {
+    return 0;
+  }
+  
+  return getImageryLayers(map).length;
+}
+
 function imageryServiceUrl(layer: __esri.Layer): string | undefined {
   const url = (layer as __esri.Layer & { url?: string }).url;
   if (typeof url !== 'string') {

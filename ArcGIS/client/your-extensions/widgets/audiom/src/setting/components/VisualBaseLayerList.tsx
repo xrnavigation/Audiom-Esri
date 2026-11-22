@@ -17,6 +17,7 @@ const HEADING_TEXT = 'Visual Base Layers'
 const BUTTON_ADD = 'Add Base Layer'
 const BUTTON_IMPORT = 'Import Base Layers From Map'
 const EMPTY_STATE = 'No visual base layers configured.'
+const NO_BASE_LAYERS_STATE = 'No visual base layers available.'
 
 interface VisualBaseLayerListProps {
   layers: IVisualBaseLayerConfig[]
@@ -133,7 +134,9 @@ const VisualBaseLayerList = (props: VisualBaseLayerListProps) => {
       <Collapse isOpen={isOpen}>
         {layers.length === 0 ? (
           <SettingRow flow={FlowType.Wrap}>
-            <span style={{ fontSize: '12px', color: 'var(--ref-palette-neutral-900, #6b7280)' }}>{EMPTY_STATE}</span>
+            <span style={{ fontSize: '12px', color: 'var(--ref-palette-neutral-900, #6b7280)' }}>
+              {useExistingMap ? NO_BASE_LAYERS_STATE : EMPTY_STATE}
+            </span>
           </SettingRow>
         ) : (
           layers.map((layer, index) => (
