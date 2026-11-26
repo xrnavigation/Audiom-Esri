@@ -12,7 +12,7 @@ import CollapsibleHeader from './components/CollapsibleHeader'
 import FieldRenderer from './components/FieldRenderer'
 import VisualBaseLayerList from './components/VisualBaseLayerList'
 import { useMapSyncState } from './hooks/useMapSyncState'
-import { audiomConfigToEmbedConfig, isAudiomConfigValid } from '../utils/mapUtils'
+import { audiomConfigToEmbedConfig, isAudiomConfigValid, mergeVisualBaseLayers } from '../utils/mapUtils'
 import { getMapSyncManager, MapSyncConfig, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { mergeSourcesPreservingUnlocked, serializeLockedForDiff } from '../utils/sourceConfigUtils'
 import { createLogger } from '../utils/logger'
@@ -101,6 +101,17 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     // Compare locked sources only. A full JSON compare treats a missing list
     // and an empty list as different and writes forever.
     const sourcesChanged = serializeLockedForDiff(currentSources) !== serializeLockedForDiff(mergedSources)
+
+    // While Use Existing Map is on, saved base layers are replaced by imagery
+    // imported from the map. An omitted list means the caller has no imagery
+    // snapshot (tests / partial configs) and must not wipe saved layers.
+    const currentLayers = mutableConfig.visualBaseLayers || []
+    const mapLayers = newMapConfig.visualBaseLayers
+    const mergedLayers = Array.isArray(mapLayers)
+      ? mergeVisualBaseLayers(currentLayers, mapLayers)
+      : currentLayers
+    const layersChanged = Array.isArray(mapLayers) &&
+      JSON.stringify(currentLayers) !== JSON.stringify(mergedLayers)
     
     // Track the map values for display/sync purposes
     updateMapValues(newMapConfig)
@@ -111,16 +122,20 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
       fieldNeedsUpdate(LockableFieldName.CenterLongitude, newMapConfig.centerLongitude) ||
       fieldNeedsUpdate(LockableFieldName.Zoom, newMapConfig.zoom) ||
       fieldNeedsUpdate(LockableFieldName.Title, newMapConfig.title) ||
-      sourcesChanged
+      sourcesChanged ||
+      layersChanged
 
     if (needsUpdate) {
-      // Sync source configs
+      // Sync source configs and imagery imported as visual base layers
       let newConfig = setConfigValue(config, AudiomConfigKey.SourceConfigs, mergedSources)
+      if (layersChanged) {
+        newConfig = setConfigValue(newConfig, AudiomConfigKey.VisualBaseLayers, mergedLayers)
+      }
       
       // Sync all locked fields using the helper
       newConfig = syncLockedFieldsToConfig(newConfig, newMapConfig)
 
-      logger.debug('Auto-sync settings: Updated config with', mergedSources.length, 'sources')
+      logger.debug('Auto-sync settings: Updated config with', mergedSources.length, 'sources and', mergedLayers.length, 'visual base layers')
 
       updateConfig(newConfig)
     }
@@ -488,6 +503,22 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     })
   }
 
+  /**
+   * Turning Use Existing Map on discards previously configured base layers.
+   * The attach effect then fills the list from the map. Clearing here covers
+   * the gap before that map view is ready, so stale layers are not kept.
+   */
+  const onUseExistingMapChange = (checked: boolean) => {
+    let nextConfig = setConfigValue(config, AudiomConfigKey.UseExistingMap, checked)
+    if (checked) {
+      nextConfig = setConfigValue(nextConfig, AudiomConfigKey.VisualBaseLayers, [])
+    }
+    props.onSettingChange({
+      id: props.id,
+      config: nextConfig
+    })
+  }
+
   const onSourceConfigsChange = (sourceConfigs: ISourceConfig[]) => {
     props.onSettingChange({
       id: props.id,
@@ -499,9 +530,13 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
     // For preview, we use URL mode sources (not existing map sources since we don't have JimuMapView in settings)
     const previewConfig: IAudiomConfig = { ...mutableConfig, useExistingMap: false }
     const embedConfig = audiomConfigToEmbedConfig(previewConfig, undefined)
+    const baseUrl = previewConfig.baseUrl || DEFAULT_CONFIG.baseUrl
 
-    const previewUrl = embedConfig.toUrl(previewConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
-    window.open(previewUrl, '_blank', 'noopener,noreferrer')
+    embedConfig.resolveVisualBaseLayers()
+      .catch((): undefined => undefined)
+      .finally(() => {
+        window.open(embedConfig.toUrl(baseUrl), '_blank', 'noopener,noreferrer')
+      })
   }
 
   const renderStepSizeUnitSelector = () => {
@@ -632,6 +667,11 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
 
   return (
     <div className="widget-setting-demo">
+      {/*
+        Invisible bridge: subscribes to the selected map widget so we get a
+        callback the moment the JimuMapView becomes available. Drives the
+        attach-to-map effect via mapViewReadyTick (replaces setInterval).
+      */}
       {effectiveMapId ? (
         <JimuMapViewComponent
           useMapWidgetId={effectiveMapId}
@@ -728,6 +768,8 @@ const Setting = (props: AllWidgetSettingProps<ImmutableObject<IAudiomConfig>>) =
         {isSettingVisible(AudiomConfigKey.VisualBaseLayers, runtimeLocation) ? (
           <VisualBaseLayerList
             layers={mutableConfig.visualBaseLayers || []}
+            mapId={effectiveMapId}
+            useExistingMap={useExistingMap}
             onChange={(layers) => onPropertyChange(AudiomConfigKey.VisualBaseLayers, layers)}
           />
         ) : null}

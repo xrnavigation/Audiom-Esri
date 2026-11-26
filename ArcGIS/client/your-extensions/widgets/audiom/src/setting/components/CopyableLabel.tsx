@@ -9,6 +9,8 @@ interface CopyableLabelProps {
   copyValue?: string
   /** Whether to show the copy button (default: true) */
   showCopyButton?: boolean
+  /** Controls rendered before the copy button, such as a lock toggle. */
+  actions?: React.ReactNode
   /** Additional styles for the label container */
   style?: React.CSSProperties
 }
@@ -31,11 +33,12 @@ const styles = {
  * The icon appears to the right of the label text and is styled to be unobtrusive.
  */
 const CopyableLabel = (props: CopyableLabelProps) => {
-  const { label, copyValue, showCopyButton = true, style } = props
+  const { label, copyValue, showCopyButton = true, actions, style } = props
 
   return (
     <div style={{ ...styles.container, ...style }}>
       <Label style={styles.label}>{label}</Label>
+      {actions}
       {showCopyButton && (
         <CopyButton
           value={copyValue ?? label}

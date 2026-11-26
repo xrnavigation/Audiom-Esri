@@ -10,6 +10,7 @@
  *   theme, and intl providers are wired up like the runtime.
  */
 import { React, getAppStore, type ImmutableArray } from 'jimu-core'
+import { waitFor } from '@testing-library/react'
 
 const publishedMapViews: Array<{ mapWidgetId?: string, isActive?: boolean, isEnablePopup?: boolean }> = []
 
@@ -70,19 +71,26 @@ describe('Audiom runtime widget', () => {
     setBuilder(false)
   })
 
-  it('renders an iframe with the embed URL', () => {
+  it('renders an iframe with the embed URL', async () => {
     const Widget = wrapWidget(_Widget, { config: makeImmutableConfig({ apiKey: 'k' }) as any })
     const { container } = render(<Widget widgetId="audiom-1" />)
-    const iframe = container.querySelector('iframe')
-    expect(iframe).not.toBeNull()
-    expect(iframe!.getAttribute('src')!.startsWith('https://')).toBe(true)
-    expect(iframe!.getAttribute('name')).toBe('audiom')
+    const iframe = await waitFor(() => {
+      const node = container.querySelector('iframe')
+      expect(node).not.toBeNull()
+      return node!
+    })
+    expect(iframe.getAttribute('src')!.startsWith('https://')).toBe(true)
+    expect(iframe.getAttribute('name')).toBe('audiom')
   })
 
-  it('locks down the iframe with a strict sandbox and no-referrer policy (security)', () => {
+  it('locks down the iframe with a strict sandbox and no-referrer policy (security)', async () => {
     const Widget = wrapWidget(_Widget, { config: makeImmutableConfig() as any })
     const { container } = render(<Widget widgetId="audiom-2" />)
-    const iframe = container.querySelector('iframe')!
+    const iframe = await waitFor(() => {
+      const node = container.querySelector('iframe')
+      expect(node).not.toBeNull()
+      return node!
+    })
     const sandbox = iframe.getAttribute('sandbox')!.split(/\s+/)
     expect(sandbox).toEqual(expect.arrayContaining([
       'allow-scripts',
@@ -95,10 +103,14 @@ describe('Audiom runtime widget', () => {
     expect(iframe.getAttribute('referrerPolicy')).toBe('no-referrer')
   })
 
-  it('uses the config title as iframe title when provided', () => {
+  it('uses the config title as iframe title when provided', async () => {
     const Widget = wrapWidget(_Widget, { config: makeImmutableConfig({ title: 'My Map' }) as any })
     const { container } = render(<Widget widgetId="audiom-3" />)
-    const iframe = container.querySelector('iframe')!
+    const iframe = await waitFor(() => {
+      const node = container.querySelector('iframe')
+      expect(node).not.toBeNull()
+      return node!
+    })
     expect(iframe.getAttribute('title')).toBe('My Map')
   })
 
@@ -387,7 +399,7 @@ describe('Audiom runtime widget', () => {
     setMapModuleLoader(null)
   })
 
-  it('appends visual base layer position as JSON, not "[object Object]"', () => {
+  it('appends visual base layer position as JSON, not "[object Object]"', async () => {
     const Widget = wrapWidget(_Widget, {
       config: makeImmutableConfig({
         visualBaseLayers: [{
@@ -397,19 +409,29 @@ describe('Audiom runtime widget', () => {
       }) as any
     })
     const { container } = render(<Widget widgetId="audiom-position" />)
-    const src = container.querySelector('iframe')!.getAttribute('src')!
+    const iframe = await waitFor(() => {
+      const node = container.querySelector('iframe')
+      expect(node).not.toBeNull()
+      return node!
+    })
+    const src = iframe.getAttribute('src')!
     expect(src).toContain('visualbaselayerposition0=')
     expect(src).toContain(encodeURIComponent('[[-1,1],[1,1],[1,-1],[-1,-1]]'))
     expect(src).not.toContain('[object Object]')
     expect(src).not.toContain(encodeURIComponent('[object Object]'))
   })
 
-  it('encodes user-supplied title in the iframe src (no script tag injection)', () => {
+  it('encodes user-supplied title in the iframe src (no script tag injection)', async () => {
     const Widget = wrapWidget(_Widget, {
       config: makeImmutableConfig({ title: '<script>alert(1)</script>' }) as any
     })
     const { container } = render(<Widget widgetId="audiom-8" />)
-    const src = container.querySelector('iframe')!.getAttribute('src')!
+    const iframe = await waitFor(() => {
+      const node = container.querySelector('iframe')
+      expect(node).not.toBeNull()
+      return node!
+    })
+    const src = iframe.getAttribute('src')!
     expect(src).not.toContain('<script>')
   })
 })

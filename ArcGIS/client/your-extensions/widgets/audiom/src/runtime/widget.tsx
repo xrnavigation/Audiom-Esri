@@ -1,5 +1,5 @@
 import { type AllWidgetProps, React, ReactRedux, AppMode, DataSourceTypes, getAppStore, loadArcGISJSAPIModules, type IMState, type ImmutableObject } from 'jimu-core'
-import { audiomConfigToEmbedConfig } from '../utils/mapUtils'
+import { audiomConfigToEmbedConfig, serializeImageryForDiff } from '../utils/mapUtils'
 import { getMapSyncManager, AUTO_SYNC_LAYERS } from '../utils/mapSyncManager'
 import { dataSourcesFromAppState } from '../utils/appDataSources'
 import { serializeLockedForDiff } from '../utils/sourceConfigUtils'
@@ -283,6 +283,11 @@ function catalogFields (
 
 
 
+/** Sources plus map-imported imagery, so either kind of map change can raise or clear the banner. */
+function mapSyncFingerprint(config: IAudiomConfig | undefined): string {
+  return `${serializeLockedForDiff(config?.sourceConfigs)}\n${serializeImageryForDiff(config?.visualBaseLayers, true)}`
+}
+
 // Typed styles with full key/value validation
 const styles = {
   container: {
@@ -382,6 +387,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
   const [mapSourceTick, setMapSourceTick] = useState(0)
   const [hasChanges, setHasChanges] = useState(false)
   const [lastSyncedConfigJson, setLastSyncedConfigJson] = useState<string>('')
+  const [resolvedEmbedUrl, setResolvedEmbedUrl] = useState('')
   // Per-widget MapSyncManager instance (shared with the same widget's
   // settings panel via the widget id key).
   const mapSyncManager = getMapSyncManager(props.id)
@@ -413,8 +419,8 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     // Attach to the map and pass current config to detect initial mismatches
     mapSyncManager.attach(sanitizedConfig.existingMapId, sanitizedConfig)
 
-    // Store the initial synced config (only locked sources for comparison)
-    const initialJson = serializeLockedForDiff(sanitizedConfig.sourceConfigs)
+    // Store the initial synced config (locked sources and map-imported imagery)
+    const initialJson = mapSyncFingerprint(sanitizedConfig)
     setLastSyncedConfigJson(initialJson)
 
     // Listen for changes
@@ -431,10 +437,11 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
     }
   }, [sanitizedConfig?.useExistingMap, sanitizedConfig?.existingMapId, sanitizedConfig, mapSyncManager])
 
-  // Clear changes indicator when config updates (means settings panel synced)
-  // Only compare locked sources — unlocked sources are manually controlled
+  // Clear the banner when settings syncs. Locked sources and map-imported
+  // imagery are the map-owned parts; unlocked sources and hand-added images
+  // are left out of the comparison.
   useEffect(() => {
-    const currentJson = serializeLockedForDiff(sanitizedConfig?.sourceConfigs)
+    const currentJson = mapSyncFingerprint(sanitizedConfig)
     if (currentJson !== lastSyncedConfigJson && lastSyncedConfigJson !== '') {
       // Config changed, meaning settings panel likely synced it
       setHasChanges(false)
@@ -443,7 +450,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
       // Initial load
       setLastSyncedConfigJson(currentJson)
     }
-  }, [sanitizedConfig?.sourceConfigs, lastSyncedConfigJson])
+  }, [sanitizedConfig?.sourceConfigs, sanitizedConfig?.visualBaseLayers, lastSyncedConfigJson])
 
   const runtimeLocation = runtimeLocationOf(sanitizedConfig)
   const bundledMapItemIdRef = useRef('')
@@ -486,15 +493,42 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
       bundledHandleRef.current?.program?.setNavigationExtent?.(extent)
     })
   }, [])
-  // Bundled mode draws EsriMapSurface. It has no JimuMapView. Building the
-  // iframe URL here calls the embed extractor on every indicator move and
-  // logs "No map view available". The iframe is the only caller.
-  const embedUrl = isIntegratedRuntime(runtimeLocation)
+  const baseUrl = sanitizedConfig.baseUrl || DEFAULT_CONFIG.baseUrl
+  // Bundled mode must not build an embed URL. That extractor looks up a
+  // Jimu map view on every indicator move and logs "No map view available".
+  const synchronousEmbedUrl = isIntegratedRuntime(runtimeLocation)
     ? ''
     : audiomConfigToEmbedConfig(
       { ...DEFAULT_CONFIG, ...sanitizedConfig, useExistingMap: false },
       jimuMapView
-    ).toUrl(sanitizedConfig.baseUrl || DEFAULT_CONFIG.baseUrl)
+    ).toUrl(baseUrl)
+  const embedConfigKey = synchronousEmbedUrl
+    ? JSON.stringify({ ...DEFAULT_CONFIG, ...sanitizedConfig, useExistingMap: false, jimuMapViewId: jimuMapView?.id })
+    : ''
+  useEffect(() => {
+    if (!embedConfigKey) {
+      setResolvedEmbedUrl('')
+      return
+    }
+    let cancelled = false
+    const mapConfig = audiomConfigToEmbedConfig(
+      { ...DEFAULT_CONFIG, ...sanitizedConfig, useExistingMap: false },
+      jimuMapView
+    )
+    mapConfig.resolveVisualBaseLayers()
+      .catch((): undefined => undefined)
+      .finally(() => {
+        if (!cancelled) {
+          setResolvedEmbedUrl(mapConfig.toUrl(baseUrl))
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+    // embedConfigKey captures the inputs; sanitizedConfig and jimuMapView are read from that render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embedConfigKey, baseUrl])
+  const embedUrl = resolvedEmbedUrl || synchronousEmbedUrl
   const title = props.config.title || 'Audiom'
   const soundpackName = bundledSoundpackName(
     sanitizedConfig.soundpackUrl,
@@ -723,6 +757,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
         message="Map changes detected. Select the Audiom widget to re-synchronize."
         variant={MessageType.Warning}
       />
+      {embedUrl && (
       <iframe
         name="audiom"
         src={embedUrl}
@@ -731,6 +766,7 @@ const Widget = (props: AllWidgetProps<ImmutableObject<IAudiomConfig>>) => {
         sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
         referrerPolicy="no-referrer"
       />
+      )}
     </div>
   )
 }
