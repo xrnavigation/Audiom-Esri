@@ -1,0 +1,6 @@
+{
+	"id": "bundled-enterprise-css-modules",
+	"category": "Fixed",
+	"summary": "The published bundled widget keeps menu class names and stops requesting portal chunks.",
+	"details": "The first Enterprise load fix disabled CSS modules. css-loader 7 treats auto: false as modules off, so the menu read an empty style map. Dynamic imports were also nested under the wrong parser key and still loaded from the portal widgets/chunks folder. Module styles now export their class names, and those imports are compiled into the widget."
+}

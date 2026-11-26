@@ -4,13 +4,98 @@ import {
   getSourcesFromConfig,
   getMapImageryLayers,
   audiomConfigToEmbedConfig,
-  isAudiomConfigValid
+  isAudiomConfigValid,
+  withoutFloorFilter,
+  floorFieldsFromLayers,
+  mapConfigFromView
 } from '../../src/utils/mapUtils'
 import { makeFakeJimuMapView, makeFakeLayer } from '../helpers/fakeJimuMapView'
 import { FilterType } from '../../src/setting/enums'
 import { MapType } from '../../../../shared/audiom-client/AudiomSource'
 import { toMutableConfig } from '../../src/setting/configs'
 import { makeConfig, makeImmutableConfig, makeSource, makeFilter } from '../helpers/configFactories'
+
+describe('floorFieldsFromLayers', () => {
+  it('keeps a shared State filter out of the floor list', () => {
+    expect(floorFieldsFromLayers([
+      {
+        definitionExpression: "State = 'Hawaii'",
+        fields: [{ name: 'State' }, { name: 'NAME' }]
+      },
+      {
+        definitionExpression: "State = 'Hawaii'",
+        fields: [{ name: 'State' }, { name: 'NAME' }]
+      }
+    ])).toEqual([])
+  })
+
+  it('still treats a shared LEVEL_ID as a floor', () => {
+    expect(floorFieldsFromLayers([
+      {
+        definitionExpression: "LEVEL_ID = '{a}'",
+        fields: [{ name: 'LEVEL_ID' }]
+      },
+      {
+        definitionExpression: "LEVEL_ID = '{a}'",
+        fields: [{ name: 'LEVEL_ID' }]
+      }
+    ])).toEqual(['LEVEL_ID'])
+  })
+})
+
+describe('mapConfigFromView', () => {
+  it('loads a shared census filter into the source configuration', () => {
+    const tracts = {
+      type: 'feature',
+      title: 'Tract',
+      id: 'tract',
+      url: 'https://services.example.com/ACS/FeatureServer',
+      layerId: 2,
+      visible: true,
+      definitionExpression: "State = 'Hawaii'",
+      fields: [{ name: 'State' }, { name: 'NAME' }]
+    }
+    const counties = {
+      type: 'feature',
+      title: 'County',
+      id: 'county',
+      url: 'https://services.example.com/ACS/FeatureServer',
+      layerId: 1,
+      visible: false,
+      definitionExpression: "State = 'Hawaii'",
+      fields: [{ name: 'State' }, { name: 'NAME' }]
+    }
+    const layers = [tracts, counties]
+    const config = mapConfigFromView({
+      center: { latitude: 22.15, longitude: -159.48 },
+      zoom: 10,
+      map: {
+        allLayers: layers,
+        layers,
+        basemap: { baseLayers: [] }
+      }
+    } as any)
+    expect(config?.sourceConfigs?.map((source) => source.filters?.[0]?.expression)).toEqual([
+      "State = 'Hawaii'",
+      "State = 'Hawaii'"
+    ])
+  })
+})
+
+describe('withoutFloorFilter', () => {
+  const level1 = '{BAE9BBC5-D74F-4B7A-9904-9763AE70CCF2}'
+
+  it('omits the map floor field and keeps every other where', () => {
+    expect(withoutFloorFilter(`LEVEL_ID = '${level1}'`)).toBe(`LEVEL_ID = '${level1}'`)
+    expect(withoutFloorFilter(`FLOOR_CODE = 'A'`, ['FLOOR_CODE'])).toBeUndefined()
+    expect(withoutFloorFilter(
+      `((LEVEL_ID = '${level1}') AND (LEVEL_ID IN ('${level1}')))`,
+      ['LEVEL_ID']
+    )).toBeUndefined()
+    expect(withoutFloorFilter(`(STATUS = 1) AND (FLOOR_CODE = 'A')`, ['FLOOR_CODE'])).toBe('(STATUS = 1)')
+    expect(withoutFloorFilter('STATUS = 1', ['FLOOR_CODE'])).toBe('STATUS = 1')
+  })
+})
 
 describe('combineFilterExpressions', () => {
   it('returns undefined when no where filters present', () => {

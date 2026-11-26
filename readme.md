@@ -19,7 +19,7 @@ Automated Docker environment for running ArcGIS Experience Builder with custom e
 
 ### Option 1: Run ArcGIS Experience Builder Locally
 
-Download and extract a specific version (default: 1.19):
+Download and extract a specific version (default: 1.21):
 
 ```bash
 python utils/setup_arcgis.py
@@ -31,19 +31,21 @@ Or specify a version:
 python utils/setup_arcgis.py 1.14
 ```
 
-Then run the client and the server separately.
+Then run the client and the server separately. Experience Builder 1.21 and newer reject `npm ci`. Install the pnpm version named in `package.json` `packageManager` (1.21 is `pnpm@11.9.0`), then `pnpm ci`. `npm start` still starts both processes. 1.20 and older keep `npm ci`.
 
 ```bash
-# Run the server.
+# Server. 1.20 and older: npm ci, then the same npm start.
 cd ./ArcGIS/server
-npm ci
+npm i -g pnpm@11.9.0
+pnpm ci
 npm start -- --port 3000 --https_port 3001
 ```
 
 ```bash
-# Run the client.
+# Client. 1.20 and older: npm ci, then the same npm start.
 cd ./ArcGIS/client
-npm ci
+npm i -g pnpm@11.9.0
+pnpm ci
 npm start
 ```
 
@@ -81,7 +83,7 @@ The application will be available at:
 The `setup_arcgis.py` script supports several commands:
 
 ```bash
-# Download and setup (uses default version 1.19)
+# Download and setup (uses default version 1.21)
 python utils/setup_arcgis.py
 
 # Download specific version
@@ -107,8 +109,8 @@ During setup or cleanup, these folders are automatically preserved:
 Edit `compose.yaml` or create a `.env` file:
 
 ```env
-EXB_VERSION=1.19
-NODE_VERSION=22
+EXB_VERSION=1.21
+NODE_VERSION=24
 ```
 
 ## Utilities
@@ -120,12 +122,12 @@ python utils/exb-versions.py
 
 ### Get Required Node Version
 ```bash
-python utils/exb_versions.py 1.19 --node-version
+python utils/exb_versions.py 1.21 --node-version
 ```
 
 ### Download Only (without extraction)
 ```bash
-python utils/download-arcgis.py 1.19
+python utils/download-arcgis.py 1.21
 ```
 
 ## Development
@@ -137,6 +139,16 @@ volumes:
   - ./ArcGIS/client/your-extensions:/ArcGIS/client/your-extensions
   - ./ArcGIS/server/public:/ArcGIS/server/public
 ```
+
+## Bundled widget build
+
+Bundled mode compiles the Audiom Front-End program into the widget. Experience Builder does not load the widget `webpack.config.js`. After every extract, `utils/setup_arcgis.py` copies `client/your-extensions/widgets/audiom/exb-webpack/` onto `client/webpack/`. Edit the overlay there, not the extracted copy.
+
+Place `Audiom-Front-End` next to this repo and run `npm ci` in it. No environment variable is required for that layout. The overlay reads `node_modules` from that checkout and compiles `src/runtime/exbEntry.ts` when the checkout contains it. If that file is missing there, an existing checkout at `Audiom-Front-End-exb` beside it is used when it already has the file. The overlay does not check out a branch. `AUDIOM_FRONTEND_ROOT` is only for a checkout that is not the sibling, which is how CI lays the workspace out. A missing entry still lets the client start; bundled mode has no program until that file exists. Development leaves Front-End `import()` calls as chunks so the builder tab does not freeze parsing one inlined program. The published build still inlines them. Locally it compiles the sibling `Audiom-Runtime` checkout when that exists, otherwise the vendored copy in `client/your-extensions/shared/audiom-runtime`. Do not install the public `@xrnavigation/audiom-runtime` SDK for this. That package is a different API and the same name.
+
+Restart the Experience Builder client after the overlay is copied. `webpack --watch` loads this file once at startup and will keep compiling the widget without the Front-End entry until it is restarted. Experience Builder 1.21 ships an empty `widget-webpack-override.js`. Leaving that file in place compiles a missing `audiom-front-end/runtime/exbEntry` module, and the builder retries the widget until the tab freezes.
+
+CI checks out the Front-End branch named by `AUDIOM_FRONTEND_REF` in `.github/workflows/build-audiom-widget.yaml`. The `AUDIOM_FRONTEND_TOKEN` secret must be able to read `Coughlan-Lab/Audiom-Front-End` and `@xrnavigation` packages.
 
 ## Publishing Widgets
 

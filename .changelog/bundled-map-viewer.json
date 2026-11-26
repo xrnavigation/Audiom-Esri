@@ -1,0 +1,6 @@
+{
+	"id": "bundled-map-viewer",
+	"category": "Added",
+	"summary": "Audiom can run inside the Experience Builder widget and drive the Esri map, while existing iframe embeds keep working.",
+	"details": "Bundled mode compiles the Audiom program into the widget for Experience Builder 1.18 and 1.20. Saved iframe embed configs stay on standalone embed."
+}

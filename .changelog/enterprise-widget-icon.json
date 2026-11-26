@@ -1,0 +1,6 @@
+{
+	"id": "enterprise-widget-icon",
+	"category": "Fixed",
+	"summary": "The Enterprise builder uses the published Audiom icon instead of an empty square.",
+	"details": "Experience Builder drops a custom widget's folder URL when the experience is saved, then asks the portal CDN for undefinedicon.svg. Opening Audiom settings now points the widget icon at icon.svg beside the resolved widget URL. Save the experience once so the icon stays."
+}

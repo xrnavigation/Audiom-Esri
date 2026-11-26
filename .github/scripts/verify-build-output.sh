@@ -2,13 +2,18 @@
 # Verify a built widget output directory:
 #   - essential files exist and are non-empty (guards against an empty build),
 #   - the manifest is stamped with the expected exbVersion,
-#   - (optional) a forbidden string is absent from the output (e.g. a staging URL).
-# Usage: verify-build-output.sh <output-dir> <expected-exb-version> [forbidden-string]
+#   - (optional) a forbidden string is absent from the output (e.g. a staging URL),
+#   - the runtime tree-shaking report, when present, is under its byte ceiling
+#     and does not eagerly reach a forbidden package,
+#   - the Audiom program was compiled in, and MapLibre, Next, and Front-End's
+#     jsx runtime were not.
+# Usage: verify-build-output.sh <output-dir> <expected-exb-version> [forbidden-string] [treeshake-report]
 set -euo pipefail
 
 OUT="${1:?usage: verify-build-output.sh <output-dir> <expected-exb-version> [forbidden-string]}"
 EXPECTED_VERSION="${2:?usage: verify-build-output.sh <output-dir> <expected-exb-version> [forbidden-string]}"
 FORBIDDEN="${3:-}"
+REPORT="${4:-}"
 
 fail() { echo "::error::$1" >&2; exit 1; }
 
@@ -29,5 +34,40 @@ if [ -n "$FORBIDDEN" ] && grep -rqF -- "$FORBIDDEN" "$OUT"; then
   grep -rlF -- "$FORBIDDEN" "$OUT" >&2 || true
   fail "forbidden string '$FORBIDDEN' found in build output"
 fi
+
+# Class names are mangled. createRuntimeSession stamps this literal.
+# Search every emitted script, including lazy chunks copied beside the widget.
+# An external require("maplibre-gl") or require("next/router") is allowed.
+if ! grep -rqF --include='*.js' 'audiom-exb-program' "$OUT"; then
+  fail "bundled build is missing the Audiom program marker audiom-exb-program"
+fi
+if grep -rqF --include='*.js' 'getOwner' "$OUT"; then
+  fail "bundled build includes Front-End jsx-runtime (getOwner). Use the host React shim."
+fi
+if grep -rqF --include='*.js' 'maplibre-gl/dist' "$OUT" || grep -rqF --include='*.js' 'node_modules/maplibre-gl' "$OUT"; then
+  fail "bundled build includes maplibre-gl"
+fi
+if grep -rqF --include='*.js' 'next/dist' "$OUT"; then
+  fail "bundled build includes Next.js"
+fi
+if [ -n "$REPORT" ]; then
+  if [ ! -s "$REPORT" ]; then
+    fail "missing tree-shaking report: $REPORT"
+  fi
+  BYTES="$(jq -r '.eagerMinifiedBytes' "$REPORT")"
+  CEILING="$(jq -r '.ceilingBytes' "$REPORT")"
+  if [ "$BYTES" = "null" ] || [ "$CEILING" = "null" ]; then
+    fail "tree-shaking report '$REPORT' is missing eagerMinifiedBytes or ceilingBytes"
+  fi
+  if [ "$BYTES" -gt "$CEILING" ]; then
+    fail "tree-shaking ceiling breached: $BYTES bytes > $CEILING"
+  fi
+  FORBIDDEN_HITS="$(jq -r '.forbiddenReached // [] | length' "$REPORT")"
+  if [ "$FORBIDDEN_HITS" != "0" ]; then
+    jq -r '.forbiddenReached[]' "$REPORT" >&2 || true
+    fail "tree-shaking report reached forbidden packages"
+  fi
+fi
+
 
 echo "Build output at '$OUT' verified (exbVersion=$BUILT)."

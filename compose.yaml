@@ -6,8 +6,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        EXB_VERSION: ${EXB_VERSION:-1.19}
-        NODE_VERSION: ${NODE_VERSION:-22}
+        EXB_VERSION: ${EXB_VERSION:-1.21}
+        NODE_VERSION: ${NODE_VERSION:-24}
     container_name: arcgis-exb
     ports:
     - 3001:3001

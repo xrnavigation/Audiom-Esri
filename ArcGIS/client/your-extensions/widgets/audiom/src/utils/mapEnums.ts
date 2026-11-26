@@ -104,10 +104,31 @@ export const DATA_SOURCE_LAYER_TYPES: LayerType[] = [
 ];
 
 /**
- * Checks if a layer type should be excluded from operational layers.
+ * Pictures, not features. Wider than EXCLUDED_LAYER_TYPES: imagery can still
+ * sit in the operational list, and queryFeatures on it rejects.
  */
+export const RASTER_LAYER_TYPES: readonly LayerType[] = [
+  LayerType.TILE,
+  LayerType.VECTOR_TILE,
+  LayerType.IMAGERY,
+  LayerType.IMAGERY_TILE,
+  LayerType.GEOREFERENCED_IMAGE,
+  LayerType.WEB_TILE,
+  LayerType.BASE_TILE,
+  LayerType.OPEN_STREET_MAP,
+  LayerType.BING_MAPS,
+  LayerType.BASE_DYNAMIC,
+  LayerType.WCS,
+  LayerType.ELEVATION,
+  LayerType.MEDIA
+]
+
 export function isExcludedLayerType(layerType: string): boolean {
   return EXCLUDED_LAYER_TYPES.includes(layerType as LayerType);
+}
+
+export function isRasterLayerType(layerType: string): boolean {
+  return (RASTER_LAYER_TYPES as readonly string[]).includes(layerType)
 }
 
 /**

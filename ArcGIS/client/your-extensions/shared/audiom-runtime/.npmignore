@@ -1,0 +1,19 @@
+# Source files
+src/
+tsconfig.json
+vitest.config.ts
+
+# Development files
+.git/
+.gitignore
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Tests
+*.test.ts
+
+# CI/CD
+.github/

@@ -1,0 +1,50 @@
+{
+  "name": "@xrnavigation/audiom-runtime",
+  "version": "0.1.0",
+  "description": "Renderer-free Audiom runtime contract and in-process factory for Experience Builder hosts.",
+  "type": "module",
+  "sideEffects": false,
+  "private": true,
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "keywords": [
+    "audiom",
+    "maps",
+    "accessibility",
+    "runtime",
+    "typescript"
+  ],
+  "author": "XR Navigation Inc.",
+  "license": "UNLICENSED",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    "./contract": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./in-process": {
+      "types": "./dist/factory.d.ts",
+      "import": "./dist/factory.js"
+    }
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.16"
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  }
+}
